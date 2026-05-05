@@ -99,84 +99,76 @@ The game uses three Autoload singletons (Lobby, GameEvents, GameState) that pers
 
 ## Implications for Roadmap
 
-Based on combined research, the build order from ARCHITECTURE.md is the correct phase sequence — each phase depends on the previous and can be tested in isolation.
+Based on combined research (including WEAPONS_XP.md), the build order from ARCHITECTURE.md is the correct phase sequence.
 
 ### Phase 1: Lobby + Network Foundation
-**Rationale:** Everything in the game depends on a working peer connection. Establishes RPC discipline before any gameplay code exists — the single most effective pitfall prevention.
-**Delivers:** Host/Join screen with IP entry, player registry, connection status feedback, host-disconnect handler
-**Features:** Host/Join screen, connection feedback, lobby waiting room, host disconnect → game over (FEATURES.md multiplayer table stakes)
+**Rationale:** Everything depends on working peer connections. Establishes RPC discipline first.
+**Delivers:** Host/Join screen, IP entry, role + element select (two independent picks), player registry, host-disconnect handler
 **Must avoid:** P1 (RPC signatures), P2 (RPC before peer connected), P9 (host disconnect unhandled)
 **Research flag:** Standard pattern — skip research phase
 
 ### Phase 2: Player Scene + Sync
-**Rationale:** The fundamental LAN loop — a player moving on one machine appearing correctly on another — must be validated before building combat or enemies on top.
-**Delivers:** WASD movement, MultiplayerSynchronizer on position/health/downed, player labels, solo testable (1-player mode)
-**Features:** WASD movement, visible remote player positions, player name labels
-**Must avoid:** P3 (authority guards), P4 (over-syncing — sync position + health only, not velocity), P12 (input authority)
+**Rationale:** The fundamental LAN loop must be validated before combat is built on top.
+**Delivers:** WASD movement, MultiplayerSynchronizer (position, health, stage, level), player labels, solo testable
+**Must avoid:** P3 (authority guards), P4 (over-syncing), P12 (input authority)
 **Research flag:** Standard pattern — skip research phase
 
-### Phase 3: Room + Enemy + Bullet System
-**Rationale:** Core combat loop — the gameplay that makes this worth playing. NavigationAgent2D navmesh must bake correctly against TileMap collision, and bullet spawner strategy (Spawner, not per-bullet Synchronizer) must be established before enemy count scales up.
-**Delivers:** Room 1 tilemap, enemy chase AI, auto-attack bullets, hit detection, damage + HP sync
-**Features:** Room-clearing combat, enemy that chases and attacks, damage feedback
-**Must avoid:** P5 (bullet sync strategy), P6 (NavigationAgent2D on clients), P7 (spawner scene list gaps)
-**Research flag:** NavigationAgent2D navmesh baking against TileMap may need a quick test-spike — official docs confirm it works but the exact workflow is worth verifying in code
+### Phase 3: Room 1 + Enemy + Combat Core
+**Rationale:** Core combat loop including health + downed + revive. All in one phase — these are tightly coupled and testing requires all three to be present.
+**Delivers:** Room 1 tilemap, enemy chase AI, starter weapon (screws/bolts), hit detection, health bars, downed state, proximity revive
+**Must avoid:** P5 (bullet sync), P6 (NavigationAgent2D on clients), P7 (spawner scene list gaps), P9 (host disconnect handling)
+**Research flag:** NavigationAgent2D navmesh baking against TileMap — worth a 30-min code spike
 
-### Phase 4: Health, Downed, Revive
-**Rationale:** Co-op contract features — without downed/revive the game has no social tension. Depends on a working HP sync from Phase 3.
-**Delivers:** Downed state, revive proximity mechanic, revive progress bar, team wipe → game over
-**Features:** Death/downed state, revive mechanic, run ends on team wipe
-**Must avoid:** P3 (guard revive validation on host), P12 (revive RPC must route through host, not peer-to-peer)
-**Research flag:** Standard pattern — skip research phase
+### Phase 4: Weapons + Item Pickups
+**Rationale:** Vampire Survivors weapon loop — depends on working enemies that drop items.
+**Delivers:** PickupSpawner, car-part drop system, WeaponManager, 5 car-themed weapon scenes, weapon upgrade to level 3
+**Must avoid:** W1 (pickup double-collect), W2 (weapon timers fire on clients), P7 (all weapon scenes registered in spawner)
+**Research flag:** Weapon system patterns documented in WEAPONS_XP.md — no additional research needed
 
-### Phase 5: GameEvents Signal Bus + CARIAD HUD
-**Rationale:** The demo's identity feature. Build it after core combat is stable so there are real events to fire. The signal bus architecture is straightforward but must be wired before the roguelike loop adds more event sources.
-**Delivers:** GameEvents autoload, CarHUD side panel, 6 indicator states, HUD event broadcast via `@rpc("call_local")`
-**Features:** Car HUD side panel (the differentiator), HUD event feedback for all game events
-**Must avoid:** P11 (HUD events fired before client connects — gate on `Lobby.all_players_ready`)
-**Research flag:** The specific CARIAD indicator states (AC_COLD, ENGINE_OVERHEAT, etc.) and their trigger mapping need a brief design pass — all of the Godot wiring is straightforward, the design is the unknown
+### Phase 5: XP + Level-Up Cards + Evolution
+**Rationale:** The per-player progression loop. Depends on working pickups and enemy deaths from Phase 3+4.
+**Delivers:** XP orbs, level threshold system, per-player card selection overlay (non-blocking), 3 stage transformations
+**Must avoid:** W3 (card pool empty crash), W4 (card UI blocks all input), W5 (XP sync lag), P8 (GameState as source of truth for shared state; per-player XP lives on Player node)
+**Research flag:** Patterns documented in WEAPONS_XP.md — no additional research needed
 
-### Phase 6: Roguelike Loop (Timer + Upgrades + Difficulty)
-**Rationale:** Ties everything together into a repeatable run structure. Depends on combat being fun and the HUD having events to fire.
-**Delivers:** Loop timer (all peers synced), upgrade card screen (host generates, all clients show and select), difficulty scalar per loop, loop state machine
-**Features:** Loop timer, upgrade cards, difficulty scaling, team shared run state
-**Must avoid:** P8 (GameState is single source of truth), P13 (upgrade cards must broadcast to all clients)
-**Research flag:** Standard pattern — skip research phase
+### Phase 6: CarHUD + Loop Timer + Difficulty Scaling
+**Rationale:** The demo's identity. Build after combat events exist so HUD triggers fire from real gameplay.
+**Delivers:** GameEvents signal bus, CarHUD side panel, all 6 indicators, V2X auto-timer, 15-min loop timer, difficulty scalar, loop number display
+**Must avoid:** P11 (HUD events before peer connected), P8 (loop timer authoritative on host)
+**Research flag:** CARIAD indicator → event mapping is designed — no unknowns
 
-### Phase 7: Roles + Element System
-**Rationale:** Distinct roles are table stakes but depend on a complete combat system to test meaningfully. Element modifiers layer on top of roles — build roles first, then add elements.
-**Delivers:** Role select screen (lobby-integrated), Tank/Speedster/Engineer ability sets, Fire/Ice/Earth element modifiers, elemental HUD events
-**Features:** Distinct player roles, role lock-in screen, element × role matrix
-**Must avoid:** Role abilities that bypass host-authority (abilities that modify enemy state must RPC to host, not run locally)
-**Research flag:** Per-role ability design is under-specified — needs a brief design pass before implementation
+### Phase 7: Roles + Elements
+**Rationale:** Distinct class feels depend on stable combat. Element modifiers wire into HUD events.
+**Delivers:** Tank/Speedster/Engineer ability sets with Stage 2 signature abilities, Fire/Ice/Earth modifiers, elemental HUD triggers
+**Must avoid:** Role / element abilities must route through host authority for any enemy-state changes
+**Research flag:** Per-role ability definitions need design pass before Phase 7 planning
 
 ### Phase 8: Rooms 2 + 3 + Boss
-**Rationale:** Final content. Boss multi-phase system is the highest complexity single feature in the project — build it last when all supporting systems are solid.
-**Delivers:** Bamberg Altstadt room, Burg Altenburg boss room, boss AI phases, mob swarm waves between phases, room transition flow
-**Features:** 3 named rooms, boss encounter, multi-phase boss, mob swarms
-**Must avoid:** P10 (room transition desync — `@rpc("call_local")` for all scene changes), P7 (new enemy/boss variants registered in spawner)
-**Research flag:** Boss phase design and mob swarm scheduling need a design spike — the Godot implementation is standard but the state machine logic for phases is complex enough to warrant a planning doc
+**Rationale:** Final content. Boss phases are highest complexity — build last when all systems stable.
+**Delivers:** Bamberg Altstadt room, Burg Altenburg boss arena, multi-phase boss AI, mob swarm waves
+**Must avoid:** P10 (room transition desync), P7 (boss/new enemy scenes registered in spawner)
+**Research flag:** Boss phase state machine and mob wave schedule need a design pass
 
 ### Phase Ordering Rationale
 
-- **Foundation before combat:** Network must work before there's anything to sync. Wrong order = debugging gameplay on top of broken multiplayer.
-- **Combat before loop:** Fun-per-minute must exist before wrapping it in a loop structure. A broken combat loop wrapped in timer + upgrades is still broken.
-- **HUD after combat events exist:** CarHUD needs real events to fire; building it before enemies and abilities means testing with stubs, which masks wiring issues.
-- **Roles after combat is solid:** Class abilities built on unstable combat will need to be rewritten. Establish the base combat feel first.
-- **Boss last:** Highest complexity, lowest risk to critical path. All its dependencies (AI, spawner, room transitions, HP phases) exist by Phase 7.
+- **Foundation before combat:** Wrong order = debugging gameplay on top of broken multiplayer.
+- **Combat + health + revive together (Phase 3):** These are inseparable for a testable build.
+- **Weapons before XP:** XP level-up can offer weapon upgrade cards — weapon system must exist first.
+- **HUD after combat events exist:** Build CarHUD after enemies fire real events, not stubs.
+- **Roles after combat solid:** Class abilities built on unstable combat get rewritten.
+- **Boss last:** All its dependencies (AI, spawner, rooms, phases) exist by Phase 7.
 
 ### Research Flags
 
-**Needs a design spike (not a research phase — these are design decisions, not technical unknowns):**
-- **Phase 5:** CARIAD indicator → game event mapping (which 6 states, which triggers)
-- **Phase 7:** Per-role ability definitions and element modifier effects
-- **Phase 8:** Boss phase state machine and mob wave schedule
+**Needs a design pass (not research — design decisions):**
+- Phase 7: Per-role ability definitions, Stage 2 signature abilities, element modifier specs
+- Phase 8: Boss phase thresholds, mob wave counts and composition
 
-**Standard patterns — skip research phase:**
-- Phases 1, 2, 4, 6 — all covered by official Godot docs with high confidence
+**Skip research phase (standard Godot patterns):**
+- Phases 1, 2, 3 (health/revive part), 6
 
-**Worth a quick code spike (30 min, not a full research phase):**
-- Phase 3: NavigationAgent2D navmesh baking against TileMap collision in Godot 4.6 — the pattern is documented but the exact editor workflow is worth verifying before committing to it in the build plan
+**Worth a 30-min code spike:**
+- Phase 3: NavigationAgent2D navmesh baking against TileMap in Godot 4.6
 
 ---
 

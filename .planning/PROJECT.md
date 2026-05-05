@@ -21,10 +21,20 @@ The CARIAD HUD must always fire convincingly — every major game event (ice att
 - [ ] Host disconnect = game over for everyone (no migration)
 - [ ] 3 exclusive roles: Tank (melee aura, high HP), Speedster (dash, fast), Engineer (drones, heals)
 - [ ] Role selection screen — roles are locked once chosen, no duplicates
-- [ ] Elements (Fire/Ice/Earth) are a separate pick per player, independent of role
+- [ ] Elements (Fire/Ice/Earth) are a separate pick per player, independent of role; chosen in lobby same as role
 - [ ] Top-down WASD movement for all players
-- [ ] Basic enemy that chases nearest player
-- [ ] Auto-attack / bullet system with damage
+- [ ] Basic enemy that chases nearest player and drops XP on death
+- [ ] Starter auto-attack: screws and bolts flying outward (car-themed)
+- [ ] Weapon + item system: enemies drop car-part pickups that unlock new weapons (exhaust flames, spinning tires, gear shields, antenna beams, turbo boost, airbag shield, horn shockwave, etc.)
+- [ ] Each player can hold up to 6 active weapons; all fire on independent timers
+- [ ] XP collected from kills → fills a level-up bar; on level-up, pick 1 of 3 random cards
+- [ ] Card types: new weapon unlock, weapon upgrade (level 1→2→3), element upgrade, stat boost (speed/HP/damage/cooldown)
+- [ ] Evolution system — 3 stages triggered by XP level thresholds:
+  - Stage 1 (Normal Car): basic attacks, starter stats, car visual
+  - Stage 2 (Proto-Bot): first transformation at level threshold — robot limbs visible, one new signature ability, weaker AutoBot form
+  - Stage 3 (Full AutoBot): complete robot form, all abilities active, max power — reached at higher level threshold
+- [ ] All cards and upgrades stack within a session; full reset on death (classic roguelike)
+- [ ] Each subsequent loop is harder (enemy HP, damage, and density scale up); XP gain scales too
 - [ ] Health bars visible for all players
 - [ ] One rectangular room with walls (core combat prototype)
 - [ ] Car HUD side panel always visible — indicator boxes light up on game events
@@ -33,21 +43,20 @@ The CARIAD HUD must always fire convincingly — every major game event (ice att
 - [ ] Revive system: downed state, any teammate holds key to revive (proximity), once per 15-min loop, resets after loop
 - [ ] 3 hand-crafted rooms: ERBA (open island, tutorial), Bamberg Altstadt (tight corridors), Burg Altenburg (boss arena)
 - [ ] Boss room: single boss with 2–3 attack phases + random mob swarm waves between phases
-- [ ] Mob swarms and boss encounters trigger additional V2X / LIDAR HUD indicators
-- [ ] 15-minute loop timer; after loop ends → card-pick upgrade screen (1 of 3 cards)
-- [ ] Upgrades stack within a session; full reset on death (classic roguelike)
-- [ ] Each subsequent loop is harder (enemy HP, damage, and density scale up)
-- [ ] Elemental modifiers: Fire (burn aura, area ring), Ice (slow/freeze, trail blocks mobs), Earth (team HPS, shockwave)
+- [ ] Mob swarms and boss encounters trigger additional LIDAR HUD indicators
+- [ ] 15-minute loop timer; after loop ends → next loop (harder) or game over on full team wipe
 - [ ] Placeholder art throughout (colored shapes, no sprites required)
 
 ### Out of Scope
 
-- Meta-progression across sessions — upgrades reset on death, no persistent unlocks
+- Meta-progression across sessions — all upgrades/weapons/stage reset on death, no persistent unlocks
 - Host migration — host disconnect ends the run for all players
 - 4th human player slot for Driver — Driver is NPC/auto only
 - Custom art, sprites, or animations — placeholder shapes only for this build
 - Online / internet multiplayer — LAN only
 - Mobile or controller input — keyboard only
+- Elemental combo cross-player interactions (e.g., Fire + Ice = Steam) — too complex for demo scope
+- Loop-end card picks — replaced entirely by XP level-up card system
 
 ## Context
 
@@ -74,7 +83,10 @@ The CARIAD HUD must always fire convincingly — every major game event (ice att
 | Elements are a separate pick from role | Allows replayability — same role can play differently each run | — Pending |
 | Host disconnect = game over | Host migration in Godot ENet is complex; game over is correct call for a demo prototype | — Pending |
 | Placeholder art only | Demo focuses on CARIAD HUD concept and multiplayer gameplay; visual polish is not the goal | — Pending |
-| Upgrades stack within session, reset on death | Standard roguelike feel; no meta-progression complexity needed for demo | — Pending |
+| XP level-up cards replace loop-end cards | Mid-run level-up is the standard Vampire Survivors feel; loop-end cards add no additional value | — Pending |
+| Per-player level-up (non-blocking) | Card pick doesn't pause the game for other players; enemies continue — better LAN co-op feel | — Pending |
+| Same 3-stage evolution arc for all roles | Simpler to build and balance; unique evolutions per role are v2 scope | — Pending |
+| All car-themed weapons and pickups | Reinforces CARIAD concept; every item should feel like a vehicle component | — Pending |
 
 ---
 
@@ -96,4 +108,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-05 after initialization*
+*Last updated: 2026-05-05 after design revision (weapon system, XP/level-up, evolution stages added)*

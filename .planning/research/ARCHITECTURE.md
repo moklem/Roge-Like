@@ -6,11 +6,12 @@
 Main (Node) — autoloads accessible globally
 ├── Lobby (Autoload) — peer connection state, player registry, game start gate
 ├── GameEvents (Autoload) — signal bus for CARIAD HUD events, decoupled from scenes
-├── GameState (Autoload) — authoritative state: timer, upgrades, revive counts (host only)
+├── GameState (Autoload) — authoritative state: timer, loop count, revive counts (host only)
+├── ItemDatabase (Autoload) — all car-part item/weapon definitions (Resource dicts)
 │
 ├── UI/
 │   ├── MainMenu.tscn — host/join screen, IP entry
-│   ├── LobbyScreen.tscn — role select, ready state, start button (host only)
+│   ├── LobbyScreen.tscn — role + element select (two independent picks), ready state, start button
 │   └── GameOver.tscn — run ended (death or host disconnect)
 │
 └── Game.tscn (loaded after all players ready)
@@ -19,17 +20,23 @@ Main (Node) — autoloads accessible globally
     │   ├── Room1.tscn / Room2.tscn / Room3.tscn (hand-crafted tilemaps + collision)
     │   ├── EnemySpawner (MultiplayerSpawner, host-owned)
     │   │   └── [spawned Enemy nodes] (host-owned, synced to clients)
-    │   └── BulletSpawner (MultiplayerSpawner, host-owned)
-    │       └── [spawned Bullet nodes]
+    │   ├── ProjectileSpawner (MultiplayerSpawner, host-owned)
+    │   │   └── [spawned Bullet/Weapon projectile nodes]
+    │   └── PickupSpawner (MultiplayerSpawner, host-owned)
+    │       └── [spawned XpOrb / CarPartPickup nodes]
     │
     ├── Players (Node2D)
     │   └── [Player.tscn × N] (each owned by their peer, synced to others)
+    │       └── WeaponManager (Node) — child of Player, holds active weapon scenes
+    │           ├── ScrewBolt.tscn (starter, always present)
+    │           └── [unlocked weapons added dynamically]
     │
     └── HUD (CanvasLayer — always on top)
         ├── HealthBars — watches all Player nodes
+        ├── XpBar — reads local player's xp/level (per-player)
         ├── Timer — reads GameState.loop_timer
         ├── CarHUD — side panel, listens to GameEvents signals
-        └── UpgradeCards — shown between loops (host triggers, all see it)
+        └── CardOverlay — per-player level-up card selection (non-blocking, shows only for levelling player)
 ```
 
 ---
@@ -55,7 +62,8 @@ Host broadcasts via `@rpc("call_local", "any_peer", "reliable")`.
 
 ### GameState (Autoload — host authoritative)
 - Runs on host only (guarded by `is_multiplayer_authority()`)
-- Stores: `loop_timer`, `loop_number`, `upgrades: Dictionary` (peer_id → [cards]), `revives_used: Dictionary`
+- Stores: `loop_timer`, `loop_number`, `revives_used: Dictionary` (peer_id → count)
+- Does NOT store per-player XP/weapons/upgrades — those live on the Player node itself
 - Syncs to clients via MultiplayerSynchronizer on this node
 
 ---
@@ -66,14 +74,18 @@ Host broadcasts via `@rpc("call_local", "any_peer", "reliable")`.
 |--------|---------|----------------------|
 | Enemy AI (chase, pathfind) | Host only | MultiplayerSynchronizer (position, health, state) |
 | Enemy spawning | Host only | MultiplayerSpawner (scene path, spawn point) |
-| Bullet physics | Host only | MultiplayerSpawner (pos, dir, owner_id) |
+| Bullet / weapon projectile physics | Host only | MultiplayerSpawner (pos, dir, owner_id) |
 | Bullet hit detection | Host only | RPC → emit damage → client shows hit flash |
+| Item / XP orb drops | Host only | MultiplayerSpawner (PickupSpawner) |
 | Player movement | Each player on their own peer | MultiplayerSynchronizer (position synced to others) |
 | Player input | Each player locally | RPC to host if server-side action needed |
+| Player XP + level | Host validates XP award; player node synced | MultiplayerSynchronizer (xp, level, stage) |
+| Weapon fire (all weapons) | Owning player's peer (or host for bots) | MultiplayerSpawner for projectiles |
+| Card selection | Host generates cards; client picks via RPC | `rpc_id` to player + `rpc_id(1)` for response |
+| Evolution stage | Host triggers threshold; RPC call_local | stage property on Player, synced via Synchronizer |
 | Game timer | Host only | GameState MultiplayerSynchronizer |
-| Upgrade cards | Host only | RPC "show_cards" → each client shows UI |
 | HUD events | Host emits | `@rpc("call_local")` → GameEvents.hud_event fires on all |
-| Revive logic | Host validates | RPC request from client → host approves → RPC confirm |
+| Revive logic | Host validates | RPC request → host approves → RPC confirm |
 
 ---
 
@@ -169,10 +181,11 @@ Each synced node has a `MultiplayerSynchronizer` child:
 
 | Node | Synced Properties | Authority |
 |------|------------------|-----------|
-| Player | `position`, `health`, `is_downed` | Player's own peer |
+| Player | `position`, `health`, `is_downed`, `level`, `stage` | Player's own peer |
 | Enemy | `position`, `health`, `state` | Host (peer 1) |
 | GameState | `loop_timer`, `loop_number` | Host (peer 1) |
-| Bullet | Spawned via SpawnState, no sync needed (despawns on hit) | Host |
+| Bullet/Projectile | Spawned via SpawnState, no sync needed (despawns on hit) | Host |
+| XpOrb / Pickup | Spawned via PickupSpawner, despawns on collect | Host |
 
 ---
 
@@ -180,14 +193,24 @@ Each synced node has a `MultiplayerSynchronizer` child:
 
 ```
 LOBBY → ROOM_1 → ROOM_2 → ROOM_3/BOSS →
-  [all alive] → UPGRADE_SCREEN → LOOP_N+1 (back to ROOM_1, harder)
-  [all dead]  → GAME_OVER
+  [any player alive] → LOOP_N+1 (back to ROOM_1, harder)
+  [all dead]         → GAME_OVER
 
 ROOM_N:
-  - Enemy wave(s)
-  - If any player alive → room clear → transition
+  - Enemy waves spawn continuously
+  - Players earn XP → level up → card pick (per-player, non-blocking)
+  - Players collect car-part drops → weapons unlock
+  - Evolution stage advances at XP level thresholds (global check on every XP award)
   - Timer runs continuously across rooms
-  - If timer hits 0 mid-room → GAME_OVER (optional: spawn boss early)
+  - Room clear condition: kill required enemies → transition to next room
+  - If timer hits 0 mid-room → GAME_OVER
+
+Per-Player XP Loop (runs in parallel with room loop):
+  - Enemy dies → XP orb drops (PickupSpawner)
+  - Player collects orb → xp += value → check level threshold
+  - Level threshold reached → host calls rpc_id(player, "show_cards", 3 cards)
+  - Player picks card → rpc_id(1, "card_selected", card_id) → host applies effect
+  - Weapon pickups → host validates → weapon added to WeaponManager via rpc call_local
 ```
 
 State machine lives in `GameState` autoload. Transitions triggered by RPC from host,
@@ -197,13 +220,11 @@ received by all peers via `@rpc("call_local")`.
 
 ## Suggested Build Order
 
-1. **Lobby + host/join** — ENet peer, IP entry, player registry. Test: 2 windows same machine.
-2. **Player scene + sync** — WASD movement, MultiplayerSynchronizer. Test: 2 players move independently.
-3. **Room 1 tilemap + collision** — Static walls, single rectangular space. Test: players navigate.
-4. **Enemy + AI (host-only)** — NavigationAgent2D, MultiplayerSpawner, sync. Test: enemy chases nearest player.
-5. **Bullet system** — Auto-attack, MultiplayerSpawner bullets, hit detection on host. Test: bullets despawn on hit.
-6. **Health + downed + revive** — Health bar sync, downed state RPC, proximity revive. Test: player takes damage, goes down, teammate revives.
-7. **GameEvents signal bus + CarHUD** — Autoload, indicator tween. Test: trigger event → HUD lights up on all screens.
-8. **Roguelike loop** — Timer, upgrade cards, loop counter, difficulty scaling. Test: full loop start to end.
-9. **Roles + elements** — Role select screen, per-role ability set, element modifier. Test: 3 distinct role feels.
-10. **Rooms 2 + 3 + boss** — Tighter room, boss AI phases, mob waves. Test: full 3-room run.
+1. **Lobby + host/join** — ENet peer, role+element select, player registry. Test: 2 windows same machine.
+2. **Player scene + sync** — WASD movement, MultiplayerSynchronizer (position, health, stage). Test: 2 players move independently.
+3. **Room 1 + enemy + combat** — Tilemap walls, enemy chase AI, starter weapon (screws/bolts), hit detection, health bars, downed state + revive. Test: full combat loop in one room.
+4. **Weapons + pickups** — PickupSpawner, car-part drops, WeaponManager, 5 weapon scenes, weapon timers. Test: collect part → new weapon fires.
+5. **XP + level-up cards + evolution** — XP orbs, level threshold, CardOverlay UI, stage transitions. Test: kill enemies → level → pick card → stage changes visual.
+6. **CarHUD + loop timer + difficulty scaling** — GameEvents signal bus, 6 indicators, 15-min timer, loop counter, enemy scaling. Test: full loop triggers all HUD lights.
+7. **Roles + elements** — Role abilities per stage, Fire/Ice/Earth modifiers, element HUD triggers. Test: 3-player session with distinct role+element combos.
+8. **Rooms 2 + 3 + boss** — Corridor room, boss arena, boss AI phases, mob swarm waves. Test: full 3-room run with boss.
