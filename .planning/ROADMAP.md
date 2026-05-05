@@ -158,9 +158,9 @@
 - XP-07: Card selection is per-player and non-blocking — other players continue playing during one player's card pick
 - XP-08: Selected cards take effect immediately and stack for the rest of the session
 - XP-09: Level number is visible on the player's screen
-- EVOL-01: Every player starts Stage 1 (Normal Car) — basic attacks, starter stats, car-shaped visual
-- EVOL-02: Reaching the Stage 2 XP level threshold triggers transformation to Proto-Bot (robot limbs, new signature ability)
-- EVOL-03: Reaching the Stage 3 XP level threshold triggers transformation to Full AutoBot (complete robot form, all abilities, max power)
+- EVOL-01: Every player starts Stage 1 (Normal Car) — moves and fights like a car, basic attacks, starter stats
+- EVOL-02: Reaching Stage 2 XP threshold triggers full transformation to Proto-Bot — now moves and fights like a robot; raw skeletal appearance (no armor, exposed parts); one new signature ability unlocked
+- EVOL-03: Reaching Stage 3 XP threshold transforms to Full AutoBot — same robot movement as Stage 2, but fully armored and complete; all abilities active, max power (Stage 2→3 difference is visual completeness and strength, not locomotion)
 - EVOL-04: Stage is visible on the player's own and teammates' characters
 - EVOL-05: Stage thresholds are the same for all roles (universal arc)
 - EVOL-06: Stage resets to 1 (Normal Car) at the start of each new run
@@ -168,7 +168,7 @@
 **Success Criteria:**
 1. Killing enemies fills the XP bar; bar completing opens a 3-card selection overlay for that player while others continue playing
 2. Selecting a card immediately applies the effect (new weapon fires, stat increases, element upgrades)
-3. Reaching Stage 2 XP threshold visually transforms the player character and unlocks a new ability; Stage 3 transforms again
+3. Reaching Stage 2 XP threshold transforms the player into a robot (locomotion and combat style change); Stage 3 keeps robot movement but adds full armor and unlocks all abilities
 
 **Pitfall watch:**
 - W3 (card pool empty crash) — always ensure at least one fallback card (+10% damage) exists; test edge case where player has all weapons at max level

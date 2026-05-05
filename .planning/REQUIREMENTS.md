@@ -73,13 +73,15 @@
 
 ### Evolution
 
-- [ ] **EVOL-01**: Every player starts Stage 1 (Normal Car) — basic attacks, starter stats, car-shaped visual
-- [ ] **EVOL-02**: Reaching the Stage 2 XP level threshold triggers transformation to Proto-Bot
-  - Robot limbs visually appear (placeholder: extra rectangles on shape)
-  - One new signature ability unlocks (specific to role)
-  - Noticeably more powerful than Stage 1 but weaker than Stage 3
+- [ ] **EVOL-01**: Every player starts Stage 1 (Normal Car) — moves and fights like a car, basic attacks, starter stats, car-shaped visual
+- [ ] **EVOL-02**: Reaching the Stage 2 XP level threshold triggers full transformation to Proto-Bot
+  - Player now moves and fights like a robot — locomotion style changes completely (no longer a car)
+  - Visually raw and unfinished: skeletal robot shape, basic limb geometry, no armor, exposed parts (placeholder: distinct robot-limb rectangle arrangement)
+  - One new signature ability unlocks (role-specific)
+  - Already a meaningful power increase over Stage 1; weaker than Stage 3 due to missing armor and abilities
 - [ ] **EVOL-03**: Reaching the Stage 3 XP level threshold triggers transformation to Full AutoBot
-  - Complete robot visual form (placeholder: distinct shape/color)
+  - Same robot movement and locomotion as Stage 2 — the movement style does NOT change here
+  - Fully armored and visually complete: plated surfaces, fuller silhouette (placeholder: larger, more decorated rectangle arrangement)
   - All role and element abilities active
   - Maximum power tier with stat bonuses
 - [ ] **EVOL-04**: Stage is visible on the player's own and teammates' characters

@@ -299,23 +299,28 @@ func _set_stage(new_stage: int):
 ```gdscript
 func _apply_stage_abilities():
     match stage:
-        0:  # Normal Car — starter weapon only
+        0:  # Normal Car — moves/fights like a car, starter weapon only
             pass
-        1:  # Proto-Bot — one new signature ability
+        1:  # Proto-Bot — car FULLY transforms; now moves and fights like a robot
+            # Locomotion changes: robot walk animation/movement replaces car movement
+            # Visual: skeletal robot shape — raw limbs, no armor, exposed geometry
             _unlock_signature_ability()
-            # visual: modulate to stage-1 color, add robot-limb sprite overlay
-        2:  # Full AutoBot — all abilities active, stat bonuses
+            # visual: swap to proto-bot shape/color (distinct from car shape)
+        2:  # Full AutoBot — same robot movement as Proto-Bot, now fully armored
+            # No locomotion change from Stage 1 (Proto-Bot); difference is power + visuals
             _activate_all_abilities()
             max_hp_bonus = 50
             speed_bonus = 0.2
+            # visual: swap to full-armor shape (larger, more decorated than proto-bot)
 ```
 
 ### Visual Representation (Placeholder)
 
-Since visuals are placeholder shapes:
-- Stage 0: plain colored rectangle (role color)
-- Stage 1: rectangle + small side rectangles to suggest robot arms (drawn in Node2D `_draw()`)
-- Stage 2: larger rectangle + more appendages + glow modulate
+Since visuals are placeholder shapes, the key is that Stage 1→2 is a shape REPLACEMENT (car shape → robot shape), not an addition. Stage 2→3 is the same robot shape made larger and more elaborate:
+
+- **Stage 0 (Normal Car):** horizontal rectangle (car body proportions), role color
+- **Stage 1 (Proto-Bot):** vertical rectangle with protruding limb rectangles — upright robot silhouette; same color but different shape entirely; noticeably raw/skeletal (thin limbs)
+- **Stage 2 (Full AutoBot):** same upright robot silhouette but broader body, thicker limbs, additional detail rectangles suggesting armor plating; glow modulate applied
 
 When sprites are added later, swap `apply_stage_visual()` to set `$Sprite2D.texture` based on stage.
 

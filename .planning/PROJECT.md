@@ -30,9 +30,9 @@ The CARIAD HUD must always fire convincingly — every major game event (ice att
 - [ ] XP collected from kills → fills a level-up bar; on level-up, pick 1 of 3 random cards
 - [ ] Card types: new weapon unlock, weapon upgrade (level 1→2→3), element upgrade, stat boost (speed/HP/damage/cooldown)
 - [ ] Evolution system — 3 stages triggered by XP level thresholds:
-  - Stage 1 (Normal Car): basic attacks, starter stats, car visual
-  - Stage 2 (Proto-Bot): first transformation at level threshold — robot limbs visible, one new signature ability, weaker AutoBot form
-  - Stage 3 (Full AutoBot): complete robot form, all abilities active, max power — reached at higher level threshold
+  - Stage 1 (Normal Car): moves and fights like a car, basic attacks, starter stats
+  - Stage 2 (Proto-Bot): car fully transforms — now moves and fights like a robot; skeletal and unfinished (no armor, exposed parts, raw limbs); one new signature ability unlocked; already powerful but visually incomplete
+  - Stage 3 (Full AutoBot): same robot movement as Stage 2, but now fully armored and complete; all abilities active, maximum power — the difference from Stage 2 is visual completeness and strength, not how it moves
 - [ ] All cards and upgrades stack within a session; full reset on death (classic roguelike)
 - [ ] Each subsequent loop is harder (enemy HP, damage, and density scale up); XP gain scales too
 - [ ] Health bars visible for all players
