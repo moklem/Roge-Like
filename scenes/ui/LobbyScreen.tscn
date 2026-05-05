@@ -1,0 +1,100 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scenes/ui/LobbyScreen.gd" id="1_lobby"]
+
+[node name="LobbyScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_lobby")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = -20.0
+
+[node name="LeftPanel" type="VBoxContainer" parent="HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="IPLabel" type="Label" parent="HBoxContainer/LeftPanel"]
+layout_mode = 2
+text = "IP: ..."
+
+[node name="Separator1" type="HSeparator" parent="HBoxContainer/LeftPanel"]
+layout_mode = 2
+
+[node name="RoleLabel" type="Label" parent="HBoxContainer/LeftPanel"]
+layout_mode = 2
+text = "Pick Role:"
+
+[node name="RoleButtons" type="HBoxContainer" parent="HBoxContainer/LeftPanel"]
+layout_mode = 2
+
+[node name="TankButton" type="Button" parent="HBoxContainer/LeftPanel/RoleButtons"]
+layout_mode = 2
+text = "Tank"
+
+[node name="SpeedsterButton" type="Button" parent="HBoxContainer/LeftPanel/RoleButtons"]
+layout_mode = 2
+text = "Speedster"
+
+[node name="EngineerButton" type="Button" parent="HBoxContainer/LeftPanel/RoleButtons"]
+layout_mode = 2
+text = "Engineer"
+
+[node name="Separator2" type="HSeparator" parent="HBoxContainer/LeftPanel"]
+layout_mode = 2
+
+[node name="ElementLabel" type="Label" parent="HBoxContainer/LeftPanel"]
+layout_mode = 2
+text = "Pick Element:"
+
+[node name="ElementButtons" type="HBoxContainer" parent="HBoxContainer/LeftPanel"]
+layout_mode = 2
+
+[node name="FireButton" type="Button" parent="HBoxContainer/LeftPanel/ElementButtons"]
+layout_mode = 2
+text = "Fire"
+
+[node name="IceButton" type="Button" parent="HBoxContainer/LeftPanel/ElementButtons"]
+layout_mode = 2
+text = "Ice"
+
+[node name="EarthButton" type="Button" parent="HBoxContainer/LeftPanel/ElementButtons"]
+layout_mode = 2
+text = "Earth"
+
+[node name="Separator3" type="HSeparator" parent="HBoxContainer/LeftPanel"]
+layout_mode = 2
+
+[node name="ReadyButton" type="Button" parent="HBoxContainer/LeftPanel"]
+layout_mode = 2
+text = "Ready"
+
+[node name="StartButton" type="Button" parent="HBoxContainer/LeftPanel"]
+layout_mode = 2
+text = "Start Game"
+disabled = true
+visible = false
+
+[node name="StatusLabel" type="Label" parent="HBoxContainer/LeftPanel"]
+layout_mode = 2
+text = ""
+
+[node name="PlayerListPanel" type="VBoxContainer" parent="HBoxContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(200, 0)
+
+[node name="PlayerListLabel" type="Label" parent="HBoxContainer/PlayerListPanel"]
+layout_mode = 2
+text = "Players:"
+
+[node name="PlayerList" type="VBoxContainer" parent="HBoxContainer/PlayerListPanel"]
+layout_mode = 2

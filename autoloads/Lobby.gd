@@ -42,8 +42,12 @@ func remove_multiplayer_peer() -> void:
 	players.clear()
 
 func _on_peer_connected(id: int) -> void:
-	# P2: send current state to newly connected peer (not in _ready)
+	# P2: register new peer and send current state (not in _ready)
+	if not players.has(id):
+		players[id] = {name = "Player", role = "", element = "", ready = false}
 	_sync_player_list_to.rpc_id(id, players)
+	player_list_changed.emit()
+	player_list_changed.emit()
 
 func _on_peer_disconnected(id: int) -> void:
 	players.erase(id)
@@ -78,3 +82,131 @@ func notify_game_starting() -> void:
 signal player_list_changed()
 signal connection_failed()
 signal game_starting()
+
+func get_local_ip() -> String:
+	# Returns the most likely LAN IP for display (NET-01)
+	for addr in IP.get_local_addresses():
+		if addr.begins_with("192.168.") or addr.begins_with("10.") or addr.begins_with("172."):
+			return addr
+	return "127.0.0.1"
+
+func all_players_ready() -> bool:
+	if players.is_empty():
+		return false
+	for id in players:
+		if not players[id].get("ready", false):
+			return false
+	return true
+
+# D-14/P1: All @rpc annotations IDENTICAL on both peers.
+# "any_peer" + "call_local" = any peer can call it, also runs locally on caller.
+
+@rpc("any_peer", "call_local", "reliable")
+func set_player_role(role: String) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if sender == 0:
+		sender = multiplayer.get_unique_id()
+	# Validate: role must not be taken by another peer
+	for id in players:
+		if id != sender and players[id].get("role", "") == role:
+			return  # role already taken, silently ignore
+	if not players.has(sender):
+		players[sender] = {name = "Player", role = "", element = "", ready = false}
+	players[sender]["role"] = role
+	players[sender]["name"] = role  # D-05: role IS the identity
+	players[sender]["ready"] = false  # D-02: picking resets ready
+	player_list_changed.emit()
+
+@rpc("any_peer", "call_local", "reliable")
+func set_player_element(element: String) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if sender == 0:
+		sender = multiplayer.get_unique_id()
+	if not players.has(sender):
+		players[sender] = {name = "Player", role = "", element = "", ready = false}
+	players[sender]["element"] = element
+	players[sender]["ready"] = false  # D-02: picking resets ready
+	player_list_changed.emit()
+
+@rpc("any_peer", "call_local", "reliable")
+func set_player_ready(is_ready: bool) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if sender == 0:
+		sender = multiplayer.get_unique_id()
+	if not players.has(sender):
+		return
+	# D-02: can only ready if role AND element are chosen
+	if is_ready:
+		var p: Dictionary = players[sender]
+		if p.get("role", "").is_empty() or p.get("element", "").is_empty():
+			return  # can't ready without both picks
+	players[sender]["ready"] = is_ready
+	player_list_changed.emit()
+
+@rpc("authority", "call_local", "reliable")
+func start_game() -> void:
+	get_tree().change_scene_to_file("res://scenes/Game.tscn")
+
+func get_local_ip() -> String:
+	# Returns the most likely LAN IP for display (NET-01)
+	for addr in IP.get_local_addresses():
+		if addr.begins_with("192.168.") or addr.begins_with("10.") or addr.begins_with("172."):
+			return addr
+	return "127.0.0.1"
+
+func all_players_ready() -> bool:
+	if players.is_empty():
+		return false
+	for id in players:
+		if not players[id].get("ready", false):
+			return false
+	return true
+
+# D-14/P1: All @rpc annotations IDENTICAL on both peers.
+# "any_peer" + "call_local" = any peer can call it, also runs locally on caller.
+
+@rpc("any_peer", "call_local", "reliable")
+func set_player_role(role: String) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if sender == 0:
+		sender = multiplayer.get_unique_id()
+	# Validate: role must not be taken by another peer
+	for id in players:
+		if id != sender and players[id].get("role", "") == role:
+			return  # role already taken, silently ignore
+	if not players.has(sender):
+		players[sender] = {name = "Player", role = "", element = "", ready = false}
+	players[sender]["role"] = role
+	players[sender]["name"] = role  # D-05: role IS the identity
+	players[sender]["ready"] = false  # D-02: picking resets ready
+	player_list_changed.emit()
+
+@rpc("any_peer", "call_local", "reliable")
+func set_player_element(element: String) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if sender == 0:
+		sender = multiplayer.get_unique_id()
+	if not players.has(sender):
+		players[sender] = {name = "Player", role = "", element = "", ready = false}
+	players[sender]["element"] = element
+	players[sender]["ready"] = false  # D-02: picking resets ready
+	player_list_changed.emit()
+
+@rpc("any_peer", "call_local", "reliable")
+func set_player_ready(is_ready: bool) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if sender == 0:
+		sender = multiplayer.get_unique_id()
+	if not players.has(sender):
+		return
+	# D-02: can only ready if role AND element are chosen
+	if is_ready:
+		var p: Dictionary = players[sender]
+		if p.get("role", "").is_empty() or p.get("element", "").is_empty():
+			return  # can't ready without both picks
+	players[sender]["ready"] = is_ready
+	player_list_changed.emit()
+
+@rpc("authority", "call_local", "reliable")
+func start_game() -> void:
+	get_tree().change_scene_to_file("res://scenes/Game.tscn")
