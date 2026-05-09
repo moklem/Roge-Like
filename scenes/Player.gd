@@ -161,3 +161,11 @@ func _find_nearest_enemy() -> Node:
 			nearest_dist = d
 			nearest = e
 	return nearest
+
+## Called by Game.gd attempt_revive when revive duration is complete.
+## @rpc("any_peer") allows host (any_peer) to send this to the owning peer.
+## Owning peer calls revive() locally — health and is_downed sync outward via
+## MultiplayerSynchronizer.
+@rpc("any_peer", "call_remote", "reliable")
+func receive_revive() -> void:
+	revive()

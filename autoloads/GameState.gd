@@ -21,3 +21,30 @@ func _process(delta: float) -> void:
 		return  # D-13: only host ticks timer
 	if loop_timer > 0.0:
 		loop_timer -= delta
+
+## HLTH-08: Called from Player._enter_downed() — checks if ALL players are downed.
+## D-14: Immediate game over with no grace period when all are downed.
+func track_downed(_peer_id: int) -> void:
+	# Use same guard pattern as _process() — connection must be active and this must be server
+	if not multiplayer.has_multiplayer_peer():
+		return
+	if multiplayer.multiplayer_peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
+		return
+	if not multiplayer.is_server():
+		return
+	var players := get_tree().get_nodes_in_group("players")
+	if players.is_empty():
+		return
+	var all_downed: bool = true
+	for p in players:
+		if not p.is_downed:
+			all_downed = false
+			break
+	if all_downed:
+		# D-14: Immediate game over — no grace period
+		_broadcast_game_over.rpc()
+
+## D-14: Broadcast game over to all peers including host (call_local)
+@rpc("authority", "call_local", "reliable")
+func _broadcast_game_over() -> void:
+	get_tree().change_scene_to_file("res://scenes/ui/GameOver.tscn")

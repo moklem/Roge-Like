@@ -1,11 +1,16 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene format=3 uid="uid://kp8m2b16ap4t"]
 
-[ext_resource path="res://scenes/Game.gd" id="1_game" type="Script"]
-
-[sub_resource type="NavigationPolygon" id="NavigationPolygon_1"]
+[ext_resource type="Script" uid="uid://owywhwvt3fdn" path="res://scenes/Game.gd" id="1_game"]
 
 [sub_resource type="TileSet" id="TileSet_1"]
 physics_layer_0/collision_layer = 1
+
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_1"]
+vertices = PackedVector2Array(750.03906, 551.96094, 47, 550.03125, 47, 46, 751.9531, 46)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(35, 562, 762, 564, 764, 34, 764, 34, 35, 34)])
+parsed_geometry_type = 1
+agent_radius = 12.0
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_h"]
 size = Vector2(800, 32)
@@ -16,120 +21,124 @@ size = Vector2(32, 600)
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_obs"]
 size = Vector2(80, 80)
 
-[node name="Game" type="Node2D"]
+[node name="Game" type="Node2D" unique_id=1590491663]
 script = ExtResource("1_game")
 
-[node name="Room1" type="Node2D" parent="."]
+[node name="Room1" type="Node2D" parent="." unique_id=1319617855]
 
-[node name="Floor" type="Polygon2D" parent="Room1"]
+[node name="Floor" type="Polygon2D" parent="Room1" unique_id=128882977]
 color = Color(0.12, 0.12, 0.12, 1)
 polygon = PackedVector2Array(0, 0, 800, 0, 800, 600, 0, 600)
 
-[node name="TileMap" type="TileMap" parent="Room1"]
+[node name="TileMap" type="TileMap" parent="Room1" unique_id=1527982491]
 tile_set = SubResource("TileSet_1")
+format = 2
 
-[node name="NavigationRegion2D" type="NavigationRegion2D" parent="Room1"]
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="Room1" unique_id=824513027]
 navigation_polygon = SubResource("NavigationPolygon_1")
 
-[node name="SpawnPoints" type="Node2D" parent="Room1"]
+[node name="SpawnPoints" type="Node2D" parent="Room1" unique_id=1642807479]
 
-[node name="Spawn1" type="Marker2D" parent="Room1/SpawnPoints"]
+[node name="Spawn1" type="Marker2D" parent="Room1/SpawnPoints" unique_id=106775121]
 position = Vector2(400, 300)
 
-[node name="Spawn2" type="Marker2D" parent="Room1/SpawnPoints"]
+[node name="Spawn2" type="Marker2D" parent="Room1/SpawnPoints" unique_id=1666777724]
 position = Vector2(350, 300)
 
-[node name="Spawn3" type="Marker2D" parent="Room1/SpawnPoints"]
+[node name="Spawn3" type="Marker2D" parent="Room1/SpawnPoints" unique_id=308491681]
 position = Vector2(450, 300)
 
-[node name="WallTop" type="StaticBody2D" parent="Room1"]
-collision_layer = 1
-collision_mask = 0
+[node name="WallTop" type="StaticBody2D" parent="Room1" unique_id=122560596]
 position = Vector2(400, 16)
+collision_mask = 0
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/WallTop"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/WallTop" unique_id=704085640]
 shape = SubResource("RectangleShape2D_h")
 
-[node name="Visual" type="Polygon2D" parent="Room1/WallTop"]
+[node name="Visual" type="Polygon2D" parent="Room1/WallTop" unique_id=1647871289]
 color = Color(0.3, 0.3, 0.3, 1)
 polygon = PackedVector2Array(-400, -16, 400, -16, 400, 16, -400, 16)
 
-[node name="WallBottom" type="StaticBody2D" parent="Room1"]
-collision_layer = 1
-collision_mask = 0
+[node name="WallBottom" type="StaticBody2D" parent="Room1" unique_id=345472413]
 position = Vector2(400, 584)
+collision_mask = 0
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/WallBottom"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/WallBottom" unique_id=689628476]
 shape = SubResource("RectangleShape2D_h")
 
-[node name="Visual" type="Polygon2D" parent="Room1/WallBottom"]
+[node name="Visual" type="Polygon2D" parent="Room1/WallBottom" unique_id=629593036]
 color = Color(0.3, 0.3, 0.3, 1)
 polygon = PackedVector2Array(-400, -16, 400, -16, 400, 16, -400, 16)
 
-[node name="WallLeft" type="StaticBody2D" parent="Room1"]
-collision_layer = 1
-collision_mask = 0
+[node name="WallLeft" type="StaticBody2D" parent="Room1" unique_id=1076805972]
 position = Vector2(16, 300)
+collision_mask = 0
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/WallLeft"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/WallLeft" unique_id=144629126]
 shape = SubResource("RectangleShape2D_v")
 
-[node name="Visual" type="Polygon2D" parent="Room1/WallLeft"]
+[node name="Visual" type="Polygon2D" parent="Room1/WallLeft" unique_id=1705416217]
 color = Color(0.3, 0.3, 0.3, 1)
 polygon = PackedVector2Array(-16, -300, 16, -300, 16, 300, -16, 300)
 
-[node name="WallRight" type="StaticBody2D" parent="Room1"]
-collision_layer = 1
-collision_mask = 0
+[node name="WallRight" type="StaticBody2D" parent="Room1" unique_id=1277276510]
 position = Vector2(784, 300)
+collision_mask = 0
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/WallRight"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/WallRight" unique_id=977356440]
 shape = SubResource("RectangleShape2D_v")
 
-[node name="Visual" type="Polygon2D" parent="Room1/WallRight"]
+[node name="Visual" type="Polygon2D" parent="Room1/WallRight" unique_id=1313193173]
 color = Color(0.3, 0.3, 0.3, 1)
 polygon = PackedVector2Array(-16, -300, 16, -300, 16, 300, -16, 300)
 
-[node name="Entities" type="Node2D" parent="Room1"]
+[node name="Entities" type="Node2D" parent="Room1" unique_id=956877230]
 
-[node name="ObstacleCenter" type="StaticBody2D" parent="Room1"]
-collision_layer = 1
-collision_mask = 0
+[node name="ObstacleCenter" type="StaticBody2D" parent="Room1" unique_id=357153136]
 position = Vector2(400, 300)
+collision_mask = 0
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/ObstacleCenter"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/ObstacleCenter" unique_id=2090159146]
 shape = SubResource("RectangleShape2D_obs")
 
-[node name="Visual" type="Polygon2D" parent="Room1/ObstacleCenter"]
+[node name="Visual" type="Polygon2D" parent="Room1/ObstacleCenter" unique_id=84647790]
 color = Color(0.3, 0.3, 0.3, 1)
 polygon = PackedVector2Array(-40, -40, 40, -40, 40, 40, -40, 40)
 
-[node name="EnemySpawnPoints" type="Node2D" parent="Room1"]
+[node name="EnemySpawnPoints" type="Node2D" parent="Room1" unique_id=444940128]
 
-[node name="ESpawn1" type="Marker2D" parent="Room1/EnemySpawnPoints"]
+[node name="ESpawn1" type="Marker2D" parent="Room1/EnemySpawnPoints" unique_id=771188773]
 position = Vector2(100, 100)
 
-[node name="ESpawn2" type="Marker2D" parent="Room1/EnemySpawnPoints"]
+[node name="ESpawn2" type="Marker2D" parent="Room1/EnemySpawnPoints" unique_id=1471998986]
 position = Vector2(700, 100)
 
-[node name="ESpawn3" type="Marker2D" parent="Room1/EnemySpawnPoints"]
+[node name="ESpawn3" type="Marker2D" parent="Room1/EnemySpawnPoints" unique_id=1401336536]
 position = Vector2(100, 500)
 
-[node name="ESpawn4" type="Marker2D" parent="Room1/EnemySpawnPoints"]
+[node name="ESpawn4" type="Marker2D" parent="Room1/EnemySpawnPoints" unique_id=1829667278]
 position = Vector2(700, 500)
 
-[node name="ESpawn5" type="Marker2D" parent="Room1/EnemySpawnPoints"]
+[node name="ESpawn5" type="Marker2D" parent="Room1/EnemySpawnPoints" unique_id=1114534836]
 position = Vector2(400, 150)
 
-[node name="HUD" type="CanvasLayer" parent="."]
-layer = 1
+[node name="HUD" type="CanvasLayer" parent="." unique_id=1971261314]
 
-[node name="PlayerLabel" type="Label" parent="HUD"]
+[node name="PlayerLabel" type="Label" parent="HUD" unique_id=1065361644]
 offset_left = 10.0
 offset_top = 10.0
 offset_right = 300.0
 offset_bottom = 40.0
 text = "Player"
 
-[node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="."]
+[node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="." unique_id=1487741617]
+spawn_path = NodePath("../Room1/Entities")
+
+[node name="EnemySpawner" type="MultiplayerSpawner" parent="."]
+spawn_path = NodePath("../Room1/Entities")
+
+[node name="BulletSpawner" type="MultiplayerSpawner" parent="."]
+spawn_path = NodePath("../Room1/Entities")
+
+[node name="PickupSpawner" type="MultiplayerSpawner" parent="."]
 spawn_path = NodePath("../Room1/Entities")
