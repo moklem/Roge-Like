@@ -80,7 +80,10 @@ func _do_spawn_enemy(data: Dictionary) -> Node:
 func _on_enemy_died(pos: Vector2) -> void:
 	if not multiplayer.is_server():
 		return
-	$PickupSpawner.spawn({"pos": pos})
+	# call_deferred: spawn() modifies physics state (adds Area2D with collision shape).
+	# Calling it directly inside a physics callback chain (area_entered → take_damage → died)
+	# triggers "Can't change state while flushing queries".
+	$PickupSpawner.spawn.call_deferred({"pos": pos})
 
 func _do_spawn_pickup(data: Dictionary) -> Node:
 	var orb := ORB_SCENE.instantiate()
