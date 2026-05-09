@@ -40,7 +40,7 @@ func _physics_process(_delta: float) -> void:
 		$NavigationAgent2D.target_position = target.global_position
 		# Pitfall 1: Check is_navigation_finished() to prevent jitter when adjacent
 		if not $NavigationAgent2D.is_navigation_finished():
-			var next := $NavigationAgent2D.get_next_path_position()
+			var next: Vector2 = $NavigationAgent2D.get_next_path_position()
 			velocity = (next - global_position).normalized() * SPEED
 		else:
 			velocity = Vector2.ZERO

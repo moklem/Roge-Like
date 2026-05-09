@@ -126,7 +126,7 @@ func _try_fire() -> void:
 	var nearest := _find_nearest_enemy()
 	if nearest == null:
 		return
-	var dir := (nearest.global_position - global_position).normalized()
+	var dir: Vector2 = (nearest.global_position - global_position).normalized()
 	# BulletSpawner lives in Game.gd — Plan 05 adds it to Game.tscn
 	# Only the authority peer fires (already inside is_multiplayer_authority guard in _physics_process)
 	# Per RESEARCH.md architecture: Player calls spawner directly — spawner is host-side

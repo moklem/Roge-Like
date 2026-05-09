@@ -13,7 +13,12 @@ func _on_body_entered(body: Node) -> void:
 		return
 	# Only the peer who physically stepped on the orb sends the request
 	# (body_entered fires on all peers; peer_id check prevents duplicate RPCs)
-	if body.peer_id == multiplayer.get_unique_id():
+	if body.peer_id != multiplayer.get_unique_id():
+		return
+	if multiplayer.is_server():
+		# Host calls directly — call_remote rpc_id(1) from peer 1 to itself is a no-op in Godot 4
+		_request_collect(name)
+	else:
 		_request_collect.rpc_id(1, name)
 
 @rpc("any_peer", "call_remote", "reliable")
