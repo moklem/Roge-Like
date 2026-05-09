@@ -322,7 +322,7 @@ Wave 4 *(depends on 03-02, 03-03, 03-04 — wires everything)*
 |-------|----------------|--------|-----------|
 | 1. Network Foundation & Lobby | 0/? | Not started | — |
 | 2. Player Movement & Sync | 2/2 | Complete | 2026-05-09 |
-| 3. Room 1, Enemy AI, Combat Core | 0/5 | Ready to execute | — |
+| 3. Room 1, Enemy AI, Combat Core | 0/5 | In Progress | — |
 | 4. Weapons & Item Pickups | 0/? | Not started | — |
 | 5. XP, Level-Up Cards & Evolution | 0/? | Not started | — |
 | 6. CarHUD, Loop Timer & Difficulty Scaling | 0/? | Not started | — |
