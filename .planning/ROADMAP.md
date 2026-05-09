@@ -123,7 +123,7 @@ Wave 2 *(blocked on Wave 1 — depends on Player scene existing)*
 **Plans:** 5 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Navmesh spike: central obstacle + enemy spawn points + NavigationPolygon bake (checkpoint)
+- [~] 03-01-PLAN.md — Navmesh spike: central obstacle + enemy spawn points + NavigationPolygon bake (checkpoint) — Task 1 done, awaiting navmesh verification
 - [ ] 03-02-PLAN.md — Enemy.tscn + Enemy.gd + XpOrb.tscn + XpOrb.gd (new combat scenes)
 - [ ] 03-03-PLAN.md — Player health + downed state machine + revive input + GameOver scene
 - [ ] 03-04-PLAN.md — Bullet.tscn + Bullet.gd + Player auto-fire wiring
@@ -322,7 +322,7 @@ Wave 4 *(depends on 03-02, 03-03, 03-04 — wires everything)*
 |-------|----------------|--------|-----------|
 | 1. Network Foundation & Lobby | 0/? | Not started | — |
 | 2. Player Movement & Sync | 2/2 | Complete | 2026-05-09 |
-| 3. Room 1, Enemy AI, Combat Core | 0/5 | In Progress | — |
+| 3. Room 1, Enemy AI, Combat Core | 0/5 (1 partial) | In Progress — awaiting navmesh checkpoint | — |
 | 4. Weapons & Item Pickups | 0/? | Not started | — |
 | 5. XP, Level-Up Cards & Evolution | 0/? | Not started | — |
 | 6. CarHUD, Loop Timer & Difficulty Scaling | 0/? | Not started | — |

@@ -26,11 +26,15 @@ Core combat loop — Room 1 playable, enemies chase and damage players, players 
 ### Active Plans
 
 5 plans in 4 waves:
-- 03-01: Navmesh spike — Room 1 obstacle + spawn points + NavigationPolygon bake (Wave 1, checkpoint)
+- 03-01: Navmesh spike — Room 1 obstacle + spawn points + NavigationPolygon bake (Wave 1, checkpoint) — **PAUSED at Task 2 checkpoint: awaiting human navmesh bake verification**
 - 03-02: Enemy.tscn + Enemy.gd + XpOrb.tscn + XpOrb.gd (Wave 2, parallel)
 - 03-03: Player health/downed/revive state machine + GameOver scene (Wave 2, parallel)
 - 03-04: Bullet.tscn + Bullet.gd + Player auto-fire wiring (Wave 3)
 - 03-05: Game.gd full combat wiring + GameState game-over detection (Wave 4)
+
+### Stopped At
+
+03-01 Task 2 checkpoint: navmesh-human-verify — human must open Game.tscn in Godot editor, configure NavigationPolygon (parsed_geometry_type=STATIC_COLLIDERS, layer 1, agent_radius=12), draw walkable outline, bake, verify wall holes + obstacle hole visible, save scene. Resume signal: "navmesh-ok"
 
 ---
 
