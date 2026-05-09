@@ -95,7 +95,9 @@ func _find_nearby_downed() -> Node:
 ## MultiplayerSynchronizer then replicates health outward to all clients.
 @rpc("any_peer", "call_remote", "reliable")
 func receive_damage(amount: int) -> void:
+	print("receive_damage called! hp=", health, " -> ", health - amount)
 	health -= amount
+	print("receive_damage done! hp=", health)
 	if health <= 0:
 		health = 0
 		_enter_downed()
