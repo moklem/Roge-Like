@@ -33,7 +33,7 @@ metrics:
 
 ## Status
 
-**Paused at checkpoint** — Task 1 complete and committed. Task 2 requires human navmesh bake verification in Godot editor before Phase 3 continues.
+**Complete** — Task 1 and Task 2 both verified. Navmesh baked with wall holes and central obstacle hole confirmed by human (resume signal: navmesh-ok).
 
 ---
 
@@ -42,10 +42,11 @@ metrics:
 | Task | Name | Commit | Files Modified |
 |------|------|--------|----------------|
 | 1 | Add central obstacle and enemy spawn points to Game.tscn | 67ee1db | scenes/Game.tscn |
+| 2 | Navmesh spike — bake NavigationPolygon and verify enemy pathfinding | human | scenes/Game.tscn (baked) |
 
 ---
 
-## Task 2 — Awaiting Human Verification
+## Task 2 — Verified
 
 **Type:** checkpoint:human-verify  
 **Gate:** blocking — Phase 3 Wave 2 plans (03-02, 03-03) cannot start until navmesh is confirmed working.
