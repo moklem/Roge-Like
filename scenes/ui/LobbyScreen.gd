@@ -77,10 +77,21 @@ func _on_start_pressed() -> void:
 
 func _set_picks_disabled(disabled: bool) -> void:
 	# D-02: lock/unlock role and element buttons
-	for btn in [tank_btn, speedster_btn, engineer_btn,
-				fire_btn, ice_btn, earth_btn]:
-		if not btn.disabled:  # don't re-enable Taken buttons
+	var my_id: int = multiplayer.get_unique_id()
+	var role_map: Dictionary = {"Tank": tank_btn, "Speedster": speedster_btn, "Engineer": engineer_btn}
+	for role in role_map:
+		var btn: Button = role_map[role]
+		var taken_by_other: bool = false
+		for id in Lobby.players:
+			if id != my_id and Lobby.players[id].get("role", "") == role:
+				taken_by_other = true
+				break
+		if not taken_by_other:
 			btn.disabled = disabled
+	for btn in [fire_btn, ice_btn, earth_btn]:
+		btn.disabled = disabled
+	for btn in [fire_btn, ice_btn, earth_btn]:
+		btn.disabled = disabled
 
 func _refresh_ui() -> void:
 	var my_id: int = multiplayer.get_unique_id()

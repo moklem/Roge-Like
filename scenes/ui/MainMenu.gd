@@ -8,11 +8,23 @@ extends Control
 @onready var ip_line: LineEdit = $VBoxContainer/IPLineEdit
 @onready var status_label: Label = $VBoxContainer/StatusLabel
 
+var _connect_timer: float = 0.0
+var _connecting: bool = false
+const CONNECT_TIMEOUT: float = 5.0
+
 func _ready() -> void:
 	host_button.pressed.connect(_on_host_pressed)
 	join_button.pressed.connect(_on_join_pressed)
 	Lobby.connection_failed.connect(_on_connection_failed)
 	multiplayer.connected_to_server.connect(_on_connected_to_server)
+	# Also listen for peer_connected on client side (more reliable than connected_to_server)
+	multiplayer.peer_connected.connect(_on_peer_connected)
+
+func _process(delta: float) -> void:
+	if _connecting:
+		_connect_timer += delta
+		if _connect_timer >= CONNECT_TIMEOUT:
+			_on_connection_failed()
 
 func _on_host_pressed() -> void:
 	Lobby.create_game()
@@ -29,14 +41,23 @@ func _on_join_pressed() -> void:
 	status_label.text = "Connecting to %s..." % ip
 	host_button.disabled = true
 	join_button.disabled = true
+	_connect_timer = 0.0
+	_connecting = true
 	Lobby.join_game(ip)
 
 func _on_connected_to_server() -> void:
+	_connecting = false
 	# NET-03: connection successful
 	status_label.text = "Connected!"
 	get_tree().change_scene_to_file("res://scenes/ui/LobbyScreen.tscn")
 
+func _on_peer_connected(_id: int) -> void:
+	# Fallback: if connected_to_server didn't fire but peer_connected did
+	if _connecting:
+		_on_connected_to_server()
+
 func _on_connection_failed() -> void:
+	_connecting = false
 	# NET-03: connection failed — show error + re-enable buttons
 	status_label.text = "Connection failed. Check IP and try again."
 	host_button.disabled = false

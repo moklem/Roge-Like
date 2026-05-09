@@ -42,11 +42,11 @@ func remove_multiplayer_peer() -> void:
 	players.clear()
 
 func _on_peer_connected(id: int) -> void:
-	# P2: register new peer and send current state (not in _ready)
-	if not players.has(id):
-		players[id] = {name = "Player", role = "", element = "", ready = false}
-	_sync_player_list_to.rpc_id(id, players)
-	player_list_changed.emit()
+	# P2: only server manages authoritative registry and syncs to new peer
+	if multiplayer.is_server():
+		if not players.has(id):
+			players[id] = {name = "Player", role = "", element = "", ready = false}
+		_sync_player_list_to.rpc_id(id, players)
 	player_list_changed.emit()
 
 func _on_peer_disconnected(id: int) -> void:
