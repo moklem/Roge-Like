@@ -16,11 +16,6 @@ func _ready() -> void:
 	if has_node("RoleLabel"):
 		$RoleLabel.text = role_label
 
-func _process(_delta: float) -> void:
-	# Keep role label in sync with role_label property
-	if has_node("RoleLabel") and $RoleLabel.text != role_label:
-		$RoleLabel.text = role_label
-
 func _physics_process(_delta: float) -> void:
 	# P3: Only the authority peer reads input and moves
 	if not is_multiplayer_authority():

@@ -71,11 +71,6 @@ func _sync_player_list_to(list: Dictionary) -> void:
 	player_list_changed.emit()
 
 @rpc("authority", "call_local", "reliable")
-func notify_player_updated(id: int, data: Dictionary) -> void:
-	players[id] = data
-	player_list_changed.emit()
-
-@rpc("authority", "call_local", "reliable")
 func notify_game_starting() -> void:
 	game_starting.emit()
 

@@ -90,8 +90,6 @@ func _set_picks_disabled(disabled: bool) -> void:
 			btn.disabled = disabled
 	for btn in [fire_btn, ice_btn, earth_btn]:
 		btn.disabled = disabled
-	for btn in [fire_btn, ice_btn, earth_btn]:
-		btn.disabled = disabled
 
 func _refresh_ui() -> void:
 	var my_id: int = multiplayer.get_unique_id()

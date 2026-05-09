@@ -1,10 +1,15 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource path="res://scenes/Player.gd" id="1_player" type="Script"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_1"]
 radius = 12.0
 height = 32.0
+
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_1"]
+properties/0/path = NodePath(".:position")
+properties/0/allow_spawn = true
+properties/0/replication_mode = 2
 
 [node name="Player" type="CharacterBody2D"]
 collision_layer = 2
@@ -22,9 +27,8 @@ color = Color(0.2, 0.6, 1, 1)
 shape = SubResource("CapsuleShape2D_1")
 
 [node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
+replication_config = SubResource("SceneReplicationConfig_1")
 replication_interval = 0.05
-sync/0/path = ^".."
-sync/0/property = "position"
 
 [node name="RoleLabel" type="Label" parent="."]
 offset_left = -40.0

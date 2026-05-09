@@ -1,38 +1,40 @@
 extends Node2D
 ## Game scene controller — spawns players, manages room lifecycle.
-## P7: All spawnable scene types registered in MultiplayerSpawner.
-## P3: Only host spawns players; clients receive replicated results.
+## P7: spawn_function used instead of add_spawnable_scene so peer_id data
+##     is passed to ALL peers at spawn time (clients get correct authority).
+## P3: Only host calls spawner.spawn(); clients receive via replication.
 
 const PLAYER_SCENE := preload("res://scenes/Player.tscn")
 
 func _ready() -> void:
-	# P7: Register Player scene in MultiplayerSpawner before any spawns
-	var spawner := $MultiplayerSpawner
-	spawner.add_spawnable_scene("res://scenes/Player.tscn")
+	# P7: custom spawn_function — replaces add_spawnable_scene so the spawn
+	# data Dictionary (id, role, pos) is forwarded to every peer automatically.
+	$MultiplayerSpawner.spawn_function = _do_spawn
 
 	if multiplayer.is_server():
-		# Host spawns all players — MultiplayerSpawner replicates to clients
 		_spawn_all_players()
-	# Clients: MultiplayerSpawner auto-creates player nodes from host spawns
 
 func _spawn_all_players() -> void:
 	var spawn_points := $Room1/SpawnPoints.get_children()
 	var idx := 0
-
 	for id in Lobby.players:
-		var spawn_pos := Vector2(400, 300)  # default fallback
+		var spawn_pos := Vector2(400, 300)
 		if idx < spawn_points.size():
 			spawn_pos = spawn_points[idx].global_position
-
-		_spawn_player_at(id, spawn_pos)
+		# spawner.spawn(data) calls _do_spawn(data) on HOST AND all CLIENTS
+		$MultiplayerSpawner.spawn({
+			"id": id,
+			"role": Lobby.players.get(id, {}).get("role", "Player"),
+			"pos": spawn_pos,
+		})
 		idx += 1
 
-func _spawn_player_at(id: int, pos: Vector2) -> void:
+## Called on every peer by the MultiplayerSpawner with identical data.
+## Returns the node to add — peer_id is set correctly everywhere.
+func _do_spawn(data: Dictionary) -> Node:
 	var player := PLAYER_SCENE.instantiate()
-	player.position = pos
-	player.peer_id = id
-	player.role_label = Lobby.players.get(id, {}).get("role", "Player")
-	player.name = "Player_%s" % id  # unique name for RPC path matching (P1)
-
-	# Add to Entities — MultiplayerSpawner auto-replicates this to clients
-	$Room1/Entities.add_child(player, true)  # force_readable_name = true
+	player.peer_id    = data["id"]
+	player.role_label = data["role"]
+	player.position   = data["pos"]
+	player.name       = "Player_%d" % data["id"]
+	return player

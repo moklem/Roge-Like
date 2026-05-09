@@ -4,8 +4,11 @@ extends Node
 ## Registered here to prevent RPC signature drift later.
 
 signal hud_event(event_name: String)
+@warning_ignore("unused_signal")
 signal player_downed(player_id: int)
+@warning_ignore("unused_signal")
 signal player_revived(player_id: int)
+@warning_ignore("unused_signal")
 signal loop_ended(reason: String)  # "boss_dead" | "all_dead" | "timer"
 
 # Called by game systems. Host broadcasts via RPC (wired in Phase 6).

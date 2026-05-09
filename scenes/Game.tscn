@@ -1,4 +1,4 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource path="res://scenes/Game.gd" id="1_game" type="Script"]
 
@@ -6,24 +6,24 @@
 
 [sub_resource type="TileSet" id="TileSet_1"]
 physics_layer_0/collision_layer = 1
-# Tile 0: Floor (no collision) - tile_size 32x32
-# Tile 1: Wall (collision shape on layer 1 "world")
-# Tile 1 collision polygon: full 32x32 square
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_h"]
+size = Vector2(800, 32)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_v"]
+size = Vector2(32, 600)
 
 [node name="Game" type="Node2D"]
 script = ExtResource("1_game")
 
 [node name="Room1" type="Node2D" parent="."]
 
+[node name="Floor" type="Polygon2D" parent="Room1"]
+color = Color(0.12, 0.12, 0.12, 1)
+polygon = PackedVector2Array(0, 0, 800, 0, 800, 600, 0, 600)
+
 [node name="TileMap" type="TileMap" parent="Room1"]
 tile_set = SubResource("TileSet_1")
-# Room layout: rectangular room with walls around the perimeter
-# Floor area: roughly 20x15 tiles (640x480), walls around edges
-# Tile positions (x, y) with tile 1 = wall, tile 0 = floor
-# Top wall row (y=0, x=0..24)
-# Bottom wall row (y=19, x=0..24)
-# Left wall column (x=0, y=0..19)
-# Right wall column (x=24, y=0..19)
 
 [node name="NavigationRegion2D" type="NavigationRegion2D" parent="Room1"]
 navigation_polygon = SubResource("NavigationPolygon_1")
@@ -39,6 +39,54 @@ position = Vector2(350, 300)
 [node name="Spawn3" type="Marker2D" parent="Room1/SpawnPoints"]
 position = Vector2(450, 300)
 
+[node name="WallTop" type="StaticBody2D" parent="Room1"]
+collision_layer = 1
+collision_mask = 0
+position = Vector2(400, 16)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/WallTop"]
+shape = SubResource("RectangleShape2D_h")
+
+[node name="Visual" type="Polygon2D" parent="Room1/WallTop"]
+color = Color(0.3, 0.3, 0.3, 1)
+polygon = PackedVector2Array(-400, -16, 400, -16, 400, 16, -400, 16)
+
+[node name="WallBottom" type="StaticBody2D" parent="Room1"]
+collision_layer = 1
+collision_mask = 0
+position = Vector2(400, 584)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/WallBottom"]
+shape = SubResource("RectangleShape2D_h")
+
+[node name="Visual" type="Polygon2D" parent="Room1/WallBottom"]
+color = Color(0.3, 0.3, 0.3, 1)
+polygon = PackedVector2Array(-400, -16, 400, -16, 400, 16, -400, 16)
+
+[node name="WallLeft" type="StaticBody2D" parent="Room1"]
+collision_layer = 1
+collision_mask = 0
+position = Vector2(16, 300)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/WallLeft"]
+shape = SubResource("RectangleShape2D_v")
+
+[node name="Visual" type="Polygon2D" parent="Room1/WallLeft"]
+color = Color(0.3, 0.3, 0.3, 1)
+polygon = PackedVector2Array(-16, -300, 16, -300, 16, 300, -16, 300)
+
+[node name="WallRight" type="StaticBody2D" parent="Room1"]
+collision_layer = 1
+collision_mask = 0
+position = Vector2(784, 300)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/WallRight"]
+shape = SubResource("RectangleShape2D_v")
+
+[node name="Visual" type="Polygon2D" parent="Room1/WallRight"]
+color = Color(0.3, 0.3, 0.3, 1)
+polygon = PackedVector2Array(-16, -300, 16, -300, 16, 300, -16, 300)
+
 [node name="Entities" type="Node2D" parent="Room1"]
 
 [node name="HUD" type="CanvasLayer" parent="."]
@@ -52,4 +100,4 @@ offset_bottom = 40.0
 text = "Player"
 
 [node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="."]
-spawn_path = NodePath("Room1/Entities")
+spawn_path = NodePath("../Room1/Entities")

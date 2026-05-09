@@ -11,6 +11,12 @@ func _ready() -> void:
 	pass  # Minimal until Phase 6 wires loop timer and difficulty scaling
 
 func _process(delta: float) -> void:
+	# Guard: peer must exist and be fully connected before querying is_server().
+	# Without this, get_unique_id() throws "not active" during the connecting phase.
+	if not multiplayer.has_multiplayer_peer():
+		return
+	if multiplayer.multiplayer_peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
+		return
 	if not multiplayer.is_server():
 		return  # D-13: only host ticks timer
 	if loop_timer > 0.0:
