@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource path="res://scenes/Game.gd" id="1_game" type="Script"]
 
@@ -12,6 +12,9 @@ size = Vector2(800, 32)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_v"]
 size = Vector2(32, 600)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_obs"]
+size = Vector2(80, 80)
 
 [node name="Game" type="Node2D"]
 script = ExtResource("1_game")
@@ -88,6 +91,35 @@ color = Color(0.3, 0.3, 0.3, 1)
 polygon = PackedVector2Array(-16, -300, 16, -300, 16, 300, -16, 300)
 
 [node name="Entities" type="Node2D" parent="Room1"]
+
+[node name="ObstacleCenter" type="StaticBody2D" parent="Room1"]
+collision_layer = 1
+collision_mask = 0
+position = Vector2(400, 300)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/ObstacleCenter"]
+shape = SubResource("RectangleShape2D_obs")
+
+[node name="Visual" type="Polygon2D" parent="Room1/ObstacleCenter"]
+color = Color(0.3, 0.3, 0.3, 1)
+polygon = PackedVector2Array(-40, -40, 40, -40, 40, 40, -40, 40)
+
+[node name="EnemySpawnPoints" type="Node2D" parent="Room1"]
+
+[node name="ESpawn1" type="Marker2D" parent="Room1/EnemySpawnPoints"]
+position = Vector2(100, 100)
+
+[node name="ESpawn2" type="Marker2D" parent="Room1/EnemySpawnPoints"]
+position = Vector2(700, 100)
+
+[node name="ESpawn3" type="Marker2D" parent="Room1/EnemySpawnPoints"]
+position = Vector2(100, 500)
+
+[node name="ESpawn4" type="Marker2D" parent="Room1/EnemySpawnPoints"]
+position = Vector2(700, 500)
+
+[node name="ESpawn5" type="Marker2D" parent="Room1/EnemySpawnPoints"]
+position = Vector2(400, 150)
 
 [node name="HUD" type="CanvasLayer" parent="."]
 layer = 1
