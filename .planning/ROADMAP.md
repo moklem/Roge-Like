@@ -142,6 +142,11 @@ Wave 3 *(depends on 03-02 for enemy layer/group contracts)*
 Wave 4 *(depends on 03-02, 03-03, 03-04 — wires everything)*
 - 03-05: Game.tscn (spawners) + Game.gd (combat logic) + GameState.gd (game-over)
 
+**Cross-cutting constraints:**
+- `is_multiplayer_authority()` guard at top of every `_physics_process` (all plans)
+- All spawners use `spawn_function` pattern from Game.gd (03-02, 03-04, 03-05)
+- `receive_damage @rpc("any_peer", "call_remote", "reliable")` — host calls via `rpc_id(peer_id)` (03-03, 03-05)
+
 ---
 
 ### Phase 4: Weapons & Item Pickups
@@ -317,7 +322,7 @@ Wave 4 *(depends on 03-02, 03-03, 03-04 — wires everything)*
 |-------|----------------|--------|-----------|
 | 1. Network Foundation & Lobby | 0/? | Not started | — |
 | 2. Player Movement & Sync | 2/2 | Complete | 2026-05-09 |
-| 3. Room 1, Enemy AI, Combat Core | 0/5 | In progress | — |
+| 3. Room 1, Enemy AI, Combat Core | 0/5 | Ready to execute | — |
 | 4. Weapons & Item Pickups | 0/? | Not started | — |
 | 5. XP, Level-Up Cards & Evolution | 0/? | Not started | — |
 | 6. CarHUD, Loop Timer & Difficulty Scaling | 0/? | Not started | — |

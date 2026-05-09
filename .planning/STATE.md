@@ -13,9 +13,10 @@ See: .planning/PROJECT.md (updated 2026-05-05)
 ## Current Phase
 
 **Phase 3: Room 1, Enemy AI, Combat Core**
-Status: Context gathered, ready for planning
+Status: Ready to execute
 Started: 2026-05-09
 Context Completed: 2026-05-09
+Planning Completed: 2026-05-09
 
 ### Phase Goal
 
@@ -23,7 +24,12 @@ Core combat loop — Room 1 playable, enemies chase and damage players, players 
 
 ### Active Plans
 
-(None yet — awaiting `/gsd-plan-phase 3`)
+5 plans in 4 waves:
+- 03-01: Navmesh spike — Room 1 obstacle + spawn points + NavigationPolygon bake (Wave 1, checkpoint)
+- 03-02: Enemy.tscn + Enemy.gd + XpOrb.tscn + XpOrb.gd (Wave 2, parallel)
+- 03-03: Player health/downed/revive state machine + GameOver scene (Wave 2, parallel)
+- 03-04: Bullet.tscn + Bullet.gd + Player auto-fire wiring (Wave 3)
+- 03-05: Game.gd full combat wiring + GameState game-over detection (Wave 4)
 
 ---
 
