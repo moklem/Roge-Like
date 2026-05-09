@@ -6,39 +6,45 @@ See: .planning/PROJECT.md (updated 2026-05-05)
 
 **Core value:** The CARIAD HUD must always fire convincingly — every major game event triggers the corresponding vehicle sensor indicator, making the gameplay feel like a real in-car system demo
 
-**Current focus:** Phase 3 — Room & Enemy Foundation
+**Current focus:** Phase 4 — next phase (TBD)
 
 ---
 
 ## Current Phase
 
 **Phase 3: Room 1, Enemy AI, Combat Core**
-Status: Executing
+Status: Complete
 Started: 2026-05-09
-Context Completed: 2026-05-09
-Planning Completed: 2026-05-09
-Execution Started: 2026-05-09
+Completed: 2026-05-09
 
 ### Phase Goal
 
 Core combat loop — Room 1 playable, enemies chase and damage players, players can die and be revived
 
-### Active Plans
+### Plans (all complete)
 
-5 plans in 4 waves:
-- 03-01: Navmesh spike — Room 1 obstacle + spawn points + NavigationPolygon bake (Wave 1, checkpoint) — **PAUSED at Task 2 checkpoint: awaiting human navmesh bake verification**
-- 03-02: Enemy.tscn + Enemy.gd + XpOrb.tscn + XpOrb.gd (Wave 2, parallel)
-- 03-03: Player health/downed/revive state machine + GameOver scene (Wave 2, parallel)
-- 03-04: Bullet.tscn + Bullet.gd + Player auto-fire wiring (Wave 3)
-- 03-05: Game.gd full combat wiring + GameState game-over detection (Wave 4)
+- 03-01: Navmesh spike + obstacle + spawn points — commit 67ee1db (navmesh baked: human verified)
+- 03-02: Enemy.tscn/gd + XpOrb.tscn/gd — commit c051da6
+- 03-03: Player health/downed/revive + GameOver scene — commit c051da6
+- 03-04: Bullet.tscn/gd + Player auto-fire — commit fa19ced
+- 03-05: Game.gd full combat wiring + GameState game-over — commit 5cb622b
 
 ### Stopped At
 
-03-01 Task 2 checkpoint: navmesh-human-verify — human must open Game.tscn in Godot editor, configure NavigationPolygon (parsed_geometry_type=STATIC_COLLIDERS, layer 1, agent_radius=12), draw walkable outline, bake, verify wall holes + obstacle hole visible, save scene. Resume signal: "navmesh-ok"
+Phase 3 complete. Awaiting Phase 4 planning.
 
 ---
 
 ## Phase History
+
+### Phase 3: Room 1, Enemy AI, Combat Core
+Status: Complete
+Started: 2026-05-09
+Completed: 2026-05-09
+
+**Plans:** 03-01 through 03-05 (4 waves)
+**Commits:** 67ee1db, c051da6, fa19ced, 5cb622b
+**Summary:** NavigationAgent2D navmesh baked; Enemy with chase AI + contact damage; XpOrb pickup; Player health/downed/revive state machine; Bullet auto-fire projectiles; Game.gd with all 3 MultiplayerSpawners, enemy death → orb drop, request_fire and attempt_revive RPCs; GameState game-over broadcast.
 
 ### Phase 2: Player Movement & Sync
 Status: Complete
@@ -63,8 +69,8 @@ Completed: 2026-05-09
 
 | Metric | Value |
 |--------|-------|
-| Phases complete | 2 / 8 |
-| v1 requirements shipped | 6 / 84 |
+| Phases complete | 3 / 8 |
+| v1 requirements shipped | ~20 / 84 |
 | Active blockers | 0 |
 
 ---
