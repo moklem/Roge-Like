@@ -1,6 +1,7 @@
 extends Node2D
 ## Game scene controller — spawns players, manages room lifecycle.
 ## P7: All spawnable scene types registered in MultiplayerSpawner.
+## P3: Only host spawns players; clients receive replicated results.
 
 const PLAYER_SCENE := preload("res://scenes/Player.tscn")
 
