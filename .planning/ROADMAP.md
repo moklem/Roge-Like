@@ -120,6 +120,28 @@ Wave 2 *(blocked on Wave 1 — depends on Player scene existing)*
 - P7 (spawnable list gaps) — enemy and XP orb scenes must be pre-registered in spawner before testing; add to list now even if only one type exists
 - Navmesh spike — validate NavigationAgent2D navmesh baking against TileMap in Godot 4.6 with a 30-minute code spike before committing room geometry
 
+**Plans:** 5 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Navmesh spike: central obstacle + enemy spawn points + NavigationPolygon bake (checkpoint)
+- [ ] 03-02-PLAN.md — Enemy.tscn + Enemy.gd + XpOrb.tscn + XpOrb.gd (new combat scenes)
+- [ ] 03-03-PLAN.md — Player health + downed state machine + revive input + GameOver scene
+- [ ] 03-04-PLAN.md — Bullet.tscn + Bullet.gd + Player auto-fire wiring
+- [ ] 03-05-PLAN.md — Game.gd/Game.tscn spawner wiring + GameState game-over detection
+
+Wave 1 *(has checkpoint — navmesh must be human-verified)*
+- 03-01: Game.tscn room geometry (central obstacle + enemy spawn points + navmesh bake)
+
+Wave 2 *(parallel — no file overlap)*
+- 03-02: Enemy.tscn + Enemy.gd + XpOrb.tscn + XpOrb.gd
+- 03-03: Player.tscn + Player.gd (health system) + GameOver.tscn
+
+Wave 3 *(depends on 03-02 for enemy layer/group contracts)*
+- 03-04: Bullet.tscn + Bullet.gd + Player.gd auto-fire
+
+Wave 4 *(depends on 03-02, 03-03, 03-04 — wires everything)*
+- 03-05: Game.tscn (spawners) + Game.gd (combat logic) + GameState.gd (game-over)
+
 ---
 
 ### Phase 4: Weapons & Item Pickups
@@ -295,7 +317,7 @@ Wave 2 *(blocked on Wave 1 — depends on Player scene existing)*
 |-------|----------------|--------|-----------|
 | 1. Network Foundation & Lobby | 0/? | Not started | — |
 | 2. Player Movement & Sync | 2/2 | Complete | 2026-05-09 |
-| 3. Room 1, Enemy AI, Combat Core | 0/? | Not started | — |
+| 3. Room 1, Enemy AI, Combat Core | 0/5 | In progress | — |
 | 4. Weapons & Item Pickups | 0/? | Not started | — |
 | 5. XP, Level-Up Cards & Evolution | 0/? | Not started | — |
 | 6. CarHUD, Loop Timer & Difficulty Scaling | 0/? | Not started | — |
