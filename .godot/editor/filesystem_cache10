@@ -1,5 +1,5 @@
 63f7b34db8d8cdea90c76aacccf841ec
-::res://::1778357108
+::res://::1778358011
 hello.txt::TextFile::-1::1777980044::0::1::::<><><>0<>0<><>::
 opencode.json::JSON::-1::1777981236::0::1::::<><><>0<>0<><>::
 ::res://assets/::1778344749
@@ -10,11 +10,11 @@ Lobby.gd::GDScript::1915991751344470843::1778345809::0::1::::<>Node<><>0<>0<><>:
 ::res://scenes/::1778355986
 Game.gd::GDScript::1029557019443860151::1778356233::0::1::::<>Node2D<><>0<>0<><>::
 Game.tscn::PackedScene::734880613877396633::1778356180::0::1::::<><><>0<>0<><>::uid://owywhwvt3fdn::::res://scenes/Game.gd
-Player.gd::GDScript::881483830338848219::1778356458::0::1::::<>CharacterBody2D<><>0<>0<><>::
-Player.tscn::PackedScene::-1::1778355437::0::1::::<><><>0<>0<><>::res://scenes/Player.gd
-::res://scenes/enemies/::1778355877
-Enemy.gd::GDScript::452796988805056572::1778356509::0::1::::<>CharacterBody2D<><>0<>0<><>::
-Enemy.tscn::PackedScene::2674015120961761947::1778355877::0::1::::<><><>0<>0<><>::uid://gplraj4vfvl1::::res://scenes/enemies/Enemy.gd
+Player.gd::GDScript::881483830338848219::1778357675::0::1::::<>CharacterBody2D<><>0<>0<><>::
+Player.tscn::PackedScene::-1::1778357339::0::1::::<><><>0<>0<><>::res://scenes/Player.gd
+::res://scenes/enemies/::1778357732
+Enemy.gd::GDScript::452796988805056572::1778357732::0::1::::<>CharacterBody2D<><>0<>0<><>::
+Enemy.tscn::PackedScene::2674015120961761947::1778357732::0::1::::<><><>0<>0<><>::uid://gplraj4vfvl1::::res://scenes/enemies/Enemy.gd
 ::res://scenes/pickups/::1778355629
 XpOrb.gd::GDScript::6455611857073474171::1778357006::0::1::::<>Area2D<><>0<>0<><>::
 XpOrb.tscn::PackedScene::-1::1778355402::0::1::::<><><>0<>0<><>::res://scenes/pickups/XpOrb.gd

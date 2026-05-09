@@ -1,4 +1,1 @@
-res://scenes/Player.tscn
-res://scenes/enemies/Enemy.gd
-res://scenes/enemies/Enemy.tscn
-res://scenes/Player.gd
+res://scenes/Game.gd
