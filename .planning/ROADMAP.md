@@ -72,6 +72,18 @@
 - P7 (spawnable list gaps) — register all player scene variants in MultiplayerSpawner from the start; add comment listing registered scenes
 - P12 (input authority) — only the owning peer handles its player's input; never expose `take_damage` as a client-callable RPC
 
+**Plans:** 2 plans
+
+Plans:
+- [x] 02-01-PLAN.md — Player scene with WASD movement, wall collision, MultiplayerSynchronizer, Game room wiring
+- [x] 02-02-PLAN.md — Role label rendering, host-authoritative player spawning across all peers
+
+Wave 1 *(autonomous)*
+- 02-01: Player.tscn + Player.gd (movement + collision + sync), Game.tscn (room + spawn points)
+
+Wave 2 *(blocked on Wave 1 — depends on Player scene existing)*
+- 02-02: RoleLabel on Player, Game.gd host-only spawn logic, MultiplayerSpawner registration
+
 ---
 
 ### Phase 3: Room 1, Enemy AI, Combat Core
@@ -282,7 +294,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Network Foundation & Lobby | 0/? | Not started | — |
-| 2. Player Movement & Sync | 0/? | Not started | — |
+| 2. Player Movement & Sync | 2/2 | Complete | 2026-05-09 |
 | 3. Room 1, Enemy AI, Combat Core | 0/? | Not started | — |
 | 4. Weapons & Item Pickups | 0/? | Not started | — |
 | 5. XP, Level-Up Cards & Evolution | 0/? | Not started | — |

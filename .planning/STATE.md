@@ -6,30 +6,45 @@ See: .planning/PROJECT.md (updated 2026-05-05)
 
 **Core value:** The CARIAD HUD must always fire convincingly — every major game event triggers the corresponding vehicle sensor indicator, making the gameplay feel like a real in-car system demo
 
-**Current focus:** Phase 1 — Network Foundation & Lobby
+**Current focus:** Phase 3 — Room & Enemy Foundation
 
 ---
 
 ## Current Phase
 
-**Phase 1: Network Foundation & Lobby**
+**Phase 3: Room & Enemy Foundation**
 Status: Not started
 Started: —
 Completed: —
 
 ### Phase Goal
 
-Working LAN session — host/join, role+element selection, connection feedback, host-disconnect handling
+Room geometry with collision, enemy spawning and basic AI
 
 ### Active Plans
 
-(None yet — awaiting `/gsd-plan-phase 1`)
+(None yet — awaiting `/gsd-plan-phase 3`)
 
 ---
 
 ## Phase History
 
-(None yet)
+### Phase 2: Player Movement & Sync
+Status: Complete
+Started: 2026-05-09
+Completed: 2026-05-09
+
+**Plans:** 02-01 (Player movement & collision), 02-02 (Role labels & cross-peer spawning)
+**Commits:** 3bb04fd, 651d64e, 66e76bc, e6b9e66
+**Summary:** CharacterBody2D player with WASD movement, wall collision, MultiplayerSynchronizer at 20 Hz, host-authoritative spawning, role labels above characters.
+
+### Phase 1: Network Foundation & Lobby
+Status: Complete
+Started: 2026-05-05
+Completed: 2026-05-09
+
+**Plans:** 01-01 (Autoloads + project config), 01-02 (Lobby UI)
+**Summary:** ENet multiplayer foundation, Lobby/Game autoloads, lobby UI with role/element pick, ready-up, player list.
 
 ---
 
@@ -37,8 +52,8 @@ Working LAN session — host/join, role+element selection, connection feedback, 
 
 | Metric | Value |
 |--------|-------|
-| Phases complete | 0 / 8 |
-| v1 requirements shipped | 0 / 84 |
+| Phases complete | 2 / 8 |
+| v1 requirements shipped | 6 / 84 |
 | Active blockers | 0 |
 
 ---
