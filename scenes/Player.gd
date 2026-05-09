@@ -56,7 +56,7 @@ func _physics_process(delta: float) -> void:
 	_fire_cooldown -= delta
 	if _fire_cooldown <= 0.0:
 		_fire_cooldown = FIRE_INTERVAL
-		# _try_fire() called in Plan 04 once BulletSpawner exists
+		_try_fire()
 	# HLTH-05: Check revive input (E key) each frame
 	_check_revive(delta)
 
@@ -120,3 +120,44 @@ func set_revive_progress(progress: float) -> void:
 	if has_node("ReviveBar"):
 		$ReviveBar.visible = progress > 0.0
 		$ReviveBar.value = progress * 100.0
+
+## CMBT-04: Auto-fire toward nearest enemy — D-06: aimed at nearest enemy
+func _try_fire() -> void:
+	var nearest := _find_nearest_enemy()
+	if nearest == null:
+		return
+	var dir := (nearest.global_position - global_position).normalized()
+	# BulletSpawner lives in Game.gd — Plan 05 adds it to Game.tscn
+	# Only the authority peer fires (already inside is_multiplayer_authority guard in _physics_process)
+	# Per RESEARCH.md architecture: Player calls spawner directly — spawner is host-side
+	# The owning player peer calls spawn() only if they are also the server.
+	# In single-host architecture, player 1 (host) fires own bullets directly.
+	# For client players: they are authority of their own player node but NOT the server.
+	# Therefore only the host player auto-fires; client-owned players need to route through host.
+	# Simplest correct approach: owning peer sends fire_request to host, host spawns bullet.
+	# Implementation: send @rpc to host with pos + dir; host calls BulletSpawner.spawn().
+	var game := get_node_or_null("/root/Game")
+	if game == null:
+		return
+	if multiplayer.is_server():
+		# Host player fires directly
+		if game.has_node("BulletSpawner"):
+			game.get_node("BulletSpawner").spawn({
+				"pos": global_position,
+				"dir": dir,
+				"owner_id": peer_id
+			})
+	else:
+		# Client player sends fire request to host
+		if game.has_method("request_fire"):
+			game.request_fire.rpc_id(1, global_position, dir, peer_id)
+
+func _find_nearest_enemy() -> Node:
+	var nearest: Node = null
+	var nearest_dist: float = INF
+	for e in get_tree().get_nodes_in_group("enemies"):
+		var d: float = global_position.distance_to(e.global_position)
+		if d < nearest_dist:
+			nearest_dist = d
+			nearest = e
+	return nearest
