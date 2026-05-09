@@ -1,4 +1,4 @@
-# Phase 3: Room 1, Enemy AI, Combat Core — Research
+# Phase 3: Room 1, Enemy AI, Combat Core â€” Research
 
 **Researched:** 2026-05-09
 **Domain:** Godot 4.6 NavigationAgent2D, MultiplayerSpawner, host-authoritative combat
@@ -23,13 +23,13 @@
 - **D-10:** Damage from enemy contact is once per contact (not damage-over-time).
 - **D-11:** World-space health bars above all characters + optional HUD corner summary.
 - **D-12:** Downed state appearance: color shift (grayscale or red tint).
-- **D-13:** Revive hold duration is 3–4 seconds.
+- **D-13:** Revive hold duration is 3â€“4 seconds.
 - **D-14:** When all players simultaneously downed, immediate game over.
 - **D-15:** Enemy spawning follows spawn_function pattern (same as Phase 2 player spawning).
 - **D-16:** XP orb collection host-authoritative via MultiplayerSpawner.
 - **D-17:** Health synced via MultiplayerSynchronizer at 20 Hz. Downed state is a `bool downed` property that syncs with health.
 - **D-18:** Single basic enemy type: chase + attack (melee contact).
-- **D-19:** Fixed spawn points, 3–5 enemies at game start.
+- **D-19:** Fixed spawn points, 3â€“5 enemies at game start.
 
 ### Claude's Discretion
 
@@ -37,7 +37,7 @@ None specified beyond locked decisions.
 
 ### Deferred Ideas (OUT OF SCOPE)
 
-- Map Data Import phase (Google Maps data for ERBA island — replace placeholder rectangles with actual footprints)
+- Map Data Import phase (Google Maps data for ERBA island â€” replace placeholder rectangles with actual footprints)
 - Multiple enemy types (Phase 8+)
 - Enemy wave spawning (Phase 6)
 - Damage feedback VFX (Phase 7+)
@@ -75,13 +75,13 @@ None specified beyond locked decisions.
 
 Phase 3 adds the entire combat layer on top of the Phase 2 networking skeleton. It involves three new scene types (Enemy.tscn, Bullet.tscn, XpOrb.tscn), extensions to Player.gd (health, downed state, revive logic), a new Game.gd subsystem (combat spawning, weapon fire timer, game-over detection), and world-space UI (health bars, revive progress bar).
 
-The most technically risky item is the NavigationAgent2D navmesh. The existing Game.tscn already has a NavigationRegion2D node with an empty NavigationPolygon. Before finalizing the room obstacle layout, a 30-minute spike must bake the navmesh and confirm enemies pathfind around the four boundary walls and any interior obstacles. The baking happens in the editor via toolbar button — there is no `bake()` runtime method in Godot 4.6 standard workflow.
+The most technically risky item is the NavigationAgent2D navmesh. The existing Game.tscn already has a NavigationRegion2D node with an empty NavigationPolygon. Before finalizing the room obstacle layout, a 30-minute spike must bake the navmesh and confirm enemies pathfind around the four boundary walls and any interior obstacles. The baking happens in the editor via toolbar button â€” there is no `bake()` runtime method in Godot 4.6 standard workflow.
 
 The second critical constraint is bullet handling. The correct pattern is: host spawns bullet via MultiplayerSpawner (all clients get it for free), clients simulate local movement from the initial velocity baked into the spawn data, host alone runs collision detection, and on hit the host calls `queue_free()` which MultiplayerSpawner propagates to all clients automatically. Do NOT add a MultiplayerSynchronizer per bullet.
 
 All 17 requirements (CMBT-01 through CMBT-09, HLTH-01 through HLTH-08 excluding HLTH-07) are achievable within the established host-authoritative pattern with no new architectural concepts.
 
-**Primary recommendation:** Implement in dependency order — navmesh spike first, then enemy scene + AI, then bullet scene + combat loop, then health/downed/revive UI. Each step is independently testable with 2 game windows on one machine.
+**Primary recommendation:** Implement in dependency order â€” navmesh spike first, then enemy scene + AI, then bullet scene + combat loop, then health/downed/revive UI. Each step is independently testable with 2 game windows on one machine.
 
 ---
 
@@ -89,22 +89,22 @@ All 17 requirements (CMBT-01 through CMBT-09, HLTH-01 through HLTH-08 excluding 
 
 | Capability | Primary Tier | Secondary Tier | Rationale |
 |------------|-------------|----------------|-----------|
-| Enemy AI pathfinding | Host (peer 1) | — | NavigationAgent2D query runs only on host; clients get synced position |
+| Enemy AI pathfinding | Host (peer 1) | â€” | NavigationAgent2D query runs only on host; clients get synced position |
 | Enemy spawn/despawn | Host via MultiplayerSpawner | All clients (receive) | Spawner propagates add/remove automatically |
 | Bullet spawn/despawn | Host via MultiplayerSpawner | All clients (simulate locally) | spawn_function passes initial velocity; clients run local motion |
-| Bullet hit detection | Host only | — | is_multiplayer_authority() guard; single source of truth |
-| Enemy contact damage | Host only | — | Overlap detection in host physics; health RPC not needed (sync covers it) |
+| Bullet hit detection | Host only | â€” | is_multiplayer_authority() guard; single source of truth |
+| Enemy contact damage | Host only | â€” | Overlap detection in host physics; health RPC not needed (sync covers it) |
 | Player health sync | Player's own peer (authority) | All clients (read) | MultiplayerSynchronizer on Player node replicates health + is_downed |
 | Revive validation | Host | Reviving client (sends request) | Client sends RPC to host; host validates proximity and time |
 | Game-over detection | Host (GameState) | All clients (receive RPC) | Host checks all downed; broadcasts game_over RPC via call_local |
-| World-space health bars | Local peer (each client draws its own) | — | ProgressBar nodes under Player/Enemy, read synced health value |
+| World-space health bars | Local peer (each client draws its own) | â€” | ProgressBar nodes under Player/Enemy, read synced health value |
 | XP orb collection | Host validates | Client triggers (walks over) | Client body_entered fires request; host confirms and queue_frees |
 
 ---
 
 ## Standard Stack
 
-### Core (all already in project — no installs needed)
+### Core (all already in project â€” no installs needed)
 
 | Node/API | Version | Purpose | Why Standard |
 |----------|---------|---------|--------------|
@@ -128,7 +128,7 @@ All 17 requirements (CMBT-01 through CMBT-09, HLTH-01 through HLTH-08 excluding 
 | 5 | `enemy_hurtbox` | Enemy Area2D hurtbox |
 | 6 | `bullets` | Bullet Area2D |
 
-Layer 7 (`pickups`) should be added for XP orbs — currently unassigned. [ASSUMED]
+Layer 7 (`pickups`) should be added for XP orbs â€” currently unassigned. [ASSUMED]
 
 ### Installation
 
@@ -146,7 +146,7 @@ No new dependencies. All nodes are Godot 4.6 built-in.
         v
   [Enemy.gd] -- is_multiplayer_authority() guard
         |
-        +-- detection radius check → nearest player
+        +-- detection radius check â†’ nearest player
         |
         +-- NavigationAgent2D.target_position = player.global_position
         |
@@ -156,7 +156,7 @@ No new dependencies. All nodes are Godot 4.6 built-in.
         |
         +-- overlap with player hurtbox?
               |
-              yes → apply_damage(player_id, DAMAGE)  [once per contact guard]
+              yes â†’ apply_damage(player_id, DAMAGE)  [once per contact guard]
                          |
                          v
                Player.health -= amount
@@ -166,25 +166,25 @@ No new dependencies. All nodes are Godot 4.6 built-in.
         |
         +-- is_multiplayer_authority() guard
         |
-        +-- fire_timer countdown → 0? → find_nearest_enemy()
+        +-- fire_timer countdown â†’ 0? â†’ find_nearest_enemy()
               |
               +-- spawn bullet via MultiplayerSpawner.spawn({pos, dir, owner_id})
                          |
                          v
               [All peers: _do_spawn_bullet(data)]
-                   → Area2D with velocity = data.dir * BULLET_SPEED
-                   → clients simulate local movement (no Synchronizer)
-                   → HOST: body_entered signal
+                   â†’ Area2D with velocity = data.dir * BULLET_SPEED
+                   â†’ clients simulate local movement (no Synchronizer)
+                   â†’ HOST: body_entered signal
                          |
-                         enemy hit → enemy.take_damage(amount)
-                         wall hit  → queue_free()   ← propagates to all clients
-                         enemy hit → queue_free()   ← propagates to all clients
+                         enemy hit â†’ enemy.take_damage(amount)
+                         wall hit  â†’ queue_free()   â† propagates to all clients
+                         enemy hit â†’ queue_free()   â† propagates to all clients
 
 [Host: enemy.take_damage(amount)]
         |
         +-- current_hp -= amount
         +-- if current_hp <= 0:
-              enemy.queue_free()   ← propagates to all clients (CMBT-07)
+              enemy.queue_free()   â† propagates to all clients (CMBT-07)
               spawn XP orb at position (PickupSpawner.spawn)
 
 [Any peer: walk over XP orb]
@@ -193,25 +193,25 @@ No new dependencies. All nodes are Godot 4.6 built-in.
         +-- only the stepping player calls: request_collect_orb.rpc_id(1, orb_name)
               |
               HOST validates proximity
-              → orb.queue_free()   ← propagates to all clients (CMBT-09)
+              â†’ orb.queue_free()   â† propagates to all clients (CMBT-09)
 
 [Host: check_game_over()]
         |
         +-- count downed players == total alive players?
               |
-              yes → _broadcast_game_over.rpc()  [call_local]
+              yes â†’ _broadcast_game_over.rpc()  [call_local]
                          |
-                         all peers → change_scene_to_file(GameOver.tscn)
+                         all peers â†’ change_scene_to_file(GameOver.tscn)
 ```
 
 ### Recommended Scene/File Structure
 
 ```
 scenes/
-  Game.tscn             # EXISTING — add EnemySpawner, BulletSpawner, PickupSpawner nodes
-  Game.gd               # EXISTING — add enemy spawn logic, weapon fire, game-over check
-  Player.tscn           # EXISTING — add health bar, hurtbox Area2D, revive ProgressBar
-  Player.gd             # EXISTING — add health, is_downed, revive state machine
+  Game.tscn             # EXISTING â€” add EnemySpawner, BulletSpawner, PickupSpawner nodes
+  Game.gd               # EXISTING â€” add enemy spawn logic, weapon fire, game-over check
+  Player.tscn           # EXISTING â€” add health bar, hurtbox Area2D, revive ProgressBar
+  Player.gd             # EXISTING â€” add health, is_downed, revive state machine
   enemies/
     Enemy.tscn          # NEW
     Enemy.gd            # NEW
@@ -222,7 +222,7 @@ scenes/
     XpOrb.tscn          # NEW
     XpOrb.gd            # NEW
 autoloads/
-  GameState.gd          # EXISTING — add track_downed(), check_game_over()
+  GameState.gd          # EXISTING â€” add track_downed(), check_game_over()
 ```
 
 ### Pattern 1: Enemy Scene Structure
@@ -280,7 +280,7 @@ func _physics_process(delta: float) -> void:
 func _find_nearest_player() -> Node:
     var nearest: Node = null
     var nearest_dist := INF
-    # Iterate players under Entities — Game.gd stores reference or use group
+    # Iterate players under Entities â€” Game.gd stores reference or use group
     for p in get_tree().get_nodes_in_group("players"):
         var d := global_position.distance_to(p.global_position)
         if d < nearest_dist:
@@ -317,18 +317,18 @@ func _on_hurtbox_body_entered(body: Node) -> void:
 ### Pattern 3: Bullet Scene Structure
 
 ```
-Bullet (Area2D)          # root — authority = host
+Bullet (Area2D)          # root â€” authority = host
   collision_layer = 6 (bullets)
   collision_mask  = 1|5 (world + enemy_hurtbox)
   ColorRect              # tiny rectangle, rotated to face dir
   CollisionShape2D       # small circle or rect
-  # NO MultiplayerSynchronizer — clients simulate from initial velocity
+  # NO MultiplayerSynchronizer â€” clients simulate from initial velocity
 ```
 
 ### Pattern 4: Bullet.gd Core Logic
 
 ```gdscript
-# Source: PITFALLS P5 — MultiplayerSpawner for instantiation; no Synchronizer
+# Source: PITFALLS P5 â€” MultiplayerSpawner for instantiation; no Synchronizer
 extends Area2D
 
 const SPEED := 400.0
@@ -345,7 +345,7 @@ func _ready() -> void:
     rotation = direction.angle()
 
 func _physics_process(delta: float) -> void:
-    # ALL peers simulate local movement from initial velocity — no sync needed
+    # ALL peers simulate local movement from initial velocity â€” no sync needed
     position += direction * SPEED * delta
     _elapsed += delta
     if _elapsed >= LIFETIME:
@@ -358,12 +358,12 @@ func _on_body_entered(body: Node) -> void:
     queue_free()
 
 func _on_area_entered(area: Node) -> void:
-    # Enemy hurtbox hit — D-07: host-only
+    # Enemy hurtbox hit â€” D-07: host-only
     if not is_multiplayer_authority():
         return
     var enemy := area.get_parent()
     if enemy.has_method("take_damage"):
-        # D-08: no self-damage — check owner
+        # D-08: no self-damage â€” check owner
         enemy.take_damage(BULLET_DAMAGE)
     queue_free()
 ```
@@ -371,7 +371,7 @@ func _on_area_entered(area: Node) -> void:
 ### Pattern 5: Player Health + Downed State Machine
 
 ```gdscript
-# Extension to existing Player.gd — Source: CONTEXT.md D-17, D-12, D-13
+# Extension to existing Player.gd â€” Source: CONTEXT.md D-17, D-12, D-13
 const MAX_HP := 100
 const REVIVE_DURATION := 3.5  # D-13: 3-4 seconds
 
@@ -384,7 +384,7 @@ var _reviver_id: int = -1
 
 func receive_damage(amount: int) -> void:
     # Called by host on this node (authority is the owning peer, but damage
-    # is applied via direct call from host — host owns enemy AI and bullets)
+    # is applied via direct call from host â€” host owns enemy AI and bullets)
     health -= amount
     if health <= 0:
         health = 0
@@ -394,7 +394,7 @@ func receive_damage(amount: int) -> void:
 func _enter_downed() -> void:
     is_downed = true
     GameState.track_downed(peer_id)
-    # D-12: visual — tint sprite gray/red (clients apply from synced is_downed)
+    # D-12: visual â€” tint sprite gray/red (clients apply from synced is_downed)
 
 func _process(delta: float) -> void:
     if is_downed and is_multiplayer_authority():
@@ -415,14 +415,14 @@ func _physics_process(delta: float) -> void:
     _check_revive(delta)
 
 func _check_revive(delta: float) -> void:
-    if Input.is_action_pressed("ui_accept"):  # "E" key — add to InputMap
+    if Input.is_action_pressed("ui_accept"):  # "E" key â€” add to InputMap
         var nearby := _find_downed_player()
         if nearby:
             _request_revive.rpc_id(1, nearby.peer_id, delta)
 
 @rpc("any_peer", "call_remote", "reliable")
 func _request_revive(target_peer_id: int, delta: float) -> void:
-    # Runs on HOST — validate proximity, accumulate progress
+    # Runs on HOST â€” validate proximity, accumulate progress
     pass
 
 # In Game.gd or GameState.gd:
@@ -439,7 +439,7 @@ func request_revive(revivier_id: int, target_id: int) -> void:
 ### Pattern 7: spawn_function for Enemies
 
 ```gdscript
-# In Game.gd — mirrors existing _do_spawn() for players
+# In Game.gd â€” mirrors existing _do_spawn() for players
 const ENEMY_SCENE := preload("res://scenes/enemies/Enemy.tscn")
 
 func _ready() -> void:
@@ -479,7 +479,7 @@ The navmesh spike (D-04) must be completed before enemy pathfinding is tested. S
 6. Verify the resulting navmesh excludes wall colliders as holes
 7. Add a test enemy to confirm `get_next_path_position()` returns valid path around walls
 
-**Key finding:** `parsed_geometry_type = PARSED_GEOMETRY_STATIC_COLLIDERS` (value 1) is the correct mode to make StaticBody2D collision shapes register as navmesh holes. The existing walls use `collision_layer = 1` (world) — ensure `parsed_collision_mask` in the NavigationPolygon includes layer 1. [VERIFIED: docs.godotengine.org/classes/class_navigationpolygon]
+**Key finding:** `parsed_geometry_type = PARSED_GEOMETRY_STATIC_COLLIDERS` (value 1) is the correct mode to make StaticBody2D collision shapes register as navmesh holes. The existing walls use `collision_layer = 1` (world) â€” ensure `parsed_collision_mask` in the NavigationPolygon includes layer 1. [VERIFIED: docs.godotengine.org/classes/class_navigationpolygon]
 
 **Pitfall:** Placing a smaller StaticBody2D shape inside a larger one can produce flipped polygon holes. The current room has only perimeter walls (no nesting), so this should not apply. [CITED: docs.godotengine.org/tutorials/navigation/navigation_using_navigationmeshes]
 
@@ -489,10 +489,10 @@ D-10 specifies "once per contact, player must move away for next hit." Implement
 
 ```gdscript
 # In Enemy.gd
-var _players_in_contact: Dictionary = {}  # peer_id → true
+var _players_in_contact: Dictionary = {}  # peer_id â†’ true
 
 func _ready() -> void:
-    # Use CharacterBody2D collision — after move_and_slide(), check get_slide_collision_count()
+    # Use CharacterBody2D collision â€” after move_and_slide(), check get_slide_collision_count()
     # OR use a dedicated hurtbox Area2D with body_entered/body_exited
 
 func _on_hurtbox_body_exited(body: Node) -> void:
@@ -528,7 +528,7 @@ func _on_hurtbox_body_entered(body: Node) -> void:
 |---------|-------------|-------------|-----|
 | Enemy pathfinding around walls | Custom A* or steering behaviors | `NavigationAgent2D` + baked `NavigationRegion2D` | Built-in; handles concave polygons, navigation polygon holes, multiple regions |
 | Bullet lifetime management | Timer node per bullet | Bullet self-destructs via `_elapsed >= LIFETIME` in `_physics_process` + `queue_free()` | Simpler, no extra nodes; queue_free propagates via spawner |
-| Multi-peer despawn of enemies/bullets/orbs | RPC to every peer to call remove_child | `queue_free()` called on host — MultiplayerSpawner propagates despawn automatically | Spawner tracks all spawned nodes; host free = all-peers free |
+| Multi-peer despawn of enemies/bullets/orbs | RPC to every peer to call remove_child | `queue_free()` called on host â€” MultiplayerSpawner propagates despawn automatically | Spawner tracks all spawned nodes; host free = all-peers free |
 | Health bar layout | Manual Label + ColorRect math | `ProgressBar` Control node as child of character, offset above | Built-in; value property, min/max; no math needed |
 | Revive progress tracking | Repeated RPC messages with accumulating time | Single `float _revive_progress` on host, incremented by host each frame | Host is single source of truth; no message accumulation |
 | Game-over broadcast | Manual RPC to each peer | `@rpc("authority", "call_local", "reliable")` game_over function | `call_local` fires on host too; one RPC reaches all |
@@ -565,11 +565,11 @@ func _on_hurtbox_body_entered(body: Node) -> void:
 
 **Why it happens:** Player nodes have authority set to their owning peer (for movement). But damage is a host-only decision (D-09).
 
-**How to avoid:** Damage application must originate on the host. The enemy `_on_hurtbox_body_entered` runs only on host (guarded by `is_multiplayer_authority()`). It calls `body.receive_damage()` directly — this is a direct local call on the host, which then gets replicated via the player's MultiplayerSynchronizer. The health property is in the player's SceneReplicationConfig with authority = player's peer. This creates a complication: only the owning peer can write to synced properties.
+**How to avoid:** Damage application must originate on the host. The enemy `_on_hurtbox_body_entered` runs only on host (guarded by `is_multiplayer_authority()`). It calls `body.receive_damage()` directly â€” this is a direct local call on the host, which then gets replicated via the player's MultiplayerSynchronizer. The health property is in the player's SceneReplicationConfig with authority = player's peer. This creates a complication: only the owning peer can write to synced properties.
 
 **Resolution:** Two valid approaches:
 1. **Move health authority to host:** Set Player MultiplayerSynchronizer authority to host (peer 1) for health/is_downed. Player owns position sync only. Requires splitting the Synchronizer or using two Synchronizers.
-2. **RPC to owning peer:** Host calls `rpc_id(player.peer_id, "apply_damage", amount)` on the player node. Player receives it and decrements own health. Health syncs outward from that peer. [ASSUMED — both approaches work; option 2 is simpler with current architecture]
+2. **RPC to owning peer:** Host calls `rpc_id(player.peer_id, "apply_damage", amount)` on the player node. Player receives it and decrements own health. Health syncs outward from that peer. [ASSUMED â€” both approaches work; option 2 is simpler with current architecture]
 
 **Recommended:** Use option 2 (RPC to owning peer) since Player.tscn already has the MultiplayerSynchronizer owned by the player peer. Add `apply_damage` as `@rpc("authority", "call_remote", "reliable")` on Player.gd, called via `rpc_id(player.peer_id, "apply_damage", amount)` from host.
 
@@ -581,7 +581,7 @@ func _on_hurtbox_body_entered(body: Node) -> void:
 
 **Why it happens:** MultiplayerSynchronizer at 20 Hz sends position 20 times/second. Without interpolation, clients see discrete jumps.
 
-**How to avoid:** For Phase 3, the 60-pixel-per-second jump between 20 Hz ticks at 80 speed is 4px — barely visible. Accept it for this phase. If it looks bad in testing, add simple lerp in client `_process()`: `global_position = global_position.lerp(sync_position, delta * 15.0)`. Only implement if testing reveals visible stutter. [ASSUMED — acceptable for demo quality]
+**How to avoid:** For Phase 3, the 60-pixel-per-second jump between 20 Hz ticks at 80 speed is 4px â€” barely visible. Accept it for this phase. If it looks bad in testing, add simple lerp in client `_process()`: `global_position = global_position.lerp(sync_position, delta * 15.0)`. Only implement if testing reveals visible stutter. [ASSUMED â€” acceptable for demo quality]
 
 **Warning signs:** Enemies appear to "teleport" in small steps on client screens.
 
@@ -620,7 +620,7 @@ func _on_hurtbox_body_entered(body: Node) -> void:
 # properties/2/path = NodePath(".:state")
 # properties/2/allow_spawn = true
 # properties/2/replication_mode = 2
-# replication_interval = 0.05  # 20 Hz — same as Player
+# replication_interval = 0.05  # 20 Hz â€” same as Player
 # Source: STACK.md MultiplayerSynchronizer pattern
 ```
 
@@ -677,7 +677,7 @@ func _broadcast_game_over() -> void:
 
 | Old Approach | Current Approach | When Changed | Impact |
 |--------------|------------------|--------------|--------|
-| `KinematicBody2D` | `CharacterBody2D` | Godot 4.0 | Never use old name — crashes on load |
+| `KinematicBody2D` | `CharacterBody2D` | Godot 4.0 | Never use old name â€” crashes on load |
 | Per-frame RPC for position | `MultiplayerSynchronizer` with interval | Godot 4.0 | Sync is declarative; no manual send/receive |
 | `Navigation2D` (Godot 3) | `NavigationRegion2D` + `NavigationAgent2D` | Godot 4.0 | New API; old tutorials are incorrect |
 | `yield()` for async | `await` keyword | Godot 4.0 | Any old GDScript tutorials using yield are wrong |
@@ -696,65 +696,68 @@ func _broadcast_game_over() -> void:
 | A2 | Option 2 (RPC to owning peer for damage) is simpler than splitting MultiplayerSynchronizer authority | Pitfall 3 | If wrong: choose option 1 (host-owned health sync), requires restructuring Player Synchronizer; manageable |
 | A3 | 20 Hz enemy position sync without interpolation is visually acceptable for demo quality | Pitfall 4 | If wrong: add lerp in client _process; low implementation effort |
 | A4 | `call_local` game-over RPC via GameState.gd is the correct broadcast path | Code Examples | If wrong: move broadcast to Game.gd node instead; architectural only |
-| A5 | NavigationPolygon parsed_collision_mask must include layer 1 ("world") for StaticBody2D walls to register as holes | Navmesh Spike | If wrong: walls are transparent to navmesh; enemies walk through walls; HIGH impact — mitigated by required spike (D-04) |
+| A5 | NavigationPolygon parsed_collision_mask must include layer 1 ("world") for StaticBody2D walls to register as holes | Navmesh Spike | If wrong: walls are transparent to navmesh; enemies walk through walls; HIGH impact â€” mitigated by required spike (D-04) |
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **NavigationPolygon manual outline vs auto-parse**
    - What we know: `parsed_geometry_type = PARSED_GEOMETRY_STATIC_COLLIDERS` should auto-detect StaticBody2D shapes
    - What's unclear: Whether the editor bake button requires the polygon outline to already be drawn, or whether it creates it from geometry
    - Recommendation: The 30-minute navmesh spike (D-04) resolves this. Document findings in a spike note before committing room geometry.
+   - **RESOLVED (Plan 01):** A walkable outline polygon must be drawn manually first; the bake button then auto-detects StaticBody2D holes from parsed_collision_mask. Spike required and planned as Plan 01 Task 2 checkpoint.
 
 2. **Damage authority for player health**
-   - What we know: Player.gd currently sets `set_multiplayer_authority(peer_id)` — the owning peer is authority
+   - What we know: Player.gd currently sets `set_multiplayer_authority(peer_id)` â€” the owning peer is authority
    - What's unclear: Whether MultiplayerSynchronizer can sync a property modified by the host on a node owned by a different peer (option 1 from Pitfall 3)
    - Recommendation: Use option 2 (RPC to owning peer for `apply_damage`). Simpler and compatible with existing authority setup.
+   - **RESOLVED (Plan 03/05):** receive_damage is @rpc("any_peer") on Player.gd; host calls rpc_id(player.peer_id) from Enemy.gd and Bullet.gd. Owning peer decrements health; MultiplayerSynchronizer replicates outward.
 
 3. **XP orb spawner vs player spawner: same or separate MultiplayerSpawner?**
    - What we know: Game.tscn currently has one MultiplayerSpawner under the root node pointing to Room1/Entities
    - What's unclear: Whether to use one spawner with multiple registered scenes, or separate spawners per entity type
    - Recommendation: Use separate spawner nodes (EnemySpawner, BulletSpawner, PickupSpawner) for clarity. All can share the same spawn_path = Room1/Entities. Each has its own spawn_function. This mirrors ARCHITECTURE.md's three-spawner design.
+   - **RESOLVED (Plan 05):** Three separate MultiplayerSpawner nodes (EnemySpawner, BulletSpawner, PickupSpawner) added to Game.tscn, all with spawn_path = Room1/Entities, each with its own spawn_function in Game.gd.
 
 ---
 
 ## Environment Availability
 
-Step 2.6: SKIPPED — This phase is pure Godot GDScript code/scene changes. No external CLI tools, databases, or services required beyond the Godot 4.6 editor already confirmed in use.
+Step 2.6: SKIPPED â€” This phase is pure Godot GDScript code/scene changes. No external CLI tools, databases, or services required beyond the Godot 4.6 editor already confirmed in use.
 
 ---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- [/websites/godotengine_en_stable] — NavigationAgent2D class reference: target_position, get_next_path_position(), is_navigation_finished()
-- [/websites/godotengine_en_stable] — NavigationPolygon class reference: parsed_geometry_type enum (PARSED_GEOMETRY_STATIC_COLLIDERS), agent_radius
-- [/websites/godotengine_en_stable] — MultiplayerSpawner class reference: spawn_function, spawn(), queue_free() propagation
-- [/websites/godotengine_en_stable] — MultiplayerSynchronizer class reference: replication_interval, SceneReplicationConfig
-- https://docs.godotengine.org/en/stable/tutorials/navigation/navigation_using_navigationagents.html — physics_process usage, is_navigation_finished() jitter warning
-- https://docs.godotengine.org/en/stable/tutorials/navigation/navigation_introduction_2d.html — editor bake workflow, NavigationRegion2D + NavigationPolygon
-- https://docs.godotengine.org/en/stable/tutorials/navigation/navigation_using_navigationmeshes.html — StaticBody2D nesting pitfall, parse_geometry_type options
+- [/websites/godotengine_en_stable] â€” NavigationAgent2D class reference: target_position, get_next_path_position(), is_navigation_finished()
+- [/websites/godotengine_en_stable] â€” NavigationPolygon class reference: parsed_geometry_type enum (PARSED_GEOMETRY_STATIC_COLLIDERS), agent_radius
+- [/websites/godotengine_en_stable] â€” MultiplayerSpawner class reference: spawn_function, spawn(), queue_free() propagation
+- [/websites/godotengine_en_stable] â€” MultiplayerSynchronizer class reference: replication_interval, SceneReplicationConfig
+- https://docs.godotengine.org/en/stable/tutorials/navigation/navigation_using_navigationagents.html â€” physics_process usage, is_navigation_finished() jitter warning
+- https://docs.godotengine.org/en/stable/tutorials/navigation/navigation_introduction_2d.html â€” editor bake workflow, NavigationRegion2D + NavigationPolygon
+- https://docs.godotengine.org/en/stable/tutorials/navigation/navigation_using_navigationmeshes.html â€” StaticBody2D nesting pitfall, parse_geometry_type options
 - Project codebase: Game.tscn, Game.gd, Player.tscn, Player.gd, project.godot (VERIFIED: read directly)
 - STACK.md, ARCHITECTURE.md, PITFALLS.md (project research, HIGH confidence)
 - CONTEXT.md Phase 3 decisions D-01 through D-19 (locked)
 
 ### Secondary (MEDIUM confidence)
-- ARCHITECTURE.md enemy chase pattern code snippet — derived from official docs; matches verified NavigationAgent2D API
+- ARCHITECTURE.md enemy chase pattern code snippet â€” derived from official docs; matches verified NavigationAgent2D API
 
 ### Tertiary (LOW confidence / ASSUMED)
-- A2: Damage RPC approach (option 2) preferred over split-synchronizer — architectural judgment, not from official docs
-- A3: 20 Hz sync without interpolation is visually acceptable at demo quality — not benchmarked
+- A2: Damage RPC approach (option 2) preferred over split-synchronizer â€” architectural judgment, not from official docs
+- A3: 20 Hz sync without interpolation is visually acceptable at demo quality â€” not benchmarked
 
 ---
 
 ## Metadata
 
 **Confidence breakdown:**
-- Standard stack: HIGH — all nodes verified in Godot 4.6 official docs and existing codebase
-- Architecture patterns: HIGH — directly derived from existing Phase 2 patterns + official docs
-- Navmesh baking: MEDIUM — bake button workflow verified; specific parsed_geometry_type behavior for StaticBody2D walls is cited from official class reference but untested against this project's geometry (mitigated by required spike D-04)
-- Pitfalls: HIGH — P3/P5/P6/P7 are project-documented; P3 (damage authority) is a known Godot multiplayer pattern
+- Standard stack: HIGH â€” all nodes verified in Godot 4.6 official docs and existing codebase
+- Architecture patterns: HIGH â€” directly derived from existing Phase 2 patterns + official docs
+- Navmesh baking: MEDIUM â€” bake button workflow verified; specific parsed_geometry_type behavior for StaticBody2D walls is cited from official class reference but untested against this project's geometry (mitigated by required spike D-04)
+- Pitfalls: HIGH â€” P3/P5/P6/P7 are project-documented; P3 (damage authority) is a known Godot multiplayer pattern
 
 **Research date:** 2026-05-09
-**Valid until:** 2026-06-09 (Godot 4.6 stable — API unlikely to change for built-in nodes in this timeframe)
+**Valid until:** 2026-06-09 (Godot 4.6 stable â€” API unlikely to change for built-in nodes in this timeframe)
