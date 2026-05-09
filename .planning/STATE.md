@@ -12,14 +12,14 @@ See: .planning/PROJECT.md (updated 2026-05-05)
 
 ## Current Phase
 
-**Phase 3: Room & Enemy Foundation**
-Status: Not started
-Started: —
-Completed: —
+**Phase 3: Room 1, Enemy AI, Combat Core**
+Status: Context gathered, ready for planning
+Started: 2026-05-09
+Context Completed: 2026-05-09
 
 ### Phase Goal
 
-Room geometry with collision, enemy spawning and basic AI
+Core combat loop — Room 1 playable, enemies chase and damage players, players can die and be revived
 
 ### Active Plans
 
