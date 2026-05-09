@@ -4,7 +4,8 @@ extends Control
 ## D-08: Taken roles grayed out with "Taken" label.
 ## D-09: Live player list panel on right.
 
-@onready var ip_label: Label = $HBoxContainer/LeftPanel/IPLabel
+@onready var ip_label: Label = $HBoxContainer/LeftPanel/IPContainer/IPLabel
+@onready var copy_btn: Button = $HBoxContainer/LeftPanel/IPContainer/CopyButton
 @onready var tank_btn: Button = $HBoxContainer/LeftPanel/RoleButtons/TankButton
 @onready var speedster_btn: Button = $HBoxContainer/LeftPanel/RoleButtons/SpeedsterButton
 @onready var engineer_btn: Button = $HBoxContainer/LeftPanel/RoleButtons/EngineerButton
@@ -26,8 +27,10 @@ func _ready() -> void:
 	if _is_host:
 		ip_label.text = "Your IP: %s" % Lobby.get_local_ip()
 		start_btn.visible = true
+		copy_btn.visible = true
 	else:
 		ip_label.text = "Connected to host"
+		copy_btn.visible = false
 
 	# Wire role buttons
 	tank_btn.pressed.connect(_on_role_pressed.bind("Tank"))
@@ -41,6 +44,7 @@ func _ready() -> void:
 
 	ready_btn.pressed.connect(_on_ready_pressed)
 	start_btn.pressed.connect(_on_start_pressed)
+	copy_btn.pressed.connect(_on_copy_pressed)
 
 	# Listen to lobby changes
 	Lobby.player_list_changed.connect(_refresh_ui)
@@ -66,6 +70,14 @@ func _on_ready_pressed() -> void:
 	Lobby.set_player_ready.rpc(_is_ready)
 	ready_btn.text = "Un-Ready" if _is_ready else "Ready"
 	_set_picks_disabled(_is_ready)
+
+func _on_copy_pressed() -> void:
+	var ip: String = Lobby.get_local_ip()
+	DisplayServer.clipboard_set(ip)
+	var original_text: String = copy_btn.text
+	copy_btn.text = "Copied!"
+	await get_tree().create_timer(2.0).timeout
+	copy_btn.text = original_text
 
 func _on_start_pressed() -> void:
 	if not _is_host:

@@ -23,9 +23,19 @@ offset_bottom = -20.0
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="IPLabel" type="Label" parent="HBoxContainer/LeftPanel"]
+[node name="IPContainer" type="HBoxContainer" parent="HBoxContainer/LeftPanel"]
+layout_mode = 2
+
+[node name="IPLabel" type="Label" parent="HBoxContainer/LeftPanel/IPContainer"]
 layout_mode = 2
 text = "IP: ..."
+size_flags_horizontal = 2
+
+[node name="CopyButton" type="Button" parent="HBoxContainer/LeftPanel/IPContainer"]
+layout_mode = 2
+text = "Copy"
+size_flags_horizontal = 0
+custom_minimum_size = Vector2(60, 0)
 
 [node name="Separator1" type="HSeparator" parent="HBoxContainer/LeftPanel"]
 layout_mode = 2
