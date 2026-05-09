@@ -12,9 +12,9 @@
 | 2 | Player Movement & Sync | All players see each other moving correctly over LAN; solo-testable | MOVE-01–04 | no |
 | 3 | Room 1, Enemy AI, Combat Core | Core combat loop — Room 1 playable, enemies chase and damage players, players can die and be revived | CMBT-01–09, HLTH-01–08 | no |
 | 4 | Weapons & Item Pickups | Vampire Survivors weapon loop — enemies drop car-part pickups, player collects to unlock/upgrade weapons | WEAP-01–08 | no |
-| 5 | XP, Level-Up Cards & Evolution | Per-player progression loop — kill enemies to earn XP, level up triggers card pick, stage transforms appearance and unlocks ability | XP-01–09, EVOL-01–06 | yes |
-| 6 | CarHUD, Loop Timer & Difficulty Scaling | CARIAD HUD side panel always visible and firing on game events; 15-min loop timer; difficulty increases per loop | HUD-01–10, LOOP-01–06, HLTH-07 | yes |
-| 7 | Roles & Elements | Three mechanically distinct roles with Stage-2 signature abilities; Fire/Ice/Earth element modifiers; element actions trigger HUD | ROLE-01–10, ELEM-01–07 | no |
+| 5 | Roles & Elements | Three mechanically distinct roles with Stage-2 signature abilities; Fire/Ice/Earth element modifiers; element actions trigger HUD | ROLE-01–10, ELEM-01–07 | no |
+| 6 | XP, Level-Up Cards & Evolution | Per-player progression loop — kill enemies to earn XP, level up triggers card pick, stage transforms appearance and unlocks ability | XP-01–09, EVOL-01–06 | yes |
+| 7 | CarHUD, Loop Timer & Difficulty Scaling | CARIAD HUD side panel always visible and firing on game events; 15-min loop timer; difficulty increases per loop | HUD-01–10, LOOP-01–06, HLTH-07 | yes |
 | 8 | Rooms 2 & 3, Boss | Full 3-room run playable end-to-end; boss with multiple attack phases and mob swarms | ROOM-01–07 | no |
 
 ---
@@ -123,29 +123,11 @@ Wave 2 *(blocked on Wave 1 — depends on Player scene existing)*
 **Plans:** 5 plans
 
 Plans:
-- [~] 03-01-PLAN.md — Navmesh spike: central obstacle + enemy spawn points + NavigationPolygon bake (checkpoint) — Task 1 done, awaiting navmesh verification
-- [ ] 03-02-PLAN.md — Enemy.tscn + Enemy.gd + XpOrb.tscn + XpOrb.gd (new combat scenes)
-- [ ] 03-03-PLAN.md — Player health + downed state machine + revive input + GameOver scene
-- [ ] 03-04-PLAN.md — Bullet.tscn + Bullet.gd + Player auto-fire wiring
-- [ ] 03-05-PLAN.md — Game.gd/Game.tscn spawner wiring + GameState game-over detection
-
-Wave 1 *(has checkpoint — navmesh must be human-verified)*
-- 03-01: Game.tscn room geometry (central obstacle + enemy spawn points + navmesh bake)
-
-Wave 2 *(parallel — no file overlap)*
-- 03-02: Enemy.tscn + Enemy.gd + XpOrb.tscn + XpOrb.gd
-- 03-03: Player.tscn + Player.gd (health system) + GameOver.tscn
-
-Wave 3 *(depends on 03-02 for enemy layer/group contracts)*
-- 03-04: Bullet.tscn + Bullet.gd + Player.gd auto-fire
-
-Wave 4 *(depends on 03-02, 03-03, 03-04 — wires everything)*
-- 03-05: Game.tscn (spawners) + Game.gd (combat logic) + GameState.gd (game-over)
-
-**Cross-cutting constraints:**
-- `is_multiplayer_authority()` guard at top of every `_physics_process` (all plans)
-- All spawners use `spawn_function` pattern from Game.gd (03-02, 03-04, 03-05)
-- `receive_damage @rpc("any_peer", "call_remote", "reliable")` — host calls via `rpc_id(peer_id)` (03-03, 03-05)
+- [x] 03-01-PLAN.md — Navmesh spike: central obstacle + enemy spawn points + NavigationPolygon bake (checkpoint)
+- [x] 03-02-PLAN.md — Enemy.tscn + Enemy.gd + XpOrb.tscn + XpOrb.gd (new combat scenes)
+- [x] 03-03-PLAN.md — Player health + downed state machine + revive input + GameOver scene
+- [x] 03-04-PLAN.md — Bullet.tscn + Bullet.gd + Player auto-fire wiring
+- [x] 03-05-PLAN.md — Game.gd/Game.tscn spawner wiring + GameState game-over detection
 
 ---
 
@@ -182,78 +164,7 @@ Wave 4 *(depends on 03-02, 03-03, 03-04 — wires everything)*
 
 ---
 
-### Phase 5: XP, Level-Up Cards & Evolution
-
-**Goal:** Per-player progression loop — kill enemies to earn XP, level up triggers card pick, stage transforms appearance and unlocks ability
-**UI hint:** yes
-
-**Requirements:**
-- XP-01: Collecting XP orbs fills a visible XP bar on the player's HUD
-- XP-02: On level-up, a card selection overlay appears for that player
-- XP-03: Card selection shows 3 random cards drawn from an eligible pool
-- XP-04: Card types include: weapon unlock, weapon upgrade (level 1→2→3), element upgrade, stat boost (speed / max HP / damage / cooldown reduction)
-- XP-05: Card pool is filtered: weapon unlock cards removed if player already has that weapon; upgrade cards removed if weapon is at max level
-- XP-06: A fallback card is always available (e.g., +10% damage) so the pool never runs dry
-- XP-07: Card selection is per-player and non-blocking — other players continue playing during one player's card pick
-- XP-08: Selected cards take effect immediately and stack for the rest of the session
-- XP-09: Level number is visible on the player's screen
-- EVOL-01: Every player starts Stage 1 (Normal Car) — moves and fights like a car, basic attacks, starter stats
-- EVOL-02: Reaching Stage 2 XP threshold triggers full transformation to Proto-Bot — now moves and fights like a robot; raw skeletal appearance (no armor, exposed parts); one new signature ability unlocked
-- EVOL-03: Reaching Stage 3 XP threshold transforms to Full AutoBot — same robot movement as Stage 2, but fully armored and complete; all abilities active, max power (Stage 2→3 difference is visual completeness and strength, not locomotion)
-- EVOL-04: Stage is visible on the player's own and teammates' characters
-- EVOL-05: Stage thresholds are the same for all roles (universal arc)
-- EVOL-06: Stage resets to 1 (Normal Car) at the start of each new run
-
-**Success Criteria:**
-1. Killing enemies fills the XP bar; bar completing opens a 3-card selection overlay for that player while others continue playing
-2. Selecting a card immediately applies the effect (new weapon fires, stat increases, element upgrades)
-3. Reaching Stage 2 XP threshold transforms the player into a robot (locomotion and combat style change); Stage 3 keeps robot movement but adds full armor and unlocks all abilities
-
-**Pitfall watch:**
-- W3 (card pool empty crash) — always ensure at least one fallback card (+10% damage) exists; test edge case where player has all weapons at max level
-- W4 (card UI blocks all input) — card overlay is local UI only; it must NOT pause `SceneTree` or block other players' `_process`; use `CanvasLayer` with local show/hide
-- W5 (XP sync lag) — per-player XP lives on Player node synced via MultiplayerSynchronizer; level-up trigger fires via `@rpc("call_local")` from host to avoid double-triggering
-- P8 (GameState not authoritative) — XP totals and level thresholds authoritative on host; card selection sent to host via RPC, host validates and broadcasts confirmed card effect
-
----
-
-### Phase 6: CarHUD, Loop Timer & Difficulty Scaling
-
-**Goal:** CARIAD HUD side panel always visible and firing on game events; 15-min loop timer; difficulty increases per loop
-**UI hint:** yes
-
-**Requirements:**
-- HUD-01: A Car HUD side panel is always visible on all players' screens during gameplay
-- HUD-02: Panel contains labeled indicator boxes: AC, ENGINE, SEAT MASSAGE, SUSPENSION, LIDAR, V2X
-- HUD-03: Ice ability used → "AC ❄️ COLD" lights up on all screens
-- HUD-04: Fire ability used → "ENGINE 🔥 OVERHEAT" lights up on all screens
-- HUD-05: Earth healing active → "SEAT MASSAGE 🌿 ACTIVE" lights up on all screens
-- HUD-06: Any player takes a significant hit → "SUSPENSION ⚡ IMPACT" lights up on all screens
-- HUD-07: Enemy spawns in the current room → "LIDAR 🔴 OBJECT DETECTED" lights up on all screens
-- HUD-08: Random interval auto-trigger → "V2X 📡 SIGNAL SENT" lights up on all screens
-- HUD-09: Each indicator fades out after a few seconds (not permanently lit)
-- HUD-10: HUD event broadcasts via RPC — all clients see the same indicator fire simultaneously
-- LOOP-01: A visible 15-minute countdown timer is shown on all players' screens
-- LOOP-02: After the current room is cleared, all players transition to the next room simultaneously
-- LOOP-03: Run ends when the boss is defeated or the timer expires — next loop starts, harder
-- LOOP-04: Each successive loop increases enemy HP, damage, and spawn density
-- LOOP-05: Loop number is visible to all players
-- LOOP-06: Weapons, XP level, and evolution stage carry over between rooms within a session; reset only on full death (team wipe)
-- HLTH-07: Each player may be revived at most once per 15-minute loop; counter resets at loop end
-
-**Success Criteria:**
-1. Each of the 6 HUD indicators (AC, ENGINE, SEAT MASSAGE, SUSPENSION, LIDAR, V2X) lights up on its trigger event on all screens simultaneously
-2. 15-minute timer counts down and is visible to all players; loop ends and next loop starts harder
-3. Second loop visibly has more enemies with higher HP than first loop
-
-**Pitfall watch:**
-- P11 (HUD events before client connects) — gate `GameEvents` HUD RPCs behind `Lobby.all_players_ready`; V2X auto-timer starts only after Game.tscn fully loaded on all peers
-- P8 (loop timer not authoritative) — loop timer lives in `GameState` autoload, host is sole writer; MultiplayerSynchronizer distributes read-only view; clients never tick the timer locally
-- P10 (room transition desync) — LOOP-02 room clear transition must use `@rpc("call_local", "reliable")` so all peers change scene in the same call; host waits one frame before spawning next room enemies
-
----
-
-### Phase 7: Roles & Elements
+### Phase 5: Roles & Elements
 
 **Goal:** Three mechanically distinct roles with Stage-2 signature abilities; Fire/Ice/Earth element modifiers; element actions trigger HUD
 **UI hint:** no
@@ -289,6 +200,77 @@ Wave 4 *(depends on 03-02, 03-03, 03-04 — wires everything)*
 
 ---
 
+### Phase 6: XP, Level-Up Cards & Evolution
+
+**Goal:** Per-player progression loop — kill enemies to earn XP, level up triggers card pick, stage transforms appearance and unlocks ability
+**UI hint:** yes
+
+**Requirements:**
+- XP-01: Collecting XP orbs fills a visible XP bar on the player's HUD
+- XP-02: On level-up, a card selection overlay appears for that player
+- XP-03: Card selection shows 3 random cards drawn from an eligible pool
+- XP-04: Card types include: weapon unlock, weapon upgrade (level 1→2→3), element upgrade, stat boost (speed / max HP / damage / cooldown reduction)
+- XP-05: Card pool is filtered: weapon unlock cards removed if player already has that weapon; upgrade cards removed if weapon is at max level
+- XP-06: A fallback card is always available (e.g., +10% damage) so the pool never runs dry
+- XP-07: Card selection is per-player and non-blocking — other players continue playing during one player's card pick
+- XP-08: Selected cards take effect immediately and stack for the rest of the session
+- XP-09: Level number is visible on the player's screen
+- EVOL-01: Every player starts Stage 1 (Normal Car) — moves and fights like a car, basic attacks, starter stats
+- EVOL-02: Reaching Stage 2 XP threshold triggers full transformation to Proto-Bot — now moves and fights like a robot; raw skeletal appearance (no armor, exposed parts); one new signature ability unlocked
+- EVOL-03: Reaching Stage 3 XP threshold transforms to Full AutoBot — same robot movement as Stage 2, but fully armored and complete; all abilities active, max power (Stage 2→3 difference is visual completeness and strength, not locomotion)
+- EVOL-04: Stage is visible on the player's own and teammates' characters
+- EVOL-05: Stage thresholds are the same for all roles (universal arc)
+- EVOL-06: Stage resets to 1 (Normal Car) at the start of each new run
+
+**Success Criteria:**
+1. Killing enemies fills the XP bar; bar completing opens a 3-card selection overlay for that player while others continue playing
+2. Selecting a card immediately applies the effect (new weapon fires, stat increases, element upgrades)
+3. Reaching Stage 2 XP threshold transforms the player into a robot (locomotion and combat style change); Stage 3 keeps robot movement but adds full armor and unlocks all abilities
+
+**Pitfall watch:**
+- W3 (card pool empty crash) — always ensure at least one fallback card (+10% damage) exists; test edge case where player has all weapons at max level
+- W4 (card UI blocks all input) — card overlay is local UI only; it must NOT pause `SceneTree` or block other players' `_process`; use `CanvasLayer` with local show/hide
+- W5 (XP sync lag) — per-player XP lives on Player node synced via MultiplayerSynchronizer; level-up trigger fires via `@rpc("call_local")` from host to avoid double-triggering
+- P8 (GameState not authoritative) — XP totals and level thresholds authoritative on host; card selection sent to host via RPC, host validates and broadcasts confirmed card effect
+
+---
+
+### Phase 7: CarHUD, Loop Timer & Difficulty Scaling
+
+**Goal:** CARIAD HUD side panel always visible and firing on game events; 15-min loop timer; difficulty increases per loop
+**UI hint:** yes
+
+**Requirements:**
+- HUD-01: A Car HUD side panel is always visible on all players' screens during gameplay
+- HUD-02: Panel contains labeled indicator boxes: AC, ENGINE, SEAT MASSAGE, SUSPENSION, LIDAR, V2X
+- HUD-03: Ice ability used → "AC ❄️ COLD" lights up on all screens
+- HUD-04: Fire ability used → "ENGINE 🔥 OVERHEAT" lights up on all screens
+- HUD-05: Earth healing active → "SEAT MASSAGE 🌿 ACTIVE" lights up on all screens
+- HUD-06: Any player takes a significant hit → "SUSPENSION ⚡ IMPACT" lights up on all screens
+- HUD-07: Enemy spawns in the current room → "LIDAR 🔴 OBJECT DETECTED" lights up on all screens
+- HUD-08: Random interval auto-trigger → "V2X 📡 SIGNAL SENT" lights up on all screens
+- HUD-09: Each indicator fades out after a few seconds (not permanently lit)
+- HUD-10: HUD event broadcasts via RPC — all clients see the same indicator fire simultaneously
+- LOOP-01: A visible 15-minute countdown timer is shown on all players' screens
+- LOOP-02: After the current room is cleared, all players transition to the next room simultaneously
+- LOOP-03: Run ends when the boss is defeated or the timer expires — next loop starts, harder
+- LOOP-04: Each successive loop increases enemy HP, damage, and spawn density
+- LOOP-05: Loop number is visible to all players
+- LOOP-06: Weapons, XP level, and evolution stage carry over between rooms within a session; reset only on full death (team wipe)
+- HLTH-07: Each player may be revived at most once per 15-minute loop; counter resets at loop end
+
+**Success Criteria:**
+1. Each of the 6 HUD indicators (AC, ENGINE, SEAT MASSAGE, SUSPENSION, LIDAR, V2X) lights up on its trigger event on all screens simultaneously
+2. 15-minute timer counts down and is visible to all players; loop ends and next loop starts harder
+3. Second loop visibly has more enemies with higher HP than first loop
+
+**Pitfall watch:**
+- P11 (HUD events before client connects) — gate `GameEvents` HUD RPCs behind `Lobby.all_players_ready`; V2X auto-timer starts only after Game.tscn fully loaded on all peers
+- P8 (loop timer not authoritative) — loop timer lives in `GameState` autoload, host is sole writer; MultiplayerSynchronizer distributes read-only view; clients never tick the timer locally
+- P10 (room transition desync) — LOOP-02 room clear transition must use `@rpc("call_local", "reliable")` so all peers change scene in the same call; host waits one frame before spawning next room enemies
+
+---
+
 ### Phase 8: Rooms 2 & 3, Boss
 
 **Goal:** Full 3-room run playable end-to-end; boss with multiple attack phases and mob swarms
@@ -320,11 +302,11 @@ Wave 4 *(depends on 03-02, 03-03, 03-04 — wires everything)*
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Network Foundation & Lobby | 0/? | Not started | — |
+| 1. Network Foundation & Lobby | 2/2 | Complete | 2026-05-09 |
 | 2. Player Movement & Sync | 2/2 | Complete | 2026-05-09 |
-| 3. Room 1, Enemy AI, Combat Core | 0/5 (1 partial) | In Progress — awaiting navmesh checkpoint | — |
+| 3. Room 1, Enemy AI, Combat Core | 5/5 | Complete | 2026-05-09 |
 | 4. Weapons & Item Pickups | 0/? | Not started | — |
-| 5. XP, Level-Up Cards & Evolution | 0/? | Not started | — |
-| 6. CarHUD, Loop Timer & Difficulty Scaling | 0/? | Not started | — |
-| 7. Roles & Elements | 0/? | Not started | — |
+| 5. Roles & Elements | 0/? | Not started | — |
+| 6. XP, Level-Up Cards & Evolution | 0/? | Not started | — |
+| 7. CarHUD, Loop Timer & Difficulty Scaling | 0/? | Not started | — |
 | 8. Rooms 2 & 3, Boss | 0/? | Not started | — |
