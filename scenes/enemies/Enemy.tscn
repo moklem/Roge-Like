@@ -1,62 +1,57 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene format=3 uid="uid://bedkvx7ipjgy2"]
 
-[ext_resource path="res://scenes/enemies/Enemy.gd" id="1_enemy" type="Script"]
+[ext_resource type="Script" uid="uid://gplraj4vfvl1" path="res://scenes/enemies/Enemy.gd" id="1_enemy"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_1"]
 radius = 12.0
 height = 32.0
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
-size = Vector2(40.0, 8.0)
-
-[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_1"]
-properties/0/path = NodePath(".:position")
-properties/0/allow_spawn = true
-properties/0/replication_mode = 2
-properties/1/path = NodePath(".:current_hp")
-properties/1/allow_spawn = true
-properties/1/replication_mode = 2
-properties/2/path = NodePath(".:state")
-properties/2/allow_spawn = true
-properties/2/replication_mode = 2
-
 [sub_resource type="CircleShape2D" id="CircleShape2D_1"]
 radius = 14.0
 
-[node name="Enemy" type="CharacterBody2D"]
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_1"]
+properties/0/path = NodePath(".:position")
+properties/0/spawn = true
+properties/0/replication_mode = 2
+properties/1/path = NodePath(".:current_hp")
+properties/1/spawn = true
+properties/1/replication_mode = 2
+properties/2/path = NodePath(".:state")
+properties/2/spawn = true
+properties/2/replication_mode = 2
+
+[node name="Enemy" type="CharacterBody2D" unique_id=969772550]
 collision_layer = 4
 collision_mask = 3
 script = ExtResource("1_enemy")
 
-[node name="Sprite" type="ColorRect" parent="."]
+[node name="Sprite" type="ColorRect" parent="." unique_id=1903338389]
 offset_left = -14.0
 offset_top = -14.0
 offset_right = 14.0
 offset_bottom = 14.0
 color = Color(0.8, 0.2, 0.2, 1)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=62278025]
 shape = SubResource("CapsuleShape2D_1")
 
-[node name="NavigationAgent2D" type="NavigationAgent2D" parent="."]
+[node name="NavigationAgent2D" type="NavigationAgent2D" parent="." unique_id=1634111574]
 
-[node name="HurtboxArea" type="Area2D" parent="."]
+[node name="HurtboxArea" type="Area2D" parent="." unique_id=1717934630]
 collision_layer = 16
-collision_mask = 32
+collision_mask = 34
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="HurtboxArea"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HurtboxArea" unique_id=1282983255]
 shape = SubResource("CircleShape2D_1")
 
-[node name="HealthBar" type="ProgressBar" parent="."]
+[node name="HealthBar" type="ProgressBar" parent="." unique_id=2141082026]
 offset_left = -20.0
 offset_top = -32.0
 offset_right = 20.0
 offset_bottom = -24.0
-min_value = 0.0
-max_value = 100.0
 value = 100.0
 show_percentage = false
 
-[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
-replication_config = SubResource("SceneReplicationConfig_1")
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=387308710]
 replication_interval = 0.05
+replication_config = SubResource("SceneReplicationConfig_1")

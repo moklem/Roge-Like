@@ -1,1 +1,2 @@
-res://scenes/ui/LobbyScreen.gd
+res://scenes/Player.tscn
+res://scenes/enemies/Enemy.gd
