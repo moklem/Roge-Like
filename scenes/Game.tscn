@@ -1,0 +1,39 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource path="res://scenes/Game.gd" id="1_game" type="Script"]
+
+[sub_resource type="TileSet" id="TileSet_1"]
+
+[node name="Game" type="Node2D"]
+script = ExtResource("1_game")
+
+[node name="Room1" type="Node2D" parent="."]
+
+[node name="TileMap" type="TileMap" parent="Room1"]
+tile_set = SubResource("TileSet_1")
+
+[node name="SpawnPoints" type="Node2D" parent="Room1"]
+
+[node name="Spawn1" type="Marker2D" parent="Room1/SpawnPoints"]
+position = Vector2(400, 300)
+
+[node name="Spawn2" type="Marker2D" parent="Room1/SpawnPoints"]
+position = Vector2(350, 300)
+
+[node name="Spawn3" type="Marker2D" parent="Room1/SpawnPoints"]
+position = Vector2(450, 300)
+
+[node name="Entities" type="Node2D" parent="Room1"]
+
+[node name="HUD" type="CanvasLayer" parent="."]
+layer = 1
+
+[node name="PlayerLabel" type="Label" parent="HUD"]
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 300.0
+offset_bottom = 30.0
+text = "Player"
+
+[node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="."]
+spawn_path = NodePath("Room1/Entities")
