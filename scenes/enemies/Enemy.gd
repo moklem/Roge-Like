@@ -80,11 +80,12 @@ func _on_hurtbox_body_entered(body: Node) -> void:
 	if _players_in_contact.has(pid):
 		return  # already tracking this contact — no repeat damage
 	_players_in_contact[pid] = true
-	# HLTH-02: Damage player via RPC to owning peer (Pitfall 3 resolution: option 2)
-	# receive_damage is @rpc("any_peer", "call_remote", "reliable") on Player.gd.
-	# Host calls rpc_id(player.peer_id, ...) — owning peer decrements health,
-	# MultiplayerSynchronizer replicates health outward.
-	body.receive_damage.rpc_id(body.peer_id, CONTACT_DAMAGE)
+	# HLTH-02: call_remote rpc_id to self is a no-op in Godot 4.
+	# Host player (peer_id == 1) must be called directly; clients use rpc_id.
+	if body.peer_id == multiplayer.get_unique_id():
+		body.receive_damage(CONTACT_DAMAGE)
+	else:
+		body.receive_damage.rpc_id(body.peer_id, CONTACT_DAMAGE)
 
 ## D-10: Clear contact when player moves away — allows next contact to deal damage
 func _on_hurtbox_body_exited(body: Node) -> void:
