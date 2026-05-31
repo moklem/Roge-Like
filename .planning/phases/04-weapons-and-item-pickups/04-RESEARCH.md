@@ -584,7 +584,7 @@ func _broadcast_game_over() -> void:
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `weapon_unlocked` RPC be on Game.gd or on Player.gd?**
    - What we know: `receive_damage` and `receive_revive` are RPCs on Player.gd (host calls `rpc_id(peer_id, ...)` on the Player node). `weapon_unlocked` follows the same pattern.
