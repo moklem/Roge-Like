@@ -6,16 +6,17 @@ See: .planning/PROJECT.md (updated 2026-05-05)
 
 **Core value:** The CARIAD HUD must always fire convincingly — every major game event triggers the corresponding vehicle sensor indicator, making the gameplay feel like a real in-car system demo
 
-**Current focus:** Phase 4 — Weapons & Item Pickups (Plan 04-05 complete; Phase 4 done)
+**Current focus:** Phase 5 — Roles & Elements (next up)
 
 ---
 
 ## Current Phase
 
 **Phase 4: Weapons & Item Pickups**
-Status: In progress (04-01 complete)
+Status: Complete
 Started: 2026-05-31
-Plans: 5 (04-01 through 04-05)
+Completed: 2026-05-31
+Plans: 5/5 complete
 
 ### Phase Goal
 
@@ -36,6 +37,15 @@ Vampire Survivors weapon loop — enemies drop car-part pickups (25% chance), pl
 ---
 
 ## Phase History
+
+### Phase 4: Weapons & Item Pickups
+Status: Complete
+Started: 2026-05-31
+Completed: 2026-05-31
+
+**Plans:** 04-01 through 04-05 (4 waves)
+**Commits:** b47997f, ad402fc, 0a552e8, d031a82, 45b1459, bde4191, be0c1d1, 88e2338, d951fa6, 1dc72dd, 195743d
+**Summary:** CarPartPickup scene (25% enemy drop, host-authoritative collection, W1 double-collect guard); WeaponManager child of Player with ScrewsAndBolts migration, 6-slot cap, weapon_level dict; 5 car-themed weapons implemented (ExhaustFlames cone, SpinningTires orbit, AntennaBeam piercing, HornShockwave 360° burst, AirbagShield death-prevention charge); GameState._broadcast_game_over resets all WeaponManagers on game-over (WEAP-08).
 
 ### Phase 3: Room 1, Enemy AI, Combat Core
 Status: Complete
@@ -69,9 +79,9 @@ Completed: 2026-05-09
 
 | Metric | Value |
 |--------|-------|
-| Phases complete | 3 / 8 |
-| Phase 4 plans created | 5 / 5 |
-| v1 requirements shipped | ~20 / 84 |
+| Phases complete | 4 / 8 |
+| Phase 4 plans shipped | 5 / 5 |
+| v1 requirements shipped | ~28 / 84 |
 | Active blockers | 0 |
 
 ---
