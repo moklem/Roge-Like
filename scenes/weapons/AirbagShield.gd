@@ -12,25 +12,41 @@ const RING_RADIUS: float = 28.0  # pixels from player center to ring edge
 const RING_THICKNESS: float = 4.0
 
 func activate() -> void:
-	## Called by WeaponManager._deferred_activate_airbag.
-	## Creates the ring visual as a child of this node (which is child of WeaponManager → Player).
+	## ColorRect must be parented to a Node2D (Player) to render in world space.
+	## AirbagShield extends plain Node — it has no canvas transform, so children
+	## added here would render at the viewport origin instead of at the player.
+	var player: Node = get_parent().get_parent()  # WeaponManager → Player
 	_ring = ColorRect.new()
 	_ring.name = "AirbagRing"
-	_ring.color = Color(1.0, 1.0, 0.0, 0.85)  # yellow ring (per CONTEXT.md specifics)
+	_ring.color = Color(1.0, 1.0, 0.0, 0.85)
 	var outer_size: float = (RING_RADIUS + RING_THICKNESS) * 2.0
 	_ring.size = Vector2(outer_size, outer_size)
 	_ring.pivot_offset = Vector2(outer_size / 2.0, outer_size / 2.0)
 	_ring.position = Vector2(-outer_size / 2.0, -outer_size / 2.0)
-	# Inner rect (cut out center) — slightly smaller, transparent to create ring appearance
 	_ring_inner = ColorRect.new()
 	_ring_inner.name = "AirbagRingInner"
-	_ring_inner.color = Color(0, 0, 0, 0)   # transparent center (additive cut)
+	_ring_inner.color = Color(0, 0, 0, 0)
 	var inner_size: float = RING_RADIUS * 2.0
 	_ring_inner.size = Vector2(inner_size, inner_size)
 	_ring_inner.position = Vector2(RING_THICKNESS, RING_THICKNESS)
 	_ring.add_child(_ring_inner)
-	add_child(_ring)
+	player.add_child(_ring)
 	show_ring()
+	_flash_pickup(player)
+
+func _flash_pickup(player: Node) -> void:
+	var s: float = (RING_RADIUS + RING_THICKNESS) * 6.0
+	var flash := ColorRect.new()
+	flash.color = Color(1.0, 1.0, 0.0, 0.9)
+	flash.size = Vector2(s, s)
+	flash.pivot_offset = Vector2(s / 2.0, s / 2.0)
+	flash.position = Vector2(-s / 2.0, -s / 2.0)
+	flash.scale = Vector2(0.2, 0.2)
+	player.add_child(flash)
+	var tween := flash.create_tween()
+	tween.tween_property(flash, "scale", Vector2(1.0, 1.0), 0.45)
+	tween.parallel().tween_property(flash, "modulate:a", 0.0, 0.45)
+	tween.tween_callback(flash.queue_free)
 
 func show_ring() -> void:
 	## Called when airbag charge is active (on first activation).

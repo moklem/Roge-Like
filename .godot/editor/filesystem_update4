@@ -1,4 +1,12 @@
-res://scenes/weapons/WeaponManager.gd
+res://autoloads/GameState.gd
 res://scenes/Game.gd
-res://scenes/weapons/ExhaustFlames.gd
+res://scenes/Player.gd
+res://scenes/Player.tscn
+res://scenes/weapons/WeaponManager.gd
+res://scenes/pickups/CarPartPickup.gd
 res://scenes/weapons/AntennaBeam.gd
+res://scenes/weapons/ExhaustFlames.gd
+res://scenes/weapons/HornShockwave.gd
+res://scenes/weapons/SpinningTires.gd
+res://scenes/enemies/Enemy.gd
+res://scenes/weapons/AirbagShield.gd

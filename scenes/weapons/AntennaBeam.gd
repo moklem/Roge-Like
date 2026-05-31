@@ -61,29 +61,43 @@ func _setup_timer(weapon_manager: Node) -> void:
 	add_child(_timer)
 
 func _on_fire_timer(weapon_manager: Node) -> void:
-	# W2: Only owning peer's WeaponManager may fire
-	if not weapon_manager.get_parent().is_multiplayer_authority():
-		return
-	_try_fire(weapon_manager)
-
-func _try_fire(weapon_manager: Node) -> void:
 	var player: Node = weapon_manager.get_parent()
+	if not player.is_multiplayer_authority():
+		return
+	if player.is_downed:
+		return
 	var nearest: Node = weapon_manager._find_nearest_enemy(player)
 	if nearest == null:
-		return  # Pitfall: no enemies alive — safe exit
-	# Aim beam from player toward nearest enemy
+		return
 	var dir: Vector2 = (nearest.global_position - player.global_position).normalized()
-	_area.global_position = player.global_position
-	# Rotate the Area2D so the beam shape points at the enemy
-	_area.rotation = dir.angle()
-	# Flash the beam visual briefly
-	if _beam_visual:
-		_beam_visual.visible = true
-		var tween := _area.create_tween()
-		tween.tween_property(_beam_visual, "visible", false, 0.2)
-	# Host-only: apply damage to all enemies inside the beam Area2D
+	_show_visual.rpc(dir, player.global_position)
+	if multiplayer.is_server():
+		_apply_damage(player.global_position, dir)
+	else:
+		_apply_damage.rpc_id(1, player.global_position, dir)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _apply_damage(origin: Vector2, dir: Vector2) -> void:
 	if not multiplayer.is_server():
 		return
-	for body in _area.get_overlapping_bodies():
-		if body.is_in_group("enemies"):
-			body.take_damage(DAMAGE)
+	var perp: Vector2 = Vector2(-dir.y, dir.x)
+	var hit_radius: float = BEAM_WIDTH / 2.0 + 20.0
+	for enemy in get_tree().get_nodes_in_group("enemies"):
+		var to_enemy: Vector2 = enemy.global_position - origin
+		var along: float = to_enemy.dot(dir)
+		if along < 0.0 or along > BEAM_LENGTH:
+			continue
+		if abs(to_enemy.dot(perp)) <= hit_radius:
+			enemy.take_damage(DAMAGE)
+
+@rpc("any_peer", "call_local", "unreliable_ordered")
+func _show_visual(dir: Vector2, pos: Vector2) -> void:
+	if not is_instance_valid(_area):
+		return
+	_area.global_position = pos
+	_area.rotation = dir.angle()
+	if _beam_visual:
+		_beam_visual.visible = true
+		var tween := create_tween()
+		tween.tween_interval(0.2)
+		tween.tween_callback(func(): if is_instance_valid(_beam_visual): _beam_visual.visible = false)

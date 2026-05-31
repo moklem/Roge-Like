@@ -10,16 +10,28 @@ var _collected: bool = false
 
 func _ready() -> void:
 	body_entered.connect(_on_body_entered)
-	# Update label with weapon_id for debug visibility
 	if has_node("Label"):
 		$Label.text = weapon_id.left(6)
+
+func _process(_delta: float) -> void:
+	for p in get_tree().get_nodes_in_group("players"):
+		if p.peer_id != multiplayer.get_unique_id():
+			continue
+		var wm := p.get_node_or_null("WeaponManager")
+		if wm == null:
+			return
+		visible = wm.unlocked_weapons.size() < wm.MAX_WEAPONS and not wm.unlocked_weapons.has(weapon_id)
+		return
 
 func _on_body_entered(body: Node) -> void:
 	if not body.is_in_group("players"):
 		return
-	# W1: Only the peer who stepped on it sends the RPC — prevents duplicate RPCs from all peers
 	if body.peer_id != multiplayer.get_unique_id():
 		return
+	var wm := body.get_node_or_null("WeaponManager")
+	if wm != null:
+		if wm.unlocked_weapons.size() >= wm.MAX_WEAPONS or wm.unlocked_weapons.has(weapon_id):
+			return
 	if multiplayer.is_server():
 		_request_collect(name, body.peer_id)
 	else:
@@ -33,13 +45,8 @@ func _request_collect(_pickup_name: String, collector_peer_id: int) -> void:
 	if _collected:
 		return  # W1: double-collect guard — second RPC sees true and exits immediately
 	_collected = true
-	# Notify collecting player's peer to add weapon
-	# CR-01 fix: call_remote skips local execution — host must call locally when it is the collector
 	var game := get_node_or_null("/root/Game")
 	if game and game.has_method("weapon_unlocked"):
-		if collector_peer_id == multiplayer.get_unique_id():
-			game.weapon_unlocked(weapon_id)  # host collecting: direct local call
-		else:
-			game.weapon_unlocked.rpc_id(collector_peer_id, weapon_id)  # client collecting: RPC
+		game.weapon_unlocked.rpc(weapon_id, collector_peer_id)
 	# CMBT-09 pattern: queue_free on host propagates to all clients via PickupSpawner
 	queue_free()

@@ -47,37 +47,34 @@ func _setup_timer(weapon_manager: Node) -> void:
 	add_child(_timer)
 
 func _on_fire_timer(weapon_manager: Node) -> void:
-	# W2: Only owning peer's WeaponManager may fire
-	if not weapon_manager.get_parent().is_multiplayer_authority():
-		return
-	_try_fire(weapon_manager)
-
-func _try_fire(weapon_manager: Node) -> void:
 	var player: Node = weapon_manager.get_parent()
-	# Center the shockwave Area2D at the player's position
-	_area.global_position = player.global_position
-	# Visual expanding ring — Tween scales up a temporary ColorRect then frees it
-	_spawn_ring_visual(player)
-	# Host-only: damage all enemies within the full 360° radius
+	if not player.is_multiplayer_authority():
+		return
+	if player.is_downed:
+		return
+	_show_visual.rpc(player.global_position)
 	if not multiplayer.is_server():
 		return
+	_area.global_position = player.global_position
 	for body in _area.get_overlapping_bodies():
 		if body.is_in_group("enemies"):
 			body.take_damage(DAMAGE)
 
-func _spawn_ring_visual(player: Node) -> void:
-	## Tween-based expanding ring (from RESEARCH.md Don't Hand-Roll section).
-	## ColorRect sized to RADIUS*2 × RADIUS*2, centered, scales from 0.1 to 2.0 and fades.
-	var parent_node: Node = player.get_parent()
-	if parent_node == null:
-		return  # Null check: player might not be in scene tree yet
+@rpc("any_peer", "call_local", "unreliable_ordered")
+func _show_visual(pos: Vector2) -> void:
+	if not is_instance_valid(_area):
+		return
+	_area.global_position = pos
+	var game := get_node_or_null("/root/Game")
+	if game == null:
+		return
 	var ring := ColorRect.new()
-	ring.color = Color(1.0, 0.9, 0.0, 0.8)   # yellow horn blast ring
+	ring.color = Color(1.0, 0.9, 0.0, 0.8)
 	ring.size = Vector2(RADIUS * 2.0, RADIUS * 2.0)
 	ring.pivot_offset = Vector2(RADIUS, RADIUS)
-	ring.position = player.global_position - Vector2(RADIUS, RADIUS)
+	ring.position = pos - Vector2(RADIUS, RADIUS)
 	ring.scale = Vector2(0.1, 0.1)
-	parent_node.add_child(ring)  # add to Game scene so it's world-space
+	game.add_child(ring)
 	var tween := ring.create_tween()
 	tween.tween_property(ring, "scale", Vector2(2.0, 2.0), 0.35)
 	tween.parallel().tween_property(ring, "modulate:a", 0.0, 0.35)

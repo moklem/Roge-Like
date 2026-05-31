@@ -54,7 +54,7 @@ func _physics_process(delta: float) -> void:
 	_angle += ORBIT_SPEED * delta
 	# get_parent() == WeaponManager, get_parent().get_parent() == Player
 	var player: Node = get_parent().get_parent()
-	if not is_instance_valid(player):
+	if not is_instance_valid(player) or player.is_downed:
 		return
 	# Update orbit positions — runs on ALL peers for visual sync (D-14 visual half)
 	for i in range(_tires.size()):

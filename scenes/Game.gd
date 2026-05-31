@@ -210,15 +210,10 @@ func _update_revive_bar(target_id: int, progress: float) -> void:
 
 ## WEAP-02 / WEAP-03: Host sends weapon unlock to the collecting player's peer.
 ## @rpc("authority") so only host can call this; call_remote so it runs on the target peer only.
-@rpc("authority", "call_remote", "reliable")
-func weapon_unlocked(weapon_id: String) -> void:
-	# Runs on the collecting player's peer (called via rpc_id(collector_peer_id, weapon_id))
-	var my_player: Node = null
+@rpc("authority", "call_local", "reliable")
+func weapon_unlocked(weapon_id: String, collector_peer_id: int) -> void:
 	for p in get_tree().get_nodes_in_group("players"):
-		if p.peer_id == multiplayer.get_unique_id():
-			my_player = p
-			break
-	if my_player == null:
-		return
-	if my_player.has_node("WeaponManager"):
-		my_player.get_node("WeaponManager").add_weapon(weapon_id)
+		if p.peer_id == collector_peer_id:
+			if p.has_node("WeaponManager"):
+				p.get_node("WeaponManager").add_weapon(weapon_id)
+			return

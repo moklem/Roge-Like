@@ -6,11 +6,14 @@ extends Node
 ## D-15: Max 6 weapons; add_weapon returns false if full (silent cap, no UI in Phase 4).
 ## D-16: reset() called from game-over path; clears all weapons and airbag charge.
 
-const MAX_WEAPONS: int = 6
+const MAX_WEAPONS: int = 3
 const WEAPON_IDS: Array[String] = [
 	"screws_and_bolts", "exhaust_flames", "spinning_tires",
 	"antenna_beam", "horn_shockwave", "airbag_shield"
 ]
+
+## Set true to skip screws auto-fire and start with a random weapon for testing.
+const DEBUG_WEAPON_TEST: bool = true
 
 ## D-02: weapon_id → int (always 1 at unlock in Phase 4; Phase 6 card picks increment this)
 var unlocked_weapons: Array[String] = []
@@ -25,6 +28,9 @@ var _screws_cooldown: float = 0.0
 func _ready() -> void:
 	# D-08: ScrewsAndBolts is always unlocked — migrated from Player._try_fire
 	add_weapon("screws_and_bolts")
+	if DEBUG_WEAPON_TEST:
+		var others: Array[String] = ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave", "airbag_shield"]
+		add_weapon(others[absi(get_parent().peer_id) % others.size()])
 
 ## Called by Player._physics_process each frame (replaces _fire_cooldown block in Player.gd).
 ## D-07 / W2: Authority guard is inside each weapon's fire path.
@@ -38,7 +44,8 @@ func tick(delta: float) -> void:
 		_screws_cooldown -= delta
 		if _screws_cooldown <= 0.0:
 			_screws_cooldown = SCREWS_INTERVAL
-			_fire_screws()
+			if not DEBUG_WEAPON_TEST:
+				_fire_screws()
 
 ## D-08: ScrewsAndBolts fire — migrated from Player._try_fire exactly.
 func _fire_screws() -> void:

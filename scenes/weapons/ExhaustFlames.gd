@@ -59,35 +59,35 @@ func _setup_timer(weapon_manager: Node) -> void:
 	add_child(_timer)
 
 func _on_fire_timer(weapon_manager: Node) -> void:
-	# W2: Only owning peer's WeaponManager reaches this logic
-	# weapon_manager is the WeaponManager node (parent of ExhaustFlames)
-	if not weapon_manager.get_parent().is_multiplayer_authority():
-		return
-	_try_fire(weapon_manager)
-
-func _try_fire(weapon_manager: Node) -> void:
 	var player: Node = weapon_manager.get_parent()
+	if not player.is_multiplayer_authority():
+		return
+	if player.is_downed:
+		return
 	var nearest: Node = weapon_manager._find_nearest_enemy(player)
 	if nearest == null:
 		return
 	var aim_dir: Vector2 = (nearest.global_position - player.global_position).normalized()
-	# Position the cone area at the player's location
-	_area.global_position = player.global_position
-	# Flash visual briefly
-	if _area.has_node("ExhaustVisual"):
-		_area.get_node("ExhaustVisual").visible = true
-		var tween := _area.create_tween()
-		tween.tween_property(_area.get_node("ExhaustVisual"), "visible", false, 0.15)
-	# Host-only damage detection
+	_show_visual.rpc(aim_dir, player.global_position)
 	if not multiplayer.is_server():
 		return
-	# Check all overlapping bodies — filter to the 60° cone behind player
-	# "behind" = opposite of aim_dir (exhaust comes from rear of car)
-	var cone_dir: Vector2 = -aim_dir
+	_area.global_position = player.global_position
 	for body in _area.get_overlapping_bodies():
 		if not body.is_in_group("enemies"):
 			continue
 		var to_enemy: Vector2 = (body.global_position - player.global_position).normalized()
-		var angle: float = cone_dir.angle_to(to_enemy)
-		if abs(angle) <= HALF_ANGLE:
+		if abs(aim_dir.angle_to(to_enemy)) <= HALF_ANGLE:
 			body.take_damage(DAMAGE)
+
+@rpc("any_peer", "call_local", "unreliable_ordered")
+func _show_visual(aim_dir: Vector2, pos: Vector2) -> void:
+	if not is_instance_valid(_area):
+		return
+	_area.global_position = pos
+	_area.rotation = aim_dir.angle()
+	if _area.has_node("ExhaustVisual"):
+		var vis: ColorRect = _area.get_node("ExhaustVisual")
+		vis.visible = true
+		var tween := create_tween()
+		tween.tween_interval(0.15)
+		tween.tween_callback(func(): if is_instance_valid(vis): vis.visible = false)

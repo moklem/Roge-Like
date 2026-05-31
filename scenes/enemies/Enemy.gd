@@ -52,6 +52,8 @@ func _find_nearest_player() -> Node:
 	var nearest: Node = null
 	var nearest_dist: float = INF
 	for p in get_tree().get_nodes_in_group("players"):
+		if p.is_downed:
+			continue
 		var d: float = global_position.distance_to(p.global_position)
 		if d < nearest_dist:
 			nearest_dist = d
@@ -76,6 +78,8 @@ func _on_hurtbox_body_entered(body: Node) -> void:
 	if not is_multiplayer_authority():
 		return
 	if not body.is_in_group("players"):
+		return
+	if body.is_downed:
 		return
 	var pid: int = body.peer_id
 	if _players_in_contact.has(pid):
