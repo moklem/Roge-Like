@@ -4,10 +4,12 @@ extends Node2D
 ## P3: Only host calls spawner.spawn(); clients receive via replication.
 ## P6: Enemy AI runs only on host; clients render synced position.
 
-const PLAYER_SCENE := preload("res://scenes/Player.tscn")
-const ENEMY_SCENE  := preload("res://scenes/enemies/Enemy.tscn")
-const BULLET_SCENE := preload("res://scenes/projectiles/Bullet.tscn")
-const ORB_SCENE    := preload("res://scenes/pickups/XpOrb.tscn")
+const PLAYER_SCENE    := preload("res://scenes/Player.tscn")
+const ENEMY_SCENE     := preload("res://scenes/enemies/Enemy.tscn")
+const BULLET_SCENE    := preload("res://scenes/projectiles/Bullet.tscn")
+const ORB_SCENE       := preload("res://scenes/pickups/XpOrb.tscn")
+const CAR_PART_SCENE  := preload("res://scenes/pickups/CarPartPickup.tscn")
+const CAR_PART_IDS    := ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave", "airbag_shield"]
 
 ## D-13: Revive duration 3-4 seconds (mirrors Player.REVIVE_DURATION)
 const REVIVE_DURATION: float = 3.5
@@ -25,6 +27,9 @@ func _ready() -> void:
 	$EnemySpawner.spawn_function  = _do_spawn_enemy
 	$BulletSpawner.spawn_function = _do_spawn_bullet
 	$PickupSpawner.spawn_function = _do_spawn_pickup
+	# P7: Pre-register ALL scenes PickupSpawner may spawn before any enemy dies
+	$PickupSpawner.add_spawnable_scene("res://scenes/pickups/XpOrb.tscn")
+	$PickupSpawner.add_spawnable_scene("res://scenes/pickups/CarPartPickup.tscn")
 
 	if multiplayer.is_server():
 		_spawn_all_players()   # existing
@@ -76,20 +81,31 @@ func _do_spawn_enemy(data: Dictionary) -> Node:
 	e.died.connect(_on_enemy_died)
 	return e
 
-## CMBT-08: Spawn XP orb when enemy dies (called from Enemy.gd died signal)
+## CMBT-08 / WEAP-01: XP orb always drops; 25% chance to also drop a car-part pickup.
 func _on_enemy_died(pos: Vector2) -> void:
 	if not multiplayer.is_server():
 		return
-	# call_deferred: spawn() modifies physics state (adds Area2D with collision shape).
-	# Calling it directly inside a physics callback chain (area_entered → take_damage → died)
-	# triggers "Can't change state while flushing queries".
-	$PickupSpawner.spawn.call_deferred({"pos": pos})
+	# Always drop XP orb — call_deferred prevents "Can't change state while flushing queries"
+	$PickupSpawner.spawn.call_deferred({"type": "xp_orb", "pos": pos})
+	# D-03: 25% random chance — uniformly random of the 5 car parts
+	if randf() < 0.25:
+		var part_id: String = CAR_PART_IDS[randi() % CAR_PART_IDS.size()]
+		$PickupSpawner.spawn.call_deferred({"type": "car_part", "pos": pos + Vector2(10, 0), "weapon_id": part_id})
 
 func _do_spawn_pickup(data: Dictionary) -> Node:
-	var orb := ORB_SCENE.instantiate()
-	orb.position = data["pos"]
-	orb.name = "XpOrb_%d" % (randi() % 9999)
-	return orb
+	match data.get("type", "xp_orb"):
+		"xp_orb":
+			var orb := ORB_SCENE.instantiate()
+			orb.position = data["pos"]
+			orb.name = "XpOrb_%d" % (randi() % 9999)
+			return orb
+		"car_part":
+			var pickup := CAR_PART_SCENE.instantiate()
+			pickup.position = data["pos"]
+			pickup.weapon_id = data["weapon_id"]
+			pickup.name = "CarPart_%d" % (randi() % 9999)
+			return pickup
+	return null
 
 # ==============================================================================
 # BULLET SPAWNING (CMBT-04, CMBT-05, CMBT-06)
@@ -182,3 +198,22 @@ func _update_revive_bar(target_id: int, progress: float) -> void:
 			# Host calls it via rpc_id so the update reaches the owning peer's client.
 			p.set_revive_progress.rpc_id(target_id, progress)
 			break
+
+# ==============================================================================
+# WEAPON UNLOCK (WEAP-02, WEAP-03)
+# ==============================================================================
+
+## WEAP-02 / WEAP-03: Host sends weapon unlock to the collecting player's peer.
+## @rpc("authority") so only host can call this; call_remote so it runs on the target peer only.
+@rpc("authority", "call_remote", "reliable")
+func weapon_unlocked(weapon_id: String) -> void:
+	# Runs on the collecting player's peer (called via rpc_id(collector_peer_id, weapon_id))
+	var my_player: Node = null
+	for p in get_tree().get_nodes_in_group("players"):
+		if p.peer_id == multiplayer.get_unique_id():
+			my_player = p
+			break
+	if my_player == null:
+		return
+	if my_player.has_node("WeaponManager"):
+		my_player.get_node("WeaponManager").add_weapon(weapon_id)
