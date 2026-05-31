@@ -115,28 +115,28 @@ func reset() -> void:
 func _activate_weapon_node(weapon_id: String) -> void:
 	match weapon_id:
 		"exhaust_flames":
-			var wep := load("res://scenes/weapons/ExhaustFlames.gd").new()
+			var wep: Node = load("res://scenes/weapons/ExhaustFlames.gd").new()
 			wep.name = "ExhaustFlames"
 			call_deferred("add_child", wep)
 			# activate() called via deferred to avoid physics-frame add_child error
 			call_deferred("_deferred_activate_exhaust", wep)
 		"spinning_tires":
-			var wep := load("res://scenes/weapons/SpinningTires.gd").new()
+			var wep: Node = load("res://scenes/weapons/SpinningTires.gd").new()
 			wep.name = "SpinningTires"
 			call_deferred("add_child", wep)
 			call_deferred("_deferred_activate_tires", wep)
 		"antenna_beam":
-			var wep := load("res://scenes/weapons/AntennaBeam.gd").new()
+			var wep: Node = load("res://scenes/weapons/AntennaBeam.gd").new()
 			wep.name = "AntennaBeam"
 			call_deferred("add_child", wep)
 			call_deferred("_deferred_activate_antenna", wep)
 		"horn_shockwave":
-			var wep := load("res://scenes/weapons/HornShockwave.gd").new()
+			var wep: Node = load("res://scenes/weapons/HornShockwave.gd").new()
 			wep.name = "HornShockwave"
 			call_deferred("add_child", wep)
 			call_deferred("_deferred_activate_shockwave", wep)
 		"airbag_shield":
-			var wep := load("res://scenes/weapons/AirbagShield.gd").new()
+			var wep: Node = load("res://scenes/weapons/AirbagShield.gd").new()
 			wep.name = "AirbagShield"
 			call_deferred("add_child", wep)
 			call_deferred("_deferred_activate_airbag", wep)
