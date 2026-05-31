@@ -6,14 +6,14 @@ See: .planning/PROJECT.md (updated 2026-05-05)
 
 **Core value:** The CARIAD HUD must always fire convincingly — every major game event triggers the corresponding vehicle sensor indicator, making the gameplay feel like a real in-car system demo
 
-**Current focus:** Phase 4 — Weapons & Item Pickups (Ready to execute)
+**Current focus:** Phase 4 — Weapons & Item Pickups (Plan 04-01 complete; 04-02 next)
 
 ---
 
 ## Current Phase
 
 **Phase 4: Weapons & Item Pickups**
-Status: Ready to execute
+Status: In progress (04-01 complete)
 Started: 2026-05-31
 Plans: 5 (04-01 through 04-05)
 
@@ -23,15 +23,15 @@ Vampire Survivors weapon loop — enemies drop car-part pickups (25% chance), pl
 
 ### Plans
 
-- 04-01 (Wave 1): CarPartPickup scene + PickupSpawner wiring + 25% drop branch in Game.gd
-- 04-02 (Wave 2): WeaponManager scaffold + ScrewsAndBolts migration + Player.gd refactor
+- [x] 04-01 (Wave 1): CarPartPickup scene + PickupSpawner wiring + 25% drop branch in Game.gd
+- [ ] 04-02 (Wave 2): WeaponManager scaffold + ScrewsAndBolts migration + Player.gd refactor
 - 04-03 (Wave 3): ExhaustFlames + SpinningTires weapon implementations
 - 04-04 (Wave 4): AntennaBeam + HornShockwave weapon implementations
 - 04-05 (Wave 5): AirbagShield visual + GameState death reset
 
 ### Stopped At
 
-Context gathered + research complete + plans created. Ready for /gsd-execute-phase 4.
+04-01 complete (b47997f, ad402fc). Ready for 04-02: WeaponManager scaffold.
 
 ---
 
@@ -85,6 +85,11 @@ See .planning/PROJECT.md → Key Decisions for the full decision log.
 - Driver is NPC auto-system — only 3 human players; HUD fires from game events
 - Host disconnect = game over for all clients (no migration)
 - Elements are a separate pick from role — chosen in lobby same screen as role
+
+**Phase 4 decisions (04-01):**
+- weapon_unlocked RPC lives on Game.gd (not Player.gd) with @rpc("authority") to avoid changing Player RPC checksum
+- CarPartPickup spawns at pos + Vector2(10, 0) to avoid exact overlap with XpOrb on same death position
+- Both XpOrb and CarPartPickup pre-registered with add_spawnable_scene in _ready() (P7 compliance)
 
 ---
 
