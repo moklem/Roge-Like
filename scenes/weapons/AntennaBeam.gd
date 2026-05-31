@@ -68,7 +68,7 @@ func _on_fire_timer(weapon_manager: Node) -> void:
 
 func _try_fire(weapon_manager: Node) -> void:
 	var player: Node = weapon_manager.get_parent()
-	var nearest := weapon_manager._find_nearest_enemy(player)
+	var nearest: Node = weapon_manager._find_nearest_enemy(player)
 	if nearest == null:
 		return  # Pitfall: no enemies alive — safe exit
 	# Aim beam from player toward nearest enemy
