@@ -169,7 +169,7 @@ Plans:
 - [x] 04-02-PLAN.md — WeaponManager scaffold + ScrewsAndBolts migration + Player.gd refactor + airbag interception
 - [x] 04-03-PLAN.md — ExhaustFlames + SpinningTires weapons + WeaponManager activation dispatch
 - [x] 04-04-PLAN.md — AntennaBeam + HornShockwave weapons (parallel to Plan 03)
-- [ ] 04-05-PLAN.md — AirbagShield visual ring + GameState game-over reset integration
+- [x] 04-05-PLAN.md — AirbagShield visual ring + GameState game-over reset integration
 
 Wave 1 *(autonomous)*
 - 04-01: CarPartPickup.tscn + CarPartPickup.gd + Game.gd pickup drop + weapon_unlocked RPC
@@ -327,7 +327,7 @@ Wave 4 *(blocked on Wave 3 — WeaponManager _activate_weapon_node must be fully
 | 1. Network Foundation & Lobby | 2/2 | Complete | 2026-05-09 |
 | 2. Player Movement & Sync | 2/2 | Complete | 2026-05-09 |
 | 3. Room 1, Enemy AI, Combat Core | 5/5 | Complete | 2026-05-09 |
-| 4. Weapons & Item Pickups | 4/5 | In progress | — |
+| 4. Weapons & Item Pickups | 5/5 | Complete | 2026-05-31 |
 | 5. Roles & Elements | 0/? | Not started | — |
 | 6. XP, Level-Up Cards & Evolution | 0/? | Not started | — |
 | 7. CarHUD, Loop Timer & Difficulty Scaling | 0/? | Not started | — |

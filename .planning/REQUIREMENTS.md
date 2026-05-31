@@ -56,8 +56,8 @@
   - **WEAP-06c**: Antenna Beam — long-range piercing laser
   - **WEAP-06d**: Horn Shockwave — close-range area burst
   - **WEAP-06e**: Airbag Shield — brief damage-absorbing shell
-- [ ] **WEAP-07**: Each weapon can be upgraded to level 3 (via card picks); each level improves damage, speed, or area
-- [ ] **WEAP-08**: All active weapons and their levels reset on death
+- [x] **WEAP-07**: Each weapon can be upgraded to level 3 (via card picks); each level improves damage, speed, or area
+- [x] **WEAP-08**: All active weapons and their levels reset on death
 
 ### XP & Level-Up
 
@@ -242,9 +242,9 @@
 | WEAP-06b | Phase 4 | Pending |
 | WEAP-06c | Phase 4 | Complete (04-04) |
 | WEAP-06d | Phase 4 | Complete (04-04) |
-| WEAP-06e | Phase 4 | Pending |
-| WEAP-07 | Phase 4 | Pending |
-| WEAP-08 | Phase 4 | Pending |
+| WEAP-06e | Phase 4 | Complete (04-05) |
+| WEAP-07 | Phase 4 | Complete (04-05) |
+| WEAP-08 | Phase 4 | Complete (04-05) |
 | XP-01 | Phase 5 | Pending |
 | XP-02 | Phase 5 | Pending |
 | XP-03 | Phase 5 | Pending |

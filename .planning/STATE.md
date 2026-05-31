@@ -6,7 +6,7 @@ See: .planning/PROJECT.md (updated 2026-05-05)
 
 **Core value:** The CARIAD HUD must always fire convincingly — every major game event triggers the corresponding vehicle sensor indicator, making the gameplay feel like a real in-car system demo
 
-**Current focus:** Phase 4 — Weapons & Item Pickups (Plan 04-04 complete; 04-05 next)
+**Current focus:** Phase 4 — Weapons & Item Pickups (Plan 04-05 complete; Phase 4 done)
 
 ---
 
@@ -27,11 +27,11 @@ Vampire Survivors weapon loop — enemies drop car-part pickups (25% chance), pl
 - [x] 04-02 (Wave 2): WeaponManager scaffold + ScrewsAndBolts migration + Player.gd refactor
 - [x] 04-03 (Wave 3): ExhaustFlames + SpinningTires weapon implementations
 - [x] 04-04 (Wave 4): AntennaBeam + HornShockwave weapon implementations
-- 04-05 (Wave 5): AirbagShield visual + GameState death reset
+- [x] 04-05 (Wave 5): AirbagShield visual + GameState death reset
 
 ### Stopped At
 
-04-04 complete (be0c1d1, 88e2338). Ready for 04-05: AirbagShield visual + GameState death reset.
+04-05 complete (d951fa6, 1dc72dd). Phase 4 complete. Ready for Phase 5.
 
 ---
 
@@ -108,6 +108,11 @@ See .planning/PROJECT.md → Key Decisions for the full decision log.
 - HornShockwave ring visual adds to player.get_parent() (Game scene) for world-space rendering; null check on get_parent() prevents crash
 - Both antenna_beam and horn_shockwave use two-level security: W2 authority guard + is_server() damage guard
 - WeaponManager.reset() already covered both node_names from Plan 03 — no changes needed to reset()
+
+**Phase 4 decisions (04-05):**
+- AirbagShield ring uses two overlapping ColorRects (outer yellow + transparent inner) centered on Player via WeaponManager child-node hierarchy
+- consume_airbag() encapsulates both flag clear and ring hide — Player.gd delegates instead of writing airbag_active directly
+- GameState._broadcast_game_over resets all WeaponManagers via players group loop before scene change (call_local ensures per-peer execution)
 
 ---
 
