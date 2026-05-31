@@ -1,6 +1,7 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource path="res://scenes/Player.gd" id="1_player" type="Script"]
+[ext_resource path="res://scenes/weapons/WeaponManager.gd" id="2_weapon_manager" type="Script"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_1"]
 radius = 12.0
@@ -64,3 +65,6 @@ max_value = 100.0
 value = 0.0
 show_percentage = false
 visible = false
+
+[node name="WeaponManager" type="Node" parent="."]
+script = ExtResource("2_weapon_manager")
