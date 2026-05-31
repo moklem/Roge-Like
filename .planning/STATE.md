@@ -6,7 +6,7 @@ See: .planning/PROJECT.md (updated 2026-05-05)
 
 **Core value:** The CARIAD HUD must always fire convincingly — every major game event triggers the corresponding vehicle sensor indicator, making the gameplay feel like a real in-car system demo
 
-**Current focus:** Phase 4 — Weapons & Item Pickups (Plan 04-01 complete; 04-02 next)
+**Current focus:** Phase 4 — Weapons & Item Pickups (Plan 04-02 complete; 04-03 next)
 
 ---
 
@@ -24,14 +24,14 @@ Vampire Survivors weapon loop — enemies drop car-part pickups (25% chance), pl
 ### Plans
 
 - [x] 04-01 (Wave 1): CarPartPickup scene + PickupSpawner wiring + 25% drop branch in Game.gd
-- [ ] 04-02 (Wave 2): WeaponManager scaffold + ScrewsAndBolts migration + Player.gd refactor
+- [x] 04-02 (Wave 2): WeaponManager scaffold + ScrewsAndBolts migration + Player.gd refactor
 - 04-03 (Wave 3): ExhaustFlames + SpinningTires weapon implementations
 - 04-04 (Wave 4): AntennaBeam + HornShockwave weapon implementations
 - 04-05 (Wave 5): AirbagShield visual + GameState death reset
 
 ### Stopped At
 
-04-01 complete (b47997f, ad402fc). Ready for 04-02: WeaponManager scaffold.
+04-02 complete (0a552e8, d031a82). Ready for 04-03: ExhaustFlames + SpinningTires weapons.
 
 ---
 
@@ -90,6 +90,12 @@ See .planning/PROJECT.md → Key Decisions for the full decision log.
 - weapon_unlocked RPC lives on Game.gd (not Player.gd) with @rpc("authority") to avoid changing Player RPC checksum
 - CarPartPickup spawns at pos + Vector2(10, 0) to avoid exact overlap with XpOrb on same death position
 - Both XpOrb and CarPartPickup pre-registered with add_spawnable_scene in _ready() (P7 compliance)
+
+**Phase 4 decisions (04-02):**
+- WeaponManager.tick() receives delta from Player._physics_process — no separate _process hook needed
+- add_weapon() silently caps (D-15) and ignores duplicates (D-01); airbag re-arm special case via bool check (D-13)
+- weapon_level dict initialized at 1 on unlock — Phase 6 card picks will increment (D-02)
+- Defensive `has_node("WeaponManager")` guard in Player.gd fire delegation protects solo scene editor tests
 
 ---
 
