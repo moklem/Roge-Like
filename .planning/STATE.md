@@ -6,32 +6,32 @@ See: .planning/PROJECT.md (updated 2026-05-05)
 
 **Core value:** The CARIAD HUD must always fire convincingly — every major game event triggers the corresponding vehicle sensor indicator, making the gameplay feel like a real in-car system demo
 
-**Current focus:** Phase 4 — next phase (TBD)
+**Current focus:** Phase 4 — Weapons & Item Pickups (Ready to execute)
 
 ---
 
 ## Current Phase
 
-**Phase 3: Room 1, Enemy AI, Combat Core**
-Status: Complete
-Started: 2026-05-09
-Completed: 2026-05-09
+**Phase 4: Weapons & Item Pickups**
+Status: Ready to execute
+Started: 2026-05-31
+Plans: 5 (04-01 through 04-05)
 
 ### Phase Goal
 
-Core combat loop — Room 1 playable, enemies chase and damage players, players can die and be revived
+Vampire Survivors weapon loop — enemies drop car-part pickups (25% chance), players collect to unlock up to 6 auto-firing car-themed weapons.
 
-### Plans (all complete)
+### Plans
 
-- 03-01: Navmesh spike + obstacle + spawn points — commit 67ee1db (navmesh baked: human verified)
-- 03-02: Enemy.tscn/gd + XpOrb.tscn/gd — commit c051da6
-- 03-03: Player health/downed/revive + GameOver scene — commit c051da6
-- 03-04: Bullet.tscn/gd + Player auto-fire — commit fa19ced
-- 03-05: Game.gd full combat wiring + GameState game-over — commit 5cb622b
+- 04-01 (Wave 1): CarPartPickup scene + PickupSpawner wiring + 25% drop branch in Game.gd
+- 04-02 (Wave 2): WeaponManager scaffold + ScrewsAndBolts migration + Player.gd refactor
+- 04-03 (Wave 3): ExhaustFlames + SpinningTires weapon implementations
+- 04-04 (Wave 4): AntennaBeam + HornShockwave weapon implementations
+- 04-05 (Wave 5): AirbagShield visual + GameState death reset
 
 ### Stopped At
 
-Phase 3 complete. Awaiting Phase 4 planning.
+Context gathered + research complete + plans created. Ready for /gsd-execute-phase 4.
 
 ---
 
@@ -70,6 +70,7 @@ Completed: 2026-05-09
 | Metric | Value |
 |--------|-------|
 | Phases complete | 3 / 8 |
+| Phase 4 plans created | 5 / 5 |
 | v1 requirements shipped | ~20 / 84 |
 | Active blockers | 0 |
 
