@@ -6,7 +6,7 @@ See: .planning/PROJECT.md (updated 2026-05-05)
 
 **Core value:** The CARIAD HUD must always fire convincingly — every major game event triggers the corresponding vehicle sensor indicator, making the gameplay feel like a real in-car system demo
 
-**Current focus:** Phase 4 — Weapons & Item Pickups (Plan 04-03 complete; 04-04 next)
+**Current focus:** Phase 4 — Weapons & Item Pickups (Plan 04-04 complete; 04-05 next)
 
 ---
 
@@ -26,12 +26,12 @@ Vampire Survivors weapon loop — enemies drop car-part pickups (25% chance), pl
 - [x] 04-01 (Wave 1): CarPartPickup scene + PickupSpawner wiring + 25% drop branch in Game.gd
 - [x] 04-02 (Wave 2): WeaponManager scaffold + ScrewsAndBolts migration + Player.gd refactor
 - [x] 04-03 (Wave 3): ExhaustFlames + SpinningTires weapon implementations
-- 04-04 (Wave 4): AntennaBeam + HornShockwave weapon implementations
+- [x] 04-04 (Wave 4): AntennaBeam + HornShockwave weapon implementations
 - 04-05 (Wave 5): AirbagShield visual + GameState death reset
 
 ### Stopped At
 
-04-03 complete (45b1459, bde4191). Ready for 04-04: AntennaBeam + HornShockwave weapons.
+04-04 complete (be0c1d1, 88e2338). Ready for 04-05: AirbagShield visual + GameState death reset.
 
 ---
 
@@ -103,9 +103,13 @@ See .planning/PROJECT.md → Key Decisions for the full decision log.
 - call_deferred used for both add_child and activate to avoid physics state mutation from pickup collection path
 - WeaponManager.reset() deactivates all 4 timer weapons by name (Plan 04 entries guarded by has_node)
 
----
+**Phase 4 decisions (04-04):**
+- AntennaBeam uses long Area2D (not RayCast2D) — collision_mask=4 gives wall-piercing and all-enemy hit in one get_overlapping_bodies() call
+- HornShockwave ring visual adds to player.get_parent() (Game scene) for world-space rendering; null check on get_parent() prevents crash
+- Both antenna_beam and horn_shockwave use two-level security: W2 authority guard + is_server() damage guard
+- WeaponManager.reset() already covered both node_names from Plan 03 — no changes needed to reset()
 
-## Accumulated Context
+---
 
 ### Architectural Conventions (from research)
 

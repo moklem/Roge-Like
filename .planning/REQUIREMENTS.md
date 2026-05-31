@@ -235,13 +235,13 @@
 | WEAP-01 | Phase 4 | Pending |
 | WEAP-02 | Phase 4 | Pending |
 | WEAP-03 | Phase 4 | Pending |
-| WEAP-04 | Phase 4 | Pending |
+| WEAP-04 | Phase 4 | Complete (04-04) |
 | WEAP-05 | Phase 4 | Pending |
 | WEAP-06 | Phase 4 | Pending |
 | WEAP-06a | Phase 4 | Pending |
 | WEAP-06b | Phase 4 | Pending |
-| WEAP-06c | Phase 4 | Pending |
-| WEAP-06d | Phase 4 | Pending |
+| WEAP-06c | Phase 4 | Complete (04-04) |
+| WEAP-06d | Phase 4 | Complete (04-04) |
 | WEAP-06e | Phase 4 | Pending |
 | WEAP-07 | Phase 4 | Pending |
 | WEAP-08 | Phase 4 | Pending |
