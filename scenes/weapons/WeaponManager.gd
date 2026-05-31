@@ -1,0 +1,104 @@
+extends Node
+## WeaponManager — child of Player.tscn. Owns all weapon unlock state and fire logic.
+## D-06: Holds unlocked_weapons Array, weapon_level Dict, per-weapon Timers.
+## D-07: Authority pattern — owning peer's WM calls fire; host spawns projectile.
+## D-08: ScrewsAndBolts migrated from Player._try_fire (always unlocked on start).
+## D-15: Max 6 weapons; add_weapon returns false if full (silent cap, no UI in Phase 4).
+## D-16: reset() called from game-over path; clears all weapons and airbag charge.
+
+const MAX_WEAPONS: int = 6
+const WEAPON_IDS: Array[String] = [
+	"screws_and_bolts", "exhaust_flames", "spinning_tires",
+	"antenna_beam", "horn_shockwave", "airbag_shield"
+]
+
+## D-02: weapon_id → int (always 1 at unlock in Phase 4; Phase 6 card picks increment this)
+var unlocked_weapons: Array[String] = []
+var weapon_level: Dictionary = {}
+## D-13: Airbag death-prevention charge flag (synced via MultiplayerSynchronizer)
+var airbag_active: bool = false
+
+## Screws-and-bolts fire cooldown (migrated from Player.FIRE_INTERVAL)
+const SCREWS_INTERVAL: float = 0.5
+var _screws_cooldown: float = 0.0
+
+func _ready() -> void:
+	# D-08: ScrewsAndBolts is always unlocked — migrated from Player._try_fire
+	add_weapon("screws_and_bolts")
+
+## Called by Player._physics_process each frame (replaces _fire_cooldown block in Player.gd).
+## D-07 / W2: Authority guard is inside each weapon's fire path.
+func tick(delta: float) -> void:
+	# W2: Only owning peer ticks — all other peers' WeaponManagers tick but the authority
+	# guard inside _fire_screws prevents any spawn action on non-owning peers.
+	if not get_parent().is_multiplayer_authority():
+		return
+	# ScrewsAndBolts cooldown (always active if weapon is unlocked)
+	if unlocked_weapons.has("screws_and_bolts"):
+		_screws_cooldown -= delta
+		if _screws_cooldown <= 0.0:
+			_screws_cooldown = SCREWS_INTERVAL
+			_fire_screws()
+
+## D-08: ScrewsAndBolts fire — migrated from Player._try_fire exactly.
+func _fire_screws() -> void:
+	var player: CharacterBody2D = get_parent()
+	var nearest := _find_nearest_enemy(player)
+	if nearest == null:
+		return
+	var dir: Vector2 = (nearest.global_position - player.global_position).normalized()
+	var game := get_node_or_null("/root/Game")
+	if game == null:
+		return
+	if multiplayer.is_server():
+		if game.has_node("BulletSpawner"):
+			game.get_node("BulletSpawner").spawn({
+				"pos": player.global_position,
+				"dir": dir,
+				"owner_id": player.peer_id
+			})
+	else:
+		if game.has_method("request_fire"):
+			game.request_fire.rpc_id(1, player.global_position, dir, player.peer_id)
+
+## Shared utility — used by ScrewsAndBolts and timer-based weapons (Wave 3).
+func _find_nearest_enemy(player: Node) -> Node:
+	var nearest: Node = null
+	var nearest_dist: float = INF
+	for e in get_tree().get_nodes_in_group("enemies"):
+		var d: float = player.global_position.distance_to(e.global_position)
+		if d < nearest_dist:
+			nearest_dist = d
+			nearest = e
+	return nearest
+
+## WEAP-03: Add weapon by ID. Returns false silently if at cap (D-15) or already unlocked (D-01).
+## Special case: airbag_shield can be 're-armed' (airbag_active set back to true) even when already
+## in unlocked_weapons, as long as the charge was previously consumed (D-13: pick up again to re-arm).
+func add_weapon(weapon_id: String) -> bool:
+	if unlocked_weapons.size() >= MAX_WEAPONS:
+		return false  # D-15: silent cap
+	# D-13 special case: airbag_shield re-arm — second pickup re-arms the charge without re-adding
+	if weapon_id == "airbag_shield" and unlocked_weapons.has(weapon_id):
+		if not airbag_active:
+			airbag_active = true
+			return true  # charge re-armed
+		return false  # already armed — silently ignore (D-01)
+	if unlocked_weapons.has(weapon_id):
+		return false  # D-01: already unlocked — silent ignore (no upgrade in Phase 4)
+	unlocked_weapons.append(weapon_id)
+	weapon_level[weapon_id] = 1  # D-02: Phase 6 will increment this via card picks
+	# Airbag is a passive charge, not a timer weapon
+	if weapon_id == "airbag_shield":
+		airbag_active = true
+	# Wave 3 weapons (Exhaust, SpinningTires, Antenna, Shockwave) wire their activation here
+	return true
+
+## WEAP-08 / D-16: Reset all weapons on death/game-over.
+## Called from GameState._broadcast_game_over (wired in Plan 05).
+func reset() -> void:
+	unlocked_weapons = []
+	weapon_level = {}
+	airbag_active = false
+	_screws_cooldown = 0.0
+	# Wave 3 weapons deactivate their timers in reset (added in Plan 03/04)
