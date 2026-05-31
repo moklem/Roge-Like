@@ -12,7 +12,7 @@ The CARIAD HUD must always fire convincingly — every major game event (ice att
 
 ### Validated
 
-(None yet — ship to validate)
+- WEAP-01 through WEAP-08 — Validated in Phase 4: Weapon loop implemented; 5 car-themed weapons firing; pickup collection and reset confirmed
 
 ### Active
 
@@ -108,4 +108,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-05 after design revision (weapon system, XP/level-up, evolution stages added)*
+*Last updated: 2026-05-31 after Phase 4 completion (weapon system, WeaponManager, 5 car-themed weapons validated)*
