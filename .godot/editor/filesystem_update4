@@ -1,1 +1,4 @@
+res://scenes/weapons/WeaponManager.gd
 res://scenes/Game.gd
+res://scenes/weapons/ExhaustFlames.gd
+res://scenes/weapons/AntennaBeam.gd

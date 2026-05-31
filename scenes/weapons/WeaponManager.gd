@@ -100,8 +100,8 @@ func reset() -> void:
 	# Deactivate all weapon nodes
 	for weapon_id in ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave", "airbag_shield"]:
 		var node_names := {"exhaust_flames": "ExhaustFlames", "spinning_tires": "SpinningTires",
-		                   "antenna_beam": "AntennaBeam", "horn_shockwave": "HornShockwave",
-		                   "airbag_shield": "AirbagShield"}
+						   "antenna_beam": "AntennaBeam", "horn_shockwave": "HornShockwave",
+						   "airbag_shield": "AirbagShield"}
 		var node_name: String = node_names.get(weapon_id, "")
 		if node_name != "" and has_node(node_name):
 			get_node(node_name).deactivate()
