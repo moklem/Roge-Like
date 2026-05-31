@@ -167,7 +167,7 @@ Plans:
 Plans:
 - [x] 04-01-PLAN.md — CarPartPickup scene + PickupSpawner wiring + Game.gd 25% drop branch
 - [x] 04-02-PLAN.md — WeaponManager scaffold + ScrewsAndBolts migration + Player.gd refactor + airbag interception
-- [ ] 04-03-PLAN.md — ExhaustFlames + SpinningTires weapons + WeaponManager activation dispatch
+- [x] 04-03-PLAN.md — ExhaustFlames + SpinningTires weapons + WeaponManager activation dispatch
 - [ ] 04-04-PLAN.md — AntennaBeam + HornShockwave weapons (parallel to Plan 03)
 - [ ] 04-05-PLAN.md — AirbagShield visual ring + GameState game-over reset integration
 
