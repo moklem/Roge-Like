@@ -98,9 +98,10 @@ func add_weapon(weapon_id: String) -> bool:
 ## Called from GameState._broadcast_game_over (wired in Plan 05).
 func reset() -> void:
 	# Deactivate all weapon nodes
-	for weapon_id in ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave"]:
+	for weapon_id in ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave", "airbag_shield"]:
 		var node_names := {"exhaust_flames": "ExhaustFlames", "spinning_tires": "SpinningTires",
-		                   "antenna_beam": "AntennaBeam", "horn_shockwave": "HornShockwave"}
+		                   "antenna_beam": "AntennaBeam", "horn_shockwave": "HornShockwave",
+		                   "airbag_shield": "AirbagShield"}
 		var node_name: String = node_names.get(weapon_id, "")
 		if node_name != "" and has_node(node_name):
 			get_node(node_name).deactivate()
@@ -134,7 +135,11 @@ func _activate_weapon_node(weapon_id: String) -> void:
 			wep.name = "HornShockwave"
 			call_deferred("add_child", wep)
 			call_deferred("_deferred_activate_shockwave", wep)
-		# Airbag Shield has no node (flag only) — handled in add_weapon directly
+		"airbag_shield":
+			var wep := load("res://scenes/weapons/AirbagShield.gd").new()
+			wep.name = "AirbagShield"
+			call_deferred("add_child", wep)
+			call_deferred("_deferred_activate_airbag", wep)
 
 func _deferred_activate_exhaust(wep: Node) -> void:
 	if is_instance_valid(wep):
@@ -151,3 +156,14 @@ func _deferred_activate_antenna(wep: Node) -> void:
 func _deferred_activate_shockwave(wep: Node) -> void:
 	if is_instance_valid(wep):
 		wep.activate(self)
+
+func _deferred_activate_airbag(wep: Node) -> void:
+	if is_instance_valid(wep):
+		wep.activate()
+
+## Called by Player.gd receive_damage after airbag absorbs a lethal hit.
+## Hides the visual ring to reflect consumed charge.
+func consume_airbag() -> void:
+	airbag_active = false
+	if has_node("AirbagShield"):
+		get_node("AirbagShield").hide_ring()

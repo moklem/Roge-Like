@@ -94,7 +94,7 @@ func receive_damage(amount: int) -> void:
 	# D-13: Airbag Shield intercepts lethal hits — absorb hit, health stays at 1, charge consumed
 	if health - amount <= 0 and has_node("WeaponManager") and $WeaponManager.airbag_active:
 		health = 1
-		$WeaponManager.airbag_active = false
+		$WeaponManager.consume_airbag()
 		print("Airbag absorbed lethal hit! hp=1")
 		return
 	health -= amount
