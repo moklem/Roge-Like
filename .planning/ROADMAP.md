@@ -133,7 +133,7 @@ Plans:
 
 ### Phase 4: Weapons & Item Pickups
 
-**Goal:** Vampire Survivors weapon loop — enemies drop car-part pickups, player collects to unlock/upgrade weapons
+**Goal:** Vampire Survivors weapon loop — enemies drop car-part pickups, player collects to unlock weapons; 5 car-themed weapons implemented; WeaponManager is child of Player. Phase 4 = unlock only (Level 1); upgrades come in Phase 6.
 **UI hint:** no
 
 **Requirements:**
@@ -161,6 +161,28 @@ Plans:
 - W2 (weapon timers fire on clients) — weapon `fire()` method must guard with authority check; timers run on all peers but only host executes the actual spawn logic
 - P7 (spawnable list gaps) — all 5 weapon projectile scenes and all car-part pickup scenes must be pre-registered in MultiplayerSpawner before testing any of them
 - P8 (GameState not authoritative) — weapon loadout changes must flow through host; client sends pick selection RPC to host, host confirms and broadcasts loadout update to all peers
+
+**Plans:** 5 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — CarPartPickup scene + PickupSpawner wiring + Game.gd 25% drop branch
+- [ ] 04-02-PLAN.md — WeaponManager scaffold + ScrewsAndBolts migration + Player.gd refactor + airbag interception
+- [ ] 04-03-PLAN.md — ExhaustFlames + SpinningTires weapons + WeaponManager activation dispatch
+- [ ] 04-04-PLAN.md — AntennaBeam + HornShockwave weapons (parallel to Plan 03)
+- [ ] 04-05-PLAN.md — AirbagShield visual ring + GameState game-over reset integration
+
+Wave 1 *(autonomous)*
+- 04-01: CarPartPickup.tscn + CarPartPickup.gd + Game.gd pickup drop + weapon_unlocked RPC
+
+Wave 2 *(blocked on Wave 1 — weapon_unlocked RPC must exist)*
+- 04-02: WeaponManager.gd + Player.tscn + Player.gd refactor + airbag receive_damage
+
+Wave 3 *(parallel — blocked on Wave 2, no file overlap between 03 and 04)*
+- 04-03: ExhaustFlames.gd + SpinningTires.gd + WeaponManager _activate_weapon_node (exhaust, tires)
+- 04-04: AntennaBeam.gd + HornShockwave.gd + WeaponManager dispatch (antenna, shockwave)
+
+Wave 4 *(blocked on Wave 3 — WeaponManager _activate_weapon_node must be fully wired)*
+- 04-05: AirbagShield.gd + WeaponManager airbag wiring + GameState._broadcast_game_over reset
 
 ---
 
