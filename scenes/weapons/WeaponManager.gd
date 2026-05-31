@@ -124,7 +124,16 @@ func _activate_weapon_node(weapon_id: String) -> void:
 			wep.name = "SpinningTires"
 			call_deferred("add_child", wep)
 			call_deferred("_deferred_activate_tires", wep)
-		# Antenna Beam and Horn Shockwave added by Plan 04
+		"antenna_beam":
+			var wep := load("res://scenes/weapons/AntennaBeam.gd").new()
+			wep.name = "AntennaBeam"
+			call_deferred("add_child", wep)
+			call_deferred("_deferred_activate_antenna", wep)
+		"horn_shockwave":
+			var wep := load("res://scenes/weapons/HornShockwave.gd").new()
+			wep.name = "HornShockwave"
+			call_deferred("add_child", wep)
+			call_deferred("_deferred_activate_shockwave", wep)
 		# Airbag Shield has no node (flag only) — handled in add_weapon directly
 
 func _deferred_activate_exhaust(wep: Node) -> void:
@@ -134,3 +143,11 @@ func _deferred_activate_exhaust(wep: Node) -> void:
 func _deferred_activate_tires(wep: Node) -> void:
 	if is_instance_valid(wep):
 		wep.activate()
+
+func _deferred_activate_antenna(wep: Node) -> void:
+	if is_instance_valid(wep):
+		wep.activate(self)
+
+func _deferred_activate_shockwave(wep: Node) -> void:
+	if is_instance_valid(wep):
+		wep.activate(self)
