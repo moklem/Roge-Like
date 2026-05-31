@@ -47,4 +47,10 @@ func track_downed(_peer_id: int) -> void:
 ## D-14: Broadcast game over to all peers including host (call_local)
 @rpc("authority", "call_local", "reliable")
 func _broadcast_game_over() -> void:
+	## D-16 / WEAP-08: Reset all weapon managers before scene change.
+	## Runs on ALL peers (call_local) — each peer resets its own local player's WeaponManager.
+	## Using get_nodes_in_group so it works on any peer without needing host authority.
+	for p in get_tree().get_nodes_in_group("players"):
+		if p.has_node("WeaponManager"):
+			p.get_node("WeaponManager").reset()
 	get_tree().change_scene_to_file("res://scenes/ui/GameOver.tscn")
