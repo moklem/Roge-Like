@@ -34,8 +34,12 @@ func _request_collect(_pickup_name: String, collector_peer_id: int) -> void:
 		return  # W1: double-collect guard — second RPC sees true and exits immediately
 	_collected = true
 	# Notify collecting player's peer to add weapon
+	# CR-01 fix: call_remote skips local execution — host must call locally when it is the collector
 	var game := get_node_or_null("/root/Game")
 	if game and game.has_method("weapon_unlocked"):
-		game.weapon_unlocked.rpc_id(collector_peer_id, weapon_id)
+		if collector_peer_id == multiplayer.get_unique_id():
+			game.weapon_unlocked(weapon_id)  # host collecting: direct local call
+		else:
+			game.weapon_unlocked.rpc_id(collector_peer_id, weapon_id)  # client collecting: RPC
 	# CMBT-09 pattern: queue_free on host propagates to all clients via PickupSpawner
 	queue_free()

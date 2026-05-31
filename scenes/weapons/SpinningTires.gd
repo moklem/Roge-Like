@@ -2,7 +2,7 @@ extends Node
 ## SpinningTires — 3 Area2D nodes orbit player continuously.
 ## D-10: 120° apart, 50px radius, ORBIT_SPEED radians/sec.
 ## D-14: Visual orbit runs on ALL peers (children of Player via WeaponManager child).
-##       Damage detection is HOST-ONLY (is_multiplayer_authority() guard on damage path).
+##       Damage detection is HOST-ONLY (multiplayer.is_server() guard on damage path).
 ## Uses _hit_times Dictionary per-enemy to avoid damage faster than HIT_COOLDOWN (0.5s).
 
 const ORBIT_RADIUS: float = 50.0
@@ -62,8 +62,8 @@ func _physics_process(delta: float) -> void:
 		_tires[i].global_position = player.global_position + Vector2(
 			cos(angle_offset), sin(angle_offset)
 		) * ORBIT_RADIUS
-	# D-14: Host-only damage detection
-	if not player.is_multiplayer_authority():
+	# D-14: Host-only damage detection (CR-03 fix: use is_server(), not is_multiplayer_authority())
+	if not multiplayer.is_server():
 		return
 	var now: float = Time.get_unix_time_from_system()
 	for tire in _tires:
