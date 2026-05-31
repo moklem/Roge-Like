@@ -91,14 +91,46 @@ func add_weapon(weapon_id: String) -> bool:
 	# Airbag is a passive charge, not a timer weapon
 	if weapon_id == "airbag_shield":
 		airbag_active = true
-	# Wave 3 weapons (Exhaust, SpinningTires, Antenna, Shockwave) wire their activation here
+	_activate_weapon_node(weapon_id)
 	return true
 
 ## WEAP-08 / D-16: Reset all weapons on death/game-over.
 ## Called from GameState._broadcast_game_over (wired in Plan 05).
 func reset() -> void:
+	# Deactivate all weapon nodes
+	for weapon_id in ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave"]:
+		var node_names := {"exhaust_flames": "ExhaustFlames", "spinning_tires": "SpinningTires",
+		                   "antenna_beam": "AntennaBeam", "horn_shockwave": "HornShockwave"}
+		var node_name: String = node_names.get(weapon_id, "")
+		if node_name != "" and has_node(node_name):
+			get_node(node_name).deactivate()
+			get_node(node_name).queue_free()
 	unlocked_weapons = []
 	weapon_level = {}
 	airbag_active = false
 	_screws_cooldown = 0.0
-	# Wave 3 weapons deactivate their timers in reset (added in Plan 03/04)
+
+## Called by add_weapon() to instantiate and activate a weapon node.
+func _activate_weapon_node(weapon_id: String) -> void:
+	match weapon_id:
+		"exhaust_flames":
+			var wep := load("res://scenes/weapons/ExhaustFlames.gd").new()
+			wep.name = "ExhaustFlames"
+			call_deferred("add_child", wep)
+			# activate() called via deferred to avoid physics-frame add_child error
+			call_deferred("_deferred_activate_exhaust", wep)
+		"spinning_tires":
+			var wep := load("res://scenes/weapons/SpinningTires.gd").new()
+			wep.name = "SpinningTires"
+			call_deferred("add_child", wep)
+			call_deferred("_deferred_activate_tires", wep)
+		# Antenna Beam and Horn Shockwave added by Plan 04
+		# Airbag Shield has no node (flag only) — handled in add_weapon directly
+
+func _deferred_activate_exhaust(wep: Node) -> void:
+	if is_instance_valid(wep):
+		wep.activate(self)
+
+func _deferred_activate_tires(wep: Node) -> void:
+	if is_instance_valid(wep):
+		wep.activate()
