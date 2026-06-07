@@ -18,8 +18,23 @@ size = Vector2(800, 32)
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_v"]
 size = Vector2(32, 600)
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_obs"]
-size = Vector2(80, 80)
+[sub_resource type="RectangleShape2D" id="RectShp_divT"]
+size = Vector2(40, 158)
+
+[sub_resource type="RectangleShape2D" id="RectShp_divB"]
+size = Vector2(40, 198)
+
+[sub_resource type="RectangleShape2D" id="RectShp_60"]
+size = Vector2(60, 60)
+
+[sub_resource type="RectangleShape2D" id="RectShp_50"]
+size = Vector2(50, 50)
+
+[sub_resource type="RectangleShape2D" id="RectShp_40"]
+size = Vector2(40, 40)
+
+[sub_resource type="RectangleShape2D" id="RectShp_hwall"]
+size = Vector2(120, 28)
 
 [node name="Game" type="Node2D" unique_id=1590491663]
 script = ExtResource("1_game")
@@ -40,13 +55,13 @@ navigation_polygon = SubResource("NavigationPolygon_1")
 [node name="SpawnPoints" type="Node2D" parent="Room1" unique_id=1642807479]
 
 [node name="Spawn1" type="Marker2D" parent="Room1/SpawnPoints" unique_id=106775121]
-position = Vector2(400, 300)
+position = Vector2(200, 300)
 
 [node name="Spawn2" type="Marker2D" parent="Room1/SpawnPoints" unique_id=1666777724]
-position = Vector2(350, 300)
+position = Vector2(180, 260)
 
 [node name="Spawn3" type="Marker2D" parent="Room1/SpawnPoints" unique_id=308491681]
-position = Vector2(450, 300)
+position = Vector2(220, 340)
 
 [node name="WallTop" type="StaticBody2D" parent="Room1" unique_id=122560596]
 position = Vector2(400, 16)
@@ -94,16 +109,159 @@ polygon = PackedVector2Array(-16, -300, 16, -300, 16, 300, -16, 300)
 
 [node name="Entities" type="Node2D" parent="Room1" unique_id=956877230]
 
-[node name="ObstacleCenter" type="StaticBody2D" parent="Room1" unique_id=357153136]
-position = Vector2(400, 300)
+[node name="DividerTop" type="StaticBody2D" parent="Room1" unique_id=2000000001]
+position = Vector2(400, 121)
 collision_mask = 0
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/ObstacleCenter" unique_id=2090159146]
-shape = SubResource("RectangleShape2D_obs")
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/DividerTop" unique_id=2000000002]
+shape = SubResource("RectShp_divT")
 
-[node name="Visual" type="Polygon2D" parent="Room1/ObstacleCenter" unique_id=84647790]
+[node name="Visual" type="Polygon2D" parent="Room1/DividerTop" unique_id=2000000003]
+color = Color(0.35, 0.35, 0.35, 1)
+polygon = PackedVector2Array(-20, -79, 20, -79, 20, 79, -20, 79)
+
+[node name="DividerBottom" type="StaticBody2D" parent="Room1" unique_id=2000000004]
+position = Vector2(400, 459)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/DividerBottom" unique_id=2000000005]
+shape = SubResource("RectShp_divB")
+
+[node name="Visual" type="Polygon2D" parent="Room1/DividerBottom" unique_id=2000000006]
+color = Color(0.35, 0.35, 0.35, 1)
+polygon = PackedVector2Array(-20, -99, 20, -99, 20, 99, -20, 99)
+
+[node name="ObstNW" type="StaticBody2D" parent="Room1" unique_id=2000000007]
+position = Vector2(150, 140)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/ObstNW" unique_id=2000000008]
+shape = SubResource("RectShp_60")
+
+[node name="Visual" type="Polygon2D" parent="Room1/ObstNW" unique_id=2000000009]
 color = Color(0.3, 0.3, 0.3, 1)
-polygon = PackedVector2Array(-40, -40, 40, -40, 40, 40, -40, 40)
+polygon = PackedVector2Array(-30, -30, 30, -30, 30, 30, -30, 30)
+
+[node name="ObstSW" type="StaticBody2D" parent="Room1" unique_id=2000000010]
+position = Vector2(150, 460)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/ObstSW" unique_id=2000000011]
+shape = SubResource("RectShp_60")
+
+[node name="Visual" type="Polygon2D" parent="Room1/ObstSW" unique_id=2000000012]
+color = Color(0.3, 0.3, 0.3, 1)
+polygon = PackedVector2Array(-30, -30, 30, -30, 30, 30, -30, 30)
+
+[node name="ObstCL" type="StaticBody2D" parent="Room1" unique_id=2000000013]
+position = Vector2(265, 300)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/ObstCL" unique_id=2000000014]
+shape = SubResource("RectShp_50")
+
+[node name="Visual" type="Polygon2D" parent="Room1/ObstCL" unique_id=2000000015]
+color = Color(0.3, 0.3, 0.3, 1)
+polygon = PackedVector2Array(-25, -25, 25, -25, 25, 25, -25, 25)
+
+[node name="CoverL1" type="StaticBody2D" parent="Room1" unique_id=2000000034]
+position = Vector2(310, 170)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/CoverL1" unique_id=2000000035]
+shape = SubResource("RectShp_hwall")
+
+[node name="Visual" type="Polygon2D" parent="Room1/CoverL1" unique_id=2000000036]
+color = Color(0.3, 0.3, 0.3, 1)
+polygon = PackedVector2Array(-60, -14, 60, -14, 60, 14, -60, 14)
+
+[node name="CoverL2" type="StaticBody2D" parent="Room1" unique_id=2000000037]
+position = Vector2(310, 430)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/CoverL2" unique_id=2000000038]
+shape = SubResource("RectShp_hwall")
+
+[node name="Visual" type="Polygon2D" parent="Room1/CoverL2" unique_id=2000000039]
+color = Color(0.3, 0.3, 0.3, 1)
+polygon = PackedVector2Array(-60, -14, 60, -14, 60, 14, -60, 14)
+
+[node name="ObstNE" type="StaticBody2D" parent="Room1" unique_id=2000000016]
+position = Vector2(590, 140)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/ObstNE" unique_id=2000000017]
+shape = SubResource("RectShp_60")
+
+[node name="Visual" type="Polygon2D" parent="Room1/ObstNE" unique_id=2000000018]
+color = Color(0.3, 0.3, 0.3, 1)
+polygon = PackedVector2Array(-30, -30, 30, -30, 30, 30, -30, 30)
+
+[node name="ObstSE" type="StaticBody2D" parent="Room1" unique_id=2000000019]
+position = Vector2(590, 460)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/ObstSE" unique_id=2000000020]
+shape = SubResource("RectShp_60")
+
+[node name="Visual" type="Polygon2D" parent="Room1/ObstSE" unique_id=2000000021]
+color = Color(0.3, 0.3, 0.3, 1)
+polygon = PackedVector2Array(-30, -30, 30, -30, 30, 30, -30, 30)
+
+[node name="ObstCR" type="StaticBody2D" parent="Room1" unique_id=2000000022]
+position = Vector2(640, 300)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/ObstCR" unique_id=2000000023]
+shape = SubResource("RectShp_50")
+
+[node name="Visual" type="Polygon2D" parent="Room1/ObstCR" unique_id=2000000024]
+color = Color(0.3, 0.3, 0.3, 1)
+polygon = PackedVector2Array(-25, -25, 25, -25, 25, 25, -25, 25)
+
+[node name="ObstPassN" type="StaticBody2D" parent="Room1" unique_id=2000000025]
+position = Vector2(500, 240)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/ObstPassN" unique_id=2000000026]
+shape = SubResource("RectShp_40")
+
+[node name="Visual" type="Polygon2D" parent="Room1/ObstPassN" unique_id=2000000027]
+color = Color(0.3, 0.3, 0.3, 1)
+polygon = PackedVector2Array(-20, -20, 20, -20, 20, 20, -20, 20)
+
+[node name="ObstPassS" type="StaticBody2D" parent="Room1" unique_id=2000000028]
+position = Vector2(500, 360)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/ObstPassS" unique_id=2000000029]
+shape = SubResource("RectShp_40")
+
+[node name="Visual" type="Polygon2D" parent="Room1/ObstPassS" unique_id=2000000030]
+color = Color(0.3, 0.3, 0.3, 1)
+polygon = PackedVector2Array(-20, -20, 20, -20, 20, 20, -20, 20)
+
+[node name="CoverR1" type="StaticBody2D" parent="Room1" unique_id=2000000040]
+position = Vector2(700, 200)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/CoverR1" unique_id=2000000041]
+shape = SubResource("RectShp_hwall")
+
+[node name="Visual" type="Polygon2D" parent="Room1/CoverR1" unique_id=2000000042]
+color = Color(0.3, 0.3, 0.3, 1)
+polygon = PackedVector2Array(-60, -14, 60, -14, 60, 14, -60, 14)
+
+[node name="CoverR2" type="StaticBody2D" parent="Room1" unique_id=2000000043]
+position = Vector2(700, 400)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room1/CoverR2" unique_id=2000000044]
+shape = SubResource("RectShp_hwall")
+
+[node name="Visual" type="Polygon2D" parent="Room1/CoverR2" unique_id=2000000045]
+color = Color(0.3, 0.3, 0.3, 1)
+polygon = PackedVector2Array(-60, -14, 60, -14, 60, 14, -60, 14)
 
 [node name="EnemySpawnPoints" type="Node2D" parent="Room1" unique_id=444940128]
 
@@ -111,16 +269,25 @@ polygon = PackedVector2Array(-40, -40, 40, -40, 40, 40, -40, 40)
 position = Vector2(100, 100)
 
 [node name="ESpawn2" type="Marker2D" parent="Room1/EnemySpawnPoints" unique_id=1471998986]
-position = Vector2(700, 100)
-
-[node name="ESpawn3" type="Marker2D" parent="Room1/EnemySpawnPoints" unique_id=1401336536]
 position = Vector2(100, 500)
 
+[node name="ESpawn3" type="Marker2D" parent="Room1/EnemySpawnPoints" unique_id=1401336536]
+position = Vector2(250, 200)
+
 [node name="ESpawn4" type="Marker2D" parent="Room1/EnemySpawnPoints" unique_id=1829667278]
-position = Vector2(700, 500)
+position = Vector2(620, 80)
 
 [node name="ESpawn5" type="Marker2D" parent="Room1/EnemySpawnPoints" unique_id=1114534836]
-position = Vector2(400, 150)
+position = Vector2(620, 520)
+
+[node name="ESpawn6" type="Marker2D" parent="Room1/EnemySpawnPoints" unique_id=2000000031]
+position = Vector2(720, 300)
+
+[node name="ESpawn7" type="Marker2D" parent="Room1/EnemySpawnPoints" unique_id=2000000032]
+position = Vector2(530, 130)
+
+[node name="ESpawn8" type="Marker2D" parent="Room1/EnemySpawnPoints" unique_id=2000000033]
+position = Vector2(530, 470)
 
 [node name="HUD" type="CanvasLayer" parent="." unique_id=1971261314]
 

@@ -14,7 +14,7 @@ const CAR_PART_IDS    := ["exhaust_flames", "spinning_tires", "antenna_beam", "h
 ## D-13: Revive duration 3-4 seconds (mirrors Player.REVIVE_DURATION)
 const REVIVE_DURATION: float = 3.5
 ## D-19: Max enemies to spawn at game start
-const INITIAL_ENEMY_COUNT: int = 5
+const INITIAL_ENEMY_COUNT: int = 8
 ## Proximity range for revive validation on host
 const REVIVE_PROXIMITY: float = 80.0
 
@@ -31,9 +31,16 @@ func _ready() -> void:
 	$PickupSpawner.add_spawnable_scene("res://scenes/pickups/XpOrb.tscn")
 	$PickupSpawner.add_spawnable_scene("res://scenes/pickups/CarPartPickup.tscn")
 
+	# Bake navigation polygon at runtime so new obstacles are properly carved out
+	call_deferred("_bake_navigation")
 	if multiplayer.is_server():
 		_spawn_all_players()   # existing
 		_spawn_enemies()       # CMBT-03: D-19 fixed spawn points, 3-5 enemies
+
+func _bake_navigation() -> void:
+	var nav := get_node_or_null("Room1/NavigationRegion2D")
+	if nav:
+		nav.bake_navigation_polygon(false)
 
 # ==============================================================================
 # PLAYER SPAWNING (existing — unchanged)

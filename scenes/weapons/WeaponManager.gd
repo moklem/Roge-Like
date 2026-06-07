@@ -13,7 +13,7 @@ const WEAPON_IDS: Array[String] = [
 ]
 
 ## Set true to skip screws auto-fire and start with a random weapon for testing.
-const DEBUG_WEAPON_TEST: bool = true
+const DEBUG_WEAPON_TEST: bool = false
 
 ## D-02: weapon_id → int (always 1 at unlock in Phase 4; Phase 6 card picks increment this)
 var unlocked_weapons: Array[String] = []
