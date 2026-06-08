@@ -1,0 +1,8 @@
+# Godot editor cache
+.godot/
+
+# Import cache
+*.import
+
+# macOS
+.DS_Store
