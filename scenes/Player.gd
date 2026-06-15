@@ -223,10 +223,73 @@ func _use_second_dash() -> void:
 	_spawn_dash_shockwave(global_position)
 	_dash_window_timer = 0.0  # close the window — sequence complete
 
-## Phase 5: Passive element timer tick stub — filled by Plan 05-04 (Fire/Ice/Earth elements).
-## Handles Ice Trail spawn, Fire Burst auto-fire, Earth heal/shockwave timers.
-func _tick_element(_delta: float) -> void:
-	pass
+## Phase 5 Plan 04: Passive element timer tick — Fire Burst auto-fire + Ice Trail spawn request.
+## Runs inside _physics_process which is already authority-guarded — only owning peer ticks.
+## D-17 (ELEM-02): Fire Burst every 4s at nearest enemy with force_burn flag.
+## D-18 (ELEM-04): Ice Trail zone requested every 0.3s while moving (velocity.length() >= 10).
+func _tick_element(delta: float) -> void:
+	match element:
+		"fire":
+			# D-17 (ELEM-02): Fire Burst auto-fire timer (4s cooldown — Claude's discretion)
+			_fire_burst_timer -= delta
+			if _fire_burst_timer <= 0.0:
+				_fire_burst_timer = 4.0
+				_fire_burst()
+		"ice":
+			# D-18 (ELEM-04): Ice Trail — only while moving (velocity threshold)
+			if velocity.length() < 10.0:
+				return  # idle — no trail spawned
+			_ice_trail_timer -= delta
+			if _ice_trail_timer <= 0.0:
+				_ice_trail_timer = 0.3
+				var game := get_node_or_null("/root/Game")
+				if game and game.has_method("request_ice_trail"):
+					if multiplayer.is_server():
+						game.request_ice_trail(global_position)
+					else:
+						game.request_ice_trail.rpc_id(1, global_position)
+
+## D-17 (ELEM-02): Fire Burst — auto-fire 3-5 projectiles at nearest enemy with 100% burn proc.
+## Modelled on WeaponManager._fire_screws() lines 51-69. Fires on the owning peer's authority;
+## host spawns directly, client sends request_fire RPC. "fire_burst": true in dict so Plan 05
+## _do_spawn_bullet extension can set force_burn on the spawned bullet.
+func _fire_burst() -> void:
+	var nearest := _find_nearest_enemy_global()
+	if nearest == null:
+		return
+	var base_dir: Vector2 = (nearest.global_position - global_position).normalized()
+	var game := get_node_or_null("/root/Game")
+	if game == null:
+		return
+	var count: int = randi_range(3, 5)
+	for i in range(count):
+		var spread: Vector2 = base_dir.rotated(randf_range(-0.3, 0.3))
+		if multiplayer.is_server():
+			if game.has_node("BulletSpawner"):
+				game.get_node("BulletSpawner").spawn({
+					"pos": global_position,
+					"dir": spread,
+					"owner_id": peer_id,
+					"fire_burst": true   # Plan 05 _do_spawn_bullet sets b.force_burn = true
+				})
+		else:
+			if game.has_method("request_fire"):
+				game.request_fire.rpc_id(1, global_position, spread, peer_id)
+	# ELEM-07: HUD event — host-only (T-05-14 mitigation)
+	if multiplayer.is_server():
+		GameEvents.emit_hud("engine")
+
+## Helper: find the nearest enemy node in group "enemies" using global_position.
+## Cloned from WeaponManager._find_nearest_enemy but operates on self.global_position.
+func _find_nearest_enemy_global() -> Node:
+	var nearest: Node = null
+	var nearest_dist: float = INF
+	for e in get_tree().get_nodes_in_group("enemies"):
+		var d: float = global_position.distance_to(e.global_position)
+		if d < nearest_dist:
+			nearest_dist = d
+			nearest = e
+	return nearest
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Plan 02 helpers — Tank shield
