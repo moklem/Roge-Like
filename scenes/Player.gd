@@ -380,6 +380,9 @@ func _spawn_dash_shockwave(pos: Vector2) -> void:
 			if enemy.has_method("take_damage"):
 				enemy.take_damage(DASH_SHOCK_DAMAGE)
 			# Knockback: push enemy away from shockwave origin
+			# CR-005: guard against freed enemy (take_damage may queue_free if enemy dies)
+			if not is_instance_valid(enemy) or enemy.is_queued_for_deletion():
+				continue
 			enemy.velocity += (enemy.global_position - pos).normalized() * 300.0
 
 ## Visual-only RPC for Speedster shockwave ring — yellow, 80px radius.
