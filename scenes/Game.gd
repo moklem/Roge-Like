@@ -295,9 +295,13 @@ func request_deploy_drone(requester_peer_id: int) -> void:
 	if not multiplayer.is_server():
 		return
 	# D-14: Remove existing drone for this engineer (max 1 active)
-	for child in get_children():
-		if child.name == "HealDrone_%d" % requester_peer_id:
-			child.queue_free()
+	# DroneSpawner uses spawn_path "../Room1/Entities" — search there, not Game's direct children
+	var entities := get_node_or_null("Room1/Entities")
+	if entities:
+		for child in entities.get_children():
+			if child.name == "HealDrone_%d" % requester_peer_id:
+				child.queue_free()
+				break
 	# Validate: engineer must exist and not be downed
 	var player_node: Node = null
 	for p in get_tree().get_nodes_in_group("players"):
