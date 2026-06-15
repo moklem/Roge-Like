@@ -10,6 +10,8 @@ const BULLET_SCENE    := preload("res://scenes/projectiles/Bullet.tscn")
 const ORB_SCENE       := preload("res://scenes/pickups/XpOrb.tscn")
 const CAR_PART_SCENE  := preload("res://scenes/pickups/CarPartPickup.tscn")
 const CAR_PART_IDS    := ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave", "airbag_shield"]
+## Phase 5 Plan 03 (D-14, D-15, D-21): Engineer Heal Drone spawnable scene
+const HEAL_DRONE_SCENE := preload("res://scenes/roles/HealDrone.tscn")
 
 ## D-13: Revive duration 3-4 seconds (mirrors Player.REVIVE_DURATION)
 const REVIVE_DURATION: float = 3.5
@@ -21,6 +23,9 @@ const REVIVE_PROXIMITY: float = 80.0
 ## Revive accumulator — keyed by target player peer_id → seconds accumulated
 var _revive_progress: Dictionary = {}
 
+## Phase 5 Plan 03 (D-13, ROLE-07): Engineer passive heal accumulator (host-only)
+var _engineer_passive_accum: float = 0.0
+
 func _ready() -> void:
 	# P7: custom spawn_functions forward data Dictionary to every peer automatically
 	$MultiplayerSpawner.spawn_function = _do_spawn         # players (existing)
@@ -30,6 +35,9 @@ func _ready() -> void:
 	# P7: Pre-register ALL scenes PickupSpawner may spawn before any enemy dies
 	$PickupSpawner.add_spawnable_scene("res://scenes/pickups/XpOrb.tscn")
 	$PickupSpawner.add_spawnable_scene("res://scenes/pickups/CarPartPickup.tscn")
+	# Phase 5 Plan 03 (D-14, D-21): DroneSpawner for Engineer Heal Drone (P7 pre-register)
+	$DroneSpawner.spawn_function = _do_spawn_drone
+	$DroneSpawner.add_spawnable_scene("res://scenes/roles/HealDrone.tscn")
 
 	# Bake navigation polygon at runtime so new obstacles are properly carved out
 	call_deferred("_bake_navigation")
@@ -224,3 +232,72 @@ func weapon_unlocked(weapon_id: String, collector_peer_id: int) -> void:
 			if p.has_node("WeaponManager"):
 				p.get_node("WeaponManager").add_weapon(weapon_id)
 			return
+
+# ==============================================================================
+# ENGINEER HEAL DRONE (ROLE-07, ROLE-08, ROLE-09 — Phase 5 Plan 03)
+# ==============================================================================
+
+## P8: host-only _process for Engineer passive heal timer.
+## Clients skip all passive heal logic — host broadcasts via receive_heal rpc_id.
+func _process(delta: float) -> void:
+	if not multiplayer.is_server():
+		return
+	_tick_engineer_passive(delta)
+
+## D-13 (ROLE-07): Engineer passive — every 5s, +10 HP to all OTHER players within 200px.
+## Pitfall 6: uses rpc_id routing (direct on host, rpc_id on remote) — mirrors Enemy.gd lines 91-94.
+func _tick_engineer_passive(delta: float) -> void:
+	_engineer_passive_accum += delta
+	if _engineer_passive_accum < 5.0:
+		return
+	_engineer_passive_accum = 0.0
+	# Find all Engineers (by role_label) that are not downed
+	for eng in get_tree().get_nodes_in_group("players"):
+		if eng.role_label != "Engineer" or eng.is_downed:
+			continue
+		# Heal all OTHER nearby players within 200px
+		for target in get_tree().get_nodes_in_group("players"):
+			if target == eng:
+				continue  # Engineer does not heal themselves via this passive
+			if target.is_downed:
+				continue
+			if eng.global_position.distance_to(target.global_position) > 200.0:
+				continue
+			# receive_heal routing — Pitfall 6: direct on host peer, rpc_id on remote
+			if target.peer_id == multiplayer.get_unique_id():
+				target.receive_heal(10)
+			else:
+				target.receive_heal.rpc_id(target.peer_id, 10)
+
+## D-14 (ROLE-08): Client Engineer requests drone deploy → host validates + spawns.
+## Mirrors request_fire structure exactly. Max 1 drone per engineer (D-14).
+@rpc("any_peer", "call_remote", "reliable")
+func request_deploy_drone(requester_peer_id: int) -> void:
+	if not multiplayer.is_server():
+		return
+	# D-14: Remove existing drone for this engineer (max 1 active)
+	for child in get_children():
+		if child.name == "HealDrone_%d" % requester_peer_id:
+			child.queue_free()
+	# Validate: engineer must exist and not be downed
+	var player_node: Node = null
+	for p in get_tree().get_nodes_in_group("players"):
+		if p.peer_id == requester_peer_id:
+			player_node = p
+			break
+	if player_node == null or player_node.is_downed:
+		return
+	$DroneSpawner.spawn({
+		"pos": player_node.global_position,
+		"peer_id": requester_peer_id,
+		"stage": player_node.evolution_stage
+	})
+
+## Spawn function registered with DroneSpawner (P7 pattern — called on all peers via replication).
+func _do_spawn_drone(data: Dictionary) -> Node:
+	var drone := HEAL_DRONE_SCENE.instantiate()
+	drone.position = data["pos"]
+	drone.owning_peer = data["peer_id"]
+	drone.stage = data.get("stage", 1)
+	drone.name = "HealDrone_%d" % data["peer_id"]
+	return drone
