@@ -248,7 +248,7 @@ Wave 4 *(blocked on Wave 3 — WeaponManager _activate_weapon_node must be fully
 Plans:
 **Wave 1**
 
-- [ ] 05-01-PLAN.md — Foundation: InputMap (R revive, Space ability), Player.gd scaffold (stats, evolution_stage, element, RPCs, tick skeletons), Player.tscn replication, Enemy.gd status fields
+- [x] 05-01-PLAN.md — Foundation: InputMap (R revive, Space ability), Player.gd scaffold (stats, evolution_stage, element, RPCs, tick skeletons), Player.tscn replication, Enemy.gd status fields
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -391,7 +391,7 @@ Wave 3 *(blocked on Wave 2)*
 | 2. Player Movement & Sync | 2/2 | Complete | 2026-05-09 |
 | 3. Room 1, Enemy AI, Combat Core | 5/5 | Complete | 2026-05-09 |
 | 4. Weapons & Item Pickups | 5/5 | Complete | 2026-05-31 |
-| 5. Roles & Elements | 0/5 | Planned | — |
+| 5. Roles & Elements | 1/5 | In progress | — |
 | 6. XP, Level-Up Cards & Evolution | 0/? | Not started | — |
 | 7. CarHUD, Loop Timer & Difficulty Scaling | 0/? | Not started | — |
 | 8. Rooms 2 & 3, Boss | 0/? | Not started | — |

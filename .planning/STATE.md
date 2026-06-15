@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-last_updated: "2026-06-15T12:49:17.444Z"
+last_updated: "2026-06-15T12:59:45Z"
 progress:
   total_phases: 8
   completed_phases: 4
-  total_plans: 14
-  completed_plans: 14
-  percent: 50
+  total_plans: 19
+  completed_plans: 15
+  percent: 53
 ---
 
 # Project State
@@ -20,11 +20,36 @@ See: .planning/PROJECT.md (updated 2026-05-05)
 
 **Core value:** The CARIAD HUD must always fire convincingly — every major game event triggers the corresponding vehicle sensor indicator, making the gameplay feel like a real in-car system demo
 
-**Current focus:** Phase 5 — Roles & Elements (next up)
+**Current focus:** Phase 05 — roles-elements (Plan 02 next)
 
 ---
 
 ## Current Phase
+
+**Phase 5: Roles & Elements**
+Status: In Progress
+Started: 2026-06-15
+Plans: 1/5 complete
+
+### Phase Goal
+
+Three mechanically distinct player roles (Tank, Speedster, Engineer) with Stage-1 and Stage-2 abilities; Fire/Ice/Earth element modifiers; element actions trigger CARIAD HUD indicators.
+
+### Plans
+
+- [x] 05-01 (Wave 1): Foundation — InputMap (R/Space), Player.gd scaffold, Player.tscn replication, Enemy.gd status effects
+- [ ] 05-02 (Wave 2): Role abilities — Tank shield, Speedster dash, Engineer deploy dispatch
+- [ ] 05-03 (Wave 2): Engineer HealDrone scene + Game.gd drone spawn + Engineer passive heal
+- [ ] 05-04 (Wave 3): Fire/Ice element procs on Bullet.gd + Player._tick_element
+- [ ] 05-05 (Wave 3): IceTrailZone scene + Earth heal/shockwave + force_burn wiring
+
+### Stopped At
+
+05-01 complete (173119f, 43abd98, 7c2f979). Wave 1 done. Wave 2 (05-02, 05-03) ready.
+
+---
+
+## Previous Phase
 
 **Phase 4: Weapons & Item Pickups**
 Status: Complete
@@ -141,6 +166,15 @@ See .planning/PROJECT.md → Key Decisions for the full decision log.
 - HornShockwave ring visual adds to player.get_parent() (Game scene) for world-space rendering; null check on get_parent() prevents crash
 - Both antenna_beam and horn_shockwave use two-level security: W2 authority guard + is_server() damage guard
 - WeaponManager.reset() already covered both node_names from Plan 03 — no changes needed to reset()
+
+**Phase 5 decisions (05-01):**
+
+- revive action rebound to R (physical_keycode=82); role_ability action added on Space (physical_keycode=32) — D-01/D-02
+- const SPEED/MAX_HP converted to var so role match block can mutate them (Pitfall 1)
+- Tank: MAX_HP=150/health=150 (ROLE-01); Speedster: SPEED=280 (ROLE-04); Engineer: defaults
+- evolution_stage/shield_active/dash_invincible added to Player MultiplayerSynchronizer SceneReplicationConfig (T-05-03)
+- receive_heal and set_evolution_stage RPCs use @rpc("any_peer","call_remote","reliable") — mirrors receive_damage pattern
+- apply_burn/apply_slow on Enemy.gd called host-only; _tick_status_effects runs under P6 physics_process guard
 
 **Phase 4 decisions (04-05):**
 
