@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-last_updated: "2026-06-15T12:59:45Z"
+status: executing
+last_updated: "2026-06-15T13:35:00Z"
 progress:
   total_phases: 8
   completed_phases: 4
   total_plans: 19
-  completed_plans: 15
+  completed_plans: 17
   percent: 53
 ---
 
@@ -20,7 +20,7 @@ See: .planning/PROJECT.md (updated 2026-05-05)
 
 **Core value:** The CARIAD HUD must always fire convincingly — every major game event triggers the corresponding vehicle sensor indicator, making the gameplay feel like a real in-car system demo
 
-**Current focus:** Phase 05 — roles-elements (Plan 02 next)
+**Current focus:** Phase 05 — roles-elements (Plan 03 next)
 
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-05-05)
 **Phase 5: Roles & Elements**
 Status: In Progress
 Started: 2026-06-15
-Plans: 1/5 complete
+Plans: 2/5 complete
 
 ### Phase Goal
 
@@ -38,14 +38,14 @@ Three mechanically distinct player roles (Tank, Speedster, Engineer) with Stage-
 ### Plans
 
 - [x] 05-01 (Wave 1): Foundation — InputMap (R/Space), Player.gd scaffold, Player.tscn replication, Enemy.gd status effects
-- [ ] 05-02 (Wave 2): Role abilities — Tank shield, Speedster dash, Engineer deploy dispatch
+- [x] 05-02 (Wave 2): Role abilities — Tank shield, Speedster dash, Engineer deploy dispatch
 - [ ] 05-03 (Wave 2): Engineer HealDrone scene + Game.gd drone spawn + Engineer passive heal
 - [ ] 05-04 (Wave 3): Fire/Ice element procs on Bullet.gd + Player._tick_element
 - [ ] 05-05 (Wave 3): IceTrailZone scene + Earth heal/shockwave + force_burn wiring
 
 ### Stopped At
 
-05-01 complete (173119f, 43abd98, 7c2f979). Wave 1 done. Wave 2 (05-02, 05-03) ready.
+05-02 complete (cc8eeaa). Wave 2 partially done. 05-03 (Engineer HealDrone) next.
 
 ---
 
@@ -181,6 +181,15 @@ See .planning/PROJECT.md → Key Decisions for the full decision log.
 - AirbagShield ring uses two overlapping ColorRects (outer yellow + transparent inner) centered on Player via WeaponManager child-node hierarchy
 - consume_airbag() encapsulates both flag clear and ring hide — Player.gd delegates instead of writing airbag_active directly
 - GameState._broadcast_game_over resets all WeaponManagers via players group loop before scene change (call_local ensures per-peer execution)
+
+**Phase 5 decisions (05-02):**
+
+- receive_damage extended with optional attacker_path: String = "" (Open Question 3); reflection skipped when empty (best-effort)
+- dash_invincible checked BEFORE airbag check in receive_damage — i-frames ignore all damage per D-11
+- request_reflect RPC guards multiplayer.is_server() (T-05-04); enemy.take_damage only runs on host
+- _spawn_dash_shockwave splits visual (call_local RPC) from damage (host-only loop) — T-05-05 mitigation
+- _shield_ring ColorRect created once and reused via .visible toggle (mirrors AirbagShield.gd pattern)
+- Engineer ability has_method("request_deploy_drone") guard — safe to ship before Plan 03
 
 ---
 
