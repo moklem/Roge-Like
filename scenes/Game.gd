@@ -12,6 +12,8 @@ const CAR_PART_SCENE  := preload("res://scenes/pickups/CarPartPickup.tscn")
 const CAR_PART_IDS    := ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave", "airbag_shield"]
 ## Phase 5 Plan 03 (D-14, D-15, D-21): Engineer Heal Drone spawnable scene
 const HEAL_DRONE_SCENE := preload("res://scenes/roles/HealDrone.tscn")
+## Phase 5 Plan 05 (D-18, ELEM-04): Ice Trail frost zone spawnable scene
+const ICE_TRAIL_SCENE := preload("res://scenes/elements/IceTrailZone.tscn")
 
 ## D-13: Revive duration 3-4 seconds (mirrors Player.REVIVE_DURATION)
 const REVIVE_DURATION: float = 3.5
@@ -38,6 +40,9 @@ func _ready() -> void:
 	# Phase 5 Plan 03 (D-14, D-21): DroneSpawner for Engineer Heal Drone (P7 pre-register)
 	$DroneSpawner.spawn_function = _do_spawn_drone
 	$DroneSpawner.add_spawnable_scene("res://scenes/roles/HealDrone.tscn")
+	# Phase 5 Plan 05 (D-18, ELEM-04): IceTrailSpawner for Ice Trail frost zones (P7 pre-register)
+	$IceTrailSpawner.spawn_function = _do_spawn_ice_trail
+	$IceTrailSpawner.add_spawnable_scene("res://scenes/elements/IceTrailZone.tscn")
 
 	# Bake navigation polygon at runtime so new obstacles are properly carved out
 	call_deferred("_bake_navigation")
@@ -134,8 +139,10 @@ func _do_spawn_pickup(data: Dictionary) -> Node:
 ## CMBT-04: Client players request a bullet spawn — host validates and spawns.
 ## T-03-11: _client_pos is ignored; host uses server-authoritative player position.
 ## Signature matches Player.gd call: rpc_id(1, global_position, dir, peer_id)
+## Phase 5 Plan 05 (D-17, ELEM-07, T-05-19): Optional force_burn param — defaults false so
+## existing screws/bolts callers (rpc_id(1, pos, dir, peer_id)) remain valid.
 @rpc("any_peer", "call_remote", "reliable")
-func request_fire(_client_pos: Vector2, dir: Vector2, requester_peer_id: int) -> void:
+func request_fire(_client_pos: Vector2, dir: Vector2, requester_peer_id: int, force_burn: bool = false) -> void:
 	# Runs on host only
 	if not multiplayer.is_server():
 		return
@@ -152,7 +159,8 @@ func request_fire(_client_pos: Vector2, dir: Vector2, requester_peer_id: int) ->
 	$BulletSpawner.spawn({
 		"pos": player_node.global_position,
 		"dir": dir.normalized(),
-		"owner_id": requester_peer_id
+		"owner_id": requester_peer_id,
+		"fire_burst": force_burn
 	})
 
 func _do_spawn_bullet(data: Dictionary) -> Node:
@@ -161,6 +169,12 @@ func _do_spawn_bullet(data: Dictionary) -> Node:
 	b.direction     = data["dir"]         # Pitfall 2: bake dir into data for client simulation
 	b.owner_peer_id = data["owner_id"]
 	b.name = "Bullet_%d" % (randi() % 99999)
+	# Phase 5 Plan 05 (D-17, ELEM-07, T-05-19): Wire force_burn for Fire Burst projectiles.
+	# force_burn=true bypasses the 25% proc gate in Bullet.gd (100% guaranteed burn).
+	# T-05-19: force_burn defaults false; only Fire Burst spawn path sets fire_burst=true.
+	b.force_burn = data.get("fire_burst", false)
+	if b.force_burn:
+		b.modulate = Color(1.0, 0.5, 0.0)  # orange modulate (D-17, D-ELEM-07 visual)
 	return b
 
 # ==============================================================================
@@ -301,3 +315,27 @@ func _do_spawn_drone(data: Dictionary) -> Node:
 	drone.stage = data.get("stage", 1)
 	drone.name = "HealDrone_%d" % data["peer_id"]
 	return drone
+
+# ==============================================================================
+# ICE TRAIL SPAWN (D-18, ELEM-04 — Phase 5 Plan 05)
+# ==============================================================================
+
+## D-18 (ELEM-04): Ice element player requests a frost zone spawn at their position.
+## Pitfall 4: call_deferred required — this is called from _physics_process via rpc_id;
+## direct spawn inside a physics callback causes "Can't change state while flushing queries".
+## T-05-16: RPC guard ensures only host actually spawns — a forged call only places a visual zone.
+## ELEM-07: Ice Trail spawn fires "ac" HUD indicator (D-19, per D-ELEM-07 mapping).
+@rpc("any_peer", "call_remote", "reliable")
+func request_ice_trail(pos: Vector2) -> void:
+	if not multiplayer.is_server():
+		return
+	# Pitfall 4: call_deferred prevents physics-state mutation during flushing
+	$IceTrailSpawner.spawn.call_deferred({"pos": pos})
+	GameEvents.emit_hud("ac")
+
+## Spawn function registered with IceTrailSpawner (P7 pattern — replicates zone to all peers).
+func _do_spawn_ice_trail(data: Dictionary) -> Node:
+	var zone := ICE_TRAIL_SCENE.instantiate()
+	zone.position = data["pos"]
+	zone.name = "IceTrail_%d" % (randi() % 99999)
+	return zone

@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://ice_trail_zone"]
+
+[ext_resource type="Script" path="res://scenes/elements/IceTrailZone.gd" id="1_itz"]
+
+[node name="IceTrailZone" type="Node2D"]
+script = ExtResource("1_itz")
