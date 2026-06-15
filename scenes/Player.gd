@@ -6,8 +6,8 @@ extends CharacterBody2D
 ## Pitfall 3: receive_damage is @rpc("any_peer") so host (any_peer) calls rpc_id(peer_id) —
 ##   owning peer decrements health, MultiplayerSynchronizer replicates outward.
 
-const SPEED: float = 200.0
-const MAX_HP: int = 100
+var SPEED: float = 200.0
+var MAX_HP: int = 100
 const REVIVE_DURATION: float = 3.5   # D-13: 3-4 seconds
 const REVIVE_PROXIMITY: float = 60.0 # pixels — must be within this range to revive
 
@@ -18,6 +18,19 @@ const REVIVE_PROXIMITY: float = 60.0 # pixels — must be within this range to r
 var health: int = MAX_HP
 var is_downed: bool = false
 
+## Phase 5: Role/element/ability state
+var evolution_stage: int = 1        # D-04: Phase 6 sets via RPC when XP threshold reached
+var element: String = ""            # D-03: "fire" | "ice" | "earth" | ""
+var shield_active: bool = false     # D-08/D-09: Tank shield active flag (replicated)
+var dash_invincible: bool = false   # D-11: Speedster invincibility frames flag (replicated)
+var _ability_cooldown: float = 0.0  # D-06: single ability cooldown timer
+var _dash_window_timer: float = 0.0 # D-12: Speedster double-dash window
+var _ice_trail_timer: float = 0.0   # D-18: Ice Trail spawn interval
+var _fire_burst_timer: float = 0.0  # D-17: Fire Burst auto-fire interval
+var _earth_heal_timer: float = 0.0  # D-19: Earth Team Heal tick interval
+var _earth_shockwave_timer: float = 0.0  # D-19: Earth Shockwave interval
+var _engineer_passive_timer: float = 0.0 # D-13: Engineer passive heal tick interval
+
 func _ready() -> void:
 	# Set authority based on peer_id — only the owning peer controls this player
 	set_multiplayer_authority(peer_id)
@@ -26,6 +39,14 @@ func _ready() -> void:
 	# Update role label display (MOVE-04)
 	if has_node("RoleLabel"):
 		$RoleLabel.text = role_label
+	# Phase 5: Apply role-specific stats and read element from Lobby
+	_apply_role_stats()
+	element = Lobby.players.get(peer_id, {}).get("element", "")
+	# Phase 5: Initialise element/ability timers so they don't fire immediately
+	_fire_burst_timer = 4.0
+	_earth_shockwave_timer = 8.0
+	_earth_heal_timer = 1.0
+	_engineer_passive_timer = 5.0
 
 func _process(_delta: float) -> void:
 	# D-12: downed visual tint runs on ALL peers from synced is_downed value
@@ -52,7 +73,11 @@ func _physics_process(delta: float) -> void:
 	# D-08: Delegate all weapon firing to WeaponManager (ScrewsAndBolts + future weapons)
 	if has_node("WeaponManager"):
 		$WeaponManager.tick(delta)
-	# HLTH-05: Check revive input (E key) each frame
+	# Phase 5: Role ability cooldown + Space input dispatch
+	_tick_ability(delta)
+	# Phase 5: Passive element timers (Ice Trail, Fire Burst, Earth heal/shockwave)
+	_tick_element(delta)
+	# HLTH-05: Check revive input (R key) each frame
 	_check_revive(delta)
 
 ## HLTH-05: Check if holding E near a downed teammate; send request to host each frame
@@ -83,6 +108,54 @@ func _find_nearby_downed() -> Node:
 			return p
 	return null
 
+## Phase 5: Apply role-specific stat overrides (D-05). Called from _ready() on all peers.
+func _apply_role_stats() -> void:
+	match role_label:
+		"Tank":
+			MAX_HP = 150
+			health = 150   # D-07: Tank spawns with 150 HP (ROLE-01)
+		"Speedster":
+			SPEED = 280    # D-10: Speedster moves faster (ROLE-04)
+		"Engineer":
+			pass           # HP and SPEED stay at default 100 / 200 (D-05)
+
+## Phase 5: Ability cooldown timer and Space key dispatch (D-06, Pattern 2).
+## Runs only on the authority (owning) peer — guarded by _physics_process P3 check.
+func _tick_ability(delta: float) -> void:
+	if _ability_cooldown > 0.0:
+		_ability_cooldown -= delta
+	if _dash_window_timer > 0.0:
+		_dash_window_timer -= delta
+	if Input.is_action_just_pressed("role_ability"):
+		if _ability_cooldown <= 0.0:
+			_use_role_ability()
+		elif role_label == "Speedster" and _dash_window_timer > 0.0:
+			_use_second_dash()
+
+## Phase 5: Stage gate dispatch — routes to Stage-1 or Stage-2 based on evolution_stage (D-20).
+func _use_role_ability() -> void:
+	if evolution_stage >= 2:
+		_use_stage2_ability()
+	else:
+		_use_stage1_ability()
+
+## Phase 5: Stage-1 ability stub — filled by Plan 05-02 (Tank/Speedster/Engineer).
+func _use_stage1_ability() -> void:
+	pass
+
+## Phase 5: Stage-2 ability stub — filled by Plan 05-02.
+func _use_stage2_ability() -> void:
+	pass
+
+## Phase 5: Speedster second-dash stub — filled by Plan 05-02.
+func _use_second_dash() -> void:
+	pass
+
+## Phase 5: Passive element timer tick stub — filled by Plan 05-04 (Fire/Ice/Earth elements).
+## Handles Ice Trail spawn, Fire Burst auto-fire, Earth heal/shockwave timers.
+func _tick_element(_delta: float) -> void:
+	pass
+
 ## HLTH-02 / Pitfall 3: Called via rpc_id(peer_id) from host (Enemy.gd or Bullet.gd).
 ## Uses @rpc("any_peer") because the host (peer 1) is NOT the node's multiplayer authority
 ## (authority = owning peer via set_multiplayer_authority). "any_peer" allows host to send
@@ -102,6 +175,19 @@ func receive_damage(amount: int) -> void:
 	if health <= 0:
 		health = 0
 		_enter_downed()
+
+## Phase 5: Heal this player by amount, clamped to MAX_HP (Pattern 6).
+## Called by host via rpc_id(peer_id, amount) for Engineer passive, Earth heal, Drone pulse.
+@rpc("any_peer", "call_remote", "reliable")
+func receive_heal(amount: int) -> void:
+	if is_downed:
+		return
+	health = mini(health + amount, MAX_HP)
+
+## Phase 5: Set evolution stage (D-04/D-20). Called by Phase 6 when XP threshold reached.
+@rpc("any_peer", "call_remote", "reliable")
+func set_evolution_stage(stage: int) -> void:
+	evolution_stage = stage
 
 ## HLTH-04: Enter downed state — disable actions, trigger visual, notify GameState
 func _enter_downed() -> void:
