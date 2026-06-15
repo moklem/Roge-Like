@@ -12,7 +12,7 @@
 | 2 | Player Movement & Sync | All players see each other moving correctly over LAN; solo-testable | MOVE-01–04 | no |
 | 3 | Room 1, Enemy AI, Combat Core | Core combat loop — Room 1 playable, enemies chase and damage players, players can die and be revived | CMBT-01–09, HLTH-01–08 | no |
 | 4 | Weapons & Item Pickups | Vampire Survivors weapon loop — enemies drop car-part pickups, player collects to unlock/upgrade weapons | WEAP-01–08 | no |
-| 5 | Roles & Elements | Three mechanically distinct roles with Stage-2 signature abilities; Fire/Ice/Earth element modifiers; element actions trigger HUD | ROLE-01–10, ELEM-01–07 | no |
+| 5 | Roles & Elements | 5/5 | Complete   | 2026-06-15 |
 | 6 | XP, Level-Up Cards & Evolution | Per-player progression loop — kill enemies to earn XP, level up triggers card pick, stage transforms appearance and unlocks ability | XP-01–09, EVOL-01–06 | yes |
 | 7 | CarHUD, Loop Timer & Difficulty Scaling | CARIAD HUD side panel always visible and firing on game events; 15-min loop timer; difficulty increases per loop | HUD-01–10, LOOP-01–06, HLTH-07 | yes |
 | 8 | Rooms 2 & 3, Boss | Full 3-room run playable end-to-end; boss with multiple attack phases and mob swarms | ROOM-01–07 | no |
@@ -244,7 +244,7 @@ Wave 4 *(blocked on Wave 3 — WeaponManager _activate_weapon_node must be fully
 - P12 (input authority) — ability activation RPC must route client input → host validation → broadcast result; never let clients apply ability effects directly
 - Design pass required — per-role ability specs (range, cooldown, AoE shape), Stage 2 signature mechanics, and element modifier tuning need a design document before planning this phase
 
-**Plans:** 5 plans
+**Plans:** 5/5 plans complete
 Plans:
 **Wave 1**
 
