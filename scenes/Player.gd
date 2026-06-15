@@ -11,6 +11,21 @@ var MAX_HP: int = 100
 const REVIVE_DURATION: float = 3.5   # D-13: 3-4 seconds
 const REVIVE_PROXIMITY: float = 60.0 # pixels — must be within this range to revive
 
+## Phase 5 Plan 02: Tank shield constants (D-08, D-09)
+const TANK_SHIELD_S1: float = 3.0      # Stage-1 shield duration (seconds)
+const TANK_SHIELD_S2: float = 6.0      # Stage-2 shield duration (seconds)
+const TANK_SHIELD_COOLDOWN: float = 8.0 # cooldown after shield expires
+const TANK_REFLECT_PCT: float = 0.5    # Stage-2: reflect 50% of blocked damage
+const TANK_REFLECT_MIN: int = 5        # Stage-2: minimum reflection damage
+
+## Phase 5 Plan 02: Speedster dash constants (D-11, D-12)
+const DASH_DURATION: float = 0.3       # dash speed-burst and i-frame duration
+const DASH_MULT: float = 3.0           # velocity multiplier during dash
+const DASH_COOLDOWN: float = 4.0       # cooldown after dash
+const DASH_WINDOW: float = 0.8         # double-dash availability window (Stage-2)
+const DASH_SHOCK_RADIUS: float = 80.0  # shockwave Area2D radius (Stage-2 second dash)
+const DASH_SHOCK_DAMAGE: int = 25      # shockwave damage to enemies
+
 @export var peer_id: int = 0
 @export var role_label: String = ""
 
@@ -30,6 +45,14 @@ var _fire_burst_timer: float = 0.0  # D-17: Fire Burst auto-fire interval
 var _earth_heal_timer: float = 0.0  # D-19: Earth Team Heal tick interval
 var _earth_shockwave_timer: float = 0.0  # D-19: Earth Shockwave interval
 var _engineer_passive_timer: float = 0.0 # D-13: Engineer passive heal tick interval
+
+## Phase 5 Plan 02: Tank shield state
+var _shield_timer: float = 0.0          # counts down active shield duration
+var _shield_ring: ColorRect = null       # reusable outer ring node (created on first show)
+var _last_attacker_path: String = ""     # attacker NodePath for Stage-2 reflection
+
+## Phase 5 Plan 02: Speedster dash state
+var _dash_timer: float = 0.0            # counts down i-frame duration after dash
 
 func _ready() -> void:
 	# Set authority based on peer_id — only the owning peer controls this player
@@ -126,6 +149,17 @@ func _tick_ability(delta: float) -> void:
 		_ability_cooldown -= delta
 	if _dash_window_timer > 0.0:
 		_dash_window_timer -= delta
+	# Tank shield countdown — expire when timer reaches zero
+	if _shield_timer > 0.0:
+		_shield_timer -= delta
+		if _shield_timer <= 0.0:
+			shield_active = false
+			_hide_shield_ring()
+	# Speedster dash i-frame countdown
+	if _dash_timer > 0.0:
+		_dash_timer -= delta
+		if _dash_timer <= 0.0:
+			dash_invincible = false
 	if Input.is_action_just_pressed("role_ability"):
 		if _ability_cooldown <= 0.0:
 			_use_role_ability()
@@ -139,37 +173,198 @@ func _use_role_ability() -> void:
 	else:
 		_use_stage1_ability()
 
-## Phase 5: Stage-1 ability stub — filled by Plan 05-02 (Tank/Speedster/Engineer).
+## Phase 5: Stage-1 abilities — Tank shield, Speedster dash, Engineer drone deploy (D-08, D-11, D-14).
 func _use_stage1_ability() -> void:
-	pass
+	match role_label:
+		"Tank":
+			# D-08: 3-second full damage shield; cooldown starts after shield expires
+			_activate_shield(TANK_SHIELD_S1)
+			_ability_cooldown = TANK_SHIELD_S1 + TANK_SHIELD_COOLDOWN  # 11.0 s total
+		"Speedster":
+			# D-11: 0.3-second speed burst with invincibility frames; 4-second cooldown
+			_do_dash()
+			_ability_cooldown = DASH_COOLDOWN
+		"Engineer":
+			# D-14: Request host to deploy a Heal Drone at current position
+			var game := get_node_or_null("/root/Game")
+			if game and game.has_method("request_deploy_drone"):
+				if multiplayer.is_server():
+					game.request_deploy_drone(peer_id)
+				else:
+					game.request_deploy_drone.rpc_id(1, peer_id)
+			_ability_cooldown = 1.0  # short re-deploy guard
 
-## Phase 5: Stage-2 ability stub — filled by Plan 05-02.
+## Phase 5: Stage-2 abilities — Tank Stage-2 shield + reflect, Speedster double-dash, Engineer Stage-2 drone (D-09, D-12, D-15).
 func _use_stage2_ability() -> void:
-	pass
+	match role_label:
+		"Tank":
+			# D-09: 6-second shield + Stage-2 reflection; cooldown starts after shield expires
+			_activate_shield(TANK_SHIELD_S2)
+			_ability_cooldown = TANK_SHIELD_S2 + TANK_SHIELD_COOLDOWN  # 14.0 s total
+		"Speedster":
+			# D-12: First dash of double-dash sequence; opens second-dash window
+			_do_dash()
+			_dash_window_timer = DASH_WINDOW  # 0.8 s window for second dash
+			_ability_cooldown = DASH_COOLDOWN  # reset if window lapses unused
+		"Engineer":
+			# D-15: Stage-2 drone follows Engineer — Game.gd reads evolution_stage to upgrade
+			var game := get_node_or_null("/root/Game")
+			if game and game.has_method("request_deploy_drone"):
+				if multiplayer.is_server():
+					game.request_deploy_drone(peer_id)
+				else:
+					game.request_deploy_drone.rpc_id(1, peer_id)
+			_ability_cooldown = 1.0  # short re-deploy guard
 
-## Phase 5: Speedster second-dash stub — filled by Plan 05-02.
+## Phase 5: Speedster Stage-2 second-dash — triggers shockwave landing (D-12).
+## Called when Space pressed during _dash_window_timer > 0.0.
 func _use_second_dash() -> void:
-	pass
+	_do_dash()
+	_spawn_dash_shockwave(global_position)
+	_dash_window_timer = 0.0  # close the window — sequence complete
 
 ## Phase 5: Passive element timer tick stub — filled by Plan 05-04 (Fire/Ice/Earth elements).
 ## Handles Ice Trail spawn, Fire Burst auto-fire, Earth heal/shockwave timers.
 func _tick_element(_delta: float) -> void:
 	pass
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Plan 02 helpers — Tank shield
+# ──────────────────────────────────────────────────────────────────────────────
+
+## Activate the Tank damage shield for the given duration.
+## Sets shield_active (replicated via MultiplayerSynchronizer) and shows the blue ring.
+func _activate_shield(duration: float) -> void:
+	shield_active = true
+	_shield_timer = duration
+	_show_shield_ring()
+
+## Show (or create) the blue hollow-ring visual around the player.
+## Mirrors AirbagShield.gd ring construction; blue instead of yellow.
+func _show_shield_ring() -> void:
+	const RING_RADIUS: float = 32.0
+	const RING_THICKNESS: float = 5.0
+	if _shield_ring == null:
+		# Create once; reuse on subsequent activations
+		_shield_ring = ColorRect.new()
+		_shield_ring.name = "TankShieldRing"
+		_shield_ring.color = Color(0.3, 0.6, 1.0, 0.85)  # blue (not yellow like AirbagShield)
+		var outer_size: float = (RING_RADIUS + RING_THICKNESS) * 2.0
+		_shield_ring.size = Vector2(outer_size, outer_size)
+		_shield_ring.pivot_offset = Vector2(outer_size / 2.0, outer_size / 2.0)
+		_shield_ring.position = Vector2(-outer_size / 2.0, -outer_size / 2.0)
+		var ring_inner := ColorRect.new()
+		ring_inner.name = "TankShieldRingInner"
+		ring_inner.color = Color(0, 0, 0, 0)  # transparent cutout
+		var inner_size: float = RING_RADIUS * 2.0
+		ring_inner.size = Vector2(inner_size, inner_size)
+		ring_inner.position = Vector2(RING_THICKNESS, RING_THICKNESS)
+		_shield_ring.add_child(ring_inner)
+		add_child(_shield_ring)
+	_shield_ring.visible = true
+
+## Hide the shield ring when the shield expires.
+func _hide_shield_ring() -> void:
+	if _shield_ring and is_instance_valid(_shield_ring):
+		_shield_ring.visible = false
+
+## Stage-2 shield reflection — compute reflect amount and route to host.
+## Pitfall 3: enemy.take_damage() is host-only; must send RPC to host if we're a client.
+func _request_reflect(amount: int, attacker_path: String) -> void:
+	if attacker_path == "":
+		return  # no attacker info — reflection skipped (best-effort per deferred scope)
+	var reflect_amount: int = maxi(int(amount * TANK_REFLECT_PCT), TANK_REFLECT_MIN)
+	if multiplayer.is_server():
+		request_reflect(attacker_path, reflect_amount)
+	else:
+		request_reflect.rpc_id(1, attacker_path, reflect_amount)
+
+## Host-side RPC: resolve attacker path and apply reflected damage to the enemy.
+## T-05-04 mitigation: only host runs enemy.take_damage (Enemy.take_damage also self-guards).
+@rpc("any_peer", "call_remote", "reliable")
+func request_reflect(attacker_path: String, reflect_amount: int) -> void:
+	if not multiplayer.is_server():
+		return
+	var enemy := get_node_or_null(attacker_path)
+	if enemy and enemy.has_method("take_damage"):
+		enemy.take_damage(reflect_amount)
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Plan 02 helpers — Speedster dash
+# ──────────────────────────────────────────────────────────────────────────────
+
+## Apply a burst of velocity in the current input direction with i-frames active.
+## Sets dash_invincible (replicated) and _dash_timer for duration countdown.
+func _do_dash() -> void:
+	dash_invincible = true
+	_dash_timer = DASH_DURATION
+	var dir := Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
+	if dir == Vector2.ZERO:
+		dir = Vector2.RIGHT  # fallback direction when no input held
+	velocity = dir * SPEED * DASH_MULT
+	move_and_slide()  # apply burst immediately
+
+## Spawn the Speedster Stage-2 shockwave at the landing position.
+## Visual: yellow expanding ring (clone of HornShockwave._show_visual, RADIUS=80, yellow).
+## Damage: host-only, enemies within DASH_SHOCK_RADIUS take DASH_SHOCK_DAMAGE + knockback.
+func _spawn_dash_shockwave(pos: Vector2) -> void:
+	_show_dash_shockwave.rpc(pos)  # call_local via annotation — visual on all peers
+	if not multiplayer.is_server():
+		return
+	# Host-only: apply damage and knockback to enemies within radius (T-05-05 mitigation)
+	for enemy in get_tree().get_nodes_in_group("enemies"):
+		if enemy.global_position.distance_to(pos) <= DASH_SHOCK_RADIUS:
+			if enemy.has_method("take_damage"):
+				enemy.take_damage(DASH_SHOCK_DAMAGE)
+			# Knockback: push enemy away from shockwave origin
+			enemy.velocity += (enemy.global_position - pos).normalized() * 300.0
+
+## Visual-only RPC for Speedster shockwave ring — yellow, 80px radius.
+## Mirrors HornShockwave._show_visual exactly; no game-state mutation.
+@rpc("any_peer", "call_local", "unreliable_ordered")
+func _show_dash_shockwave(pos: Vector2) -> void:
+	const RADIUS: float = 80.0
+	var game := get_node_or_null("/root/Game")
+	if game == null:
+		return
+	var ring := ColorRect.new()
+	ring.color = Color(1.0, 1.0, 0.0, 0.8)  # yellow (Speedster shockwave — Claude's discretion)
+	ring.size = Vector2(RADIUS * 2.0, RADIUS * 2.0)
+	ring.pivot_offset = Vector2(RADIUS, RADIUS)
+	ring.position = pos - Vector2(RADIUS, RADIUS)
+	ring.scale = Vector2(0.1, 0.1)
+	game.add_child(ring)
+	var tween := ring.create_tween()
+	tween.tween_property(ring, "scale", Vector2(2.0, 2.0), 0.35)
+	tween.parallel().tween_property(ring, "modulate:a", 0.0, 0.35)
+	tween.tween_callback(ring.queue_free)
+
 ## HLTH-02 / Pitfall 3: Called via rpc_id(peer_id) from host (Enemy.gd or Bullet.gd).
 ## Uses @rpc("any_peer") because the host (peer 1) is NOT the node's multiplayer authority
 ## (authority = owning peer via set_multiplayer_authority). "any_peer" allows host to send
 ## this RPC to the owning peer. Owning peer applies damage to own health —
 ## MultiplayerSynchronizer then replicates health outward to all clients.
+## Plan 02: attacker_path optional param added (Open Question 3) — callers may omit it;
+##   reflection is best-effort and skipped when path is empty.
 @rpc("any_peer", "call_remote", "reliable")
-func receive_damage(amount: int) -> void:
+func receive_damage(amount: int, attacker_path: String = "") -> void:
 	print("receive_damage called! hp=", health, " -> ", health - amount)
+	# Plan 02 D-11: Speedster i-frames ignore ALL damage (checked before everything else)
+	if dash_invincible:
+		return
 	# D-13: Airbag Shield intercepts lethal hits — absorb hit, health stays at 1, charge consumed
 	if health - amount <= 0 and has_node("WeaponManager") and $WeaponManager.airbag_active:
 		health = 1
 		$WeaponManager.consume_airbag()
 		print("Airbag absorbed lethal hit! hp=1")
 		return
+	# Plan 02 D-08/D-09: Tank shield intercept — block all damage while active
+	if shield_active:
+		_last_attacker_path = attacker_path
+		if evolution_stage >= 2:
+			# Stage-2: reflect 50% (min 5) of blocked damage back to attacker via host
+			_request_reflect(amount, attacker_path)
+		return  # block damage regardless of stage
 	health -= amount
 	print("receive_damage done! hp=", health)
 	if health <= 0:
