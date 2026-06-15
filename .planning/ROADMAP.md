@@ -27,6 +27,7 @@
 **UI hint:** no
 
 **Requirements:**
+
 - NET-01: Host can create a LAN session; their IP is displayed for others to enter
 - NET-02: Client can join by entering the host's IP address
 - NET-03: Connection status is visible during join (connecting / failed / success)
@@ -39,11 +40,13 @@
 - LOBB-05: Host can start the game once at least 1 player is in the lobby
 
 **Success Criteria:**
+
 1. Host creates session; clients see and join via IP within 30 seconds
 2. Role + element selections visible to all players before start; no duplicates allowed
 3. Host closing the game immediately shows "Host Left" on all client screens
 
 **Pitfall watch:**
+
 - P1 (RPC signature mismatch) — establish RPC discipline here before any gameplay code; one mismatch breaks all RPCs in a script silently
 - P2 (RPC before peer connected) — gate all initial state broadcasts on `peer_connected` signal, never in `_ready()`
 - P9 (host disconnect unhandled) — wire `peer_disconnected(1)` → scene change in `Lobby` autoload and test explicitly in this phase
@@ -56,17 +59,20 @@
 **UI hint:** no
 
 **Requirements:**
+
 - MOVE-01: Each player moves with WASD in top-down view
 - MOVE-02: Player positions are visible on all connected clients in real time
 - MOVE-03: Players cannot walk through room walls
 - MOVE-04: Each player's role label is visible above their character
 
 **Success Criteria:**
+
 1. Player moves on one laptop; position updates visibly on all other laptops in real time
 2. Players cannot walk through room walls
 3. Solo host (1 player) can launch and navigate without errors
 
 **Pitfall watch:**
+
 - P3 (missing authority guards) — all Player `_physics_process` movement and input handling must check `is_multiplayer_authority()` before acting
 - P4 (over-syncing) — MultiplayerSynchronizer interval set to 0.05s (20 Hz); only sync `position`, `health`, `is_downed`; never sync velocity or animation state
 - P7 (spawnable list gaps) — register all player scene variants in MultiplayerSpawner from the start; add comment listing registered scenes
@@ -75,13 +81,16 @@
 **Plans:** 2 plans
 
 Plans:
+
 - [x] 02-01-PLAN.md — Player scene with WASD movement, wall collision, MultiplayerSynchronizer, Game room wiring
 - [x] 02-02-PLAN.md — Role label rendering, host-authoritative player spawning across all peers
 
 Wave 1 *(autonomous)*
+
 - 02-01: Player.tscn + Player.gd (movement + collision + sync), Game.tscn (room + spawn points)
 
 Wave 2 *(blocked on Wave 1 — depends on Player scene existing)*
+
 - 02-02: RoleLabel on Player, Game.gd host-only spawn logic, MultiplayerSpawner registration
 
 ---
@@ -92,6 +101,7 @@ Wave 2 *(blocked on Wave 1 — depends on Player scene existing)*
 **UI hint:** no
 
 **Requirements:**
+
 - CMBT-01: At least one basic enemy type chases and attacks the nearest player
 - CMBT-02: Enemy pathfinds around room walls (does not walk through obstacles)
 - CMBT-03: Enemies are spawned and controlled by the host; clients see the synced result
@@ -110,11 +120,13 @@ Wave 2 *(blocked on Wave 1 — depends on Player scene existing)*
 - HLTH-08: If all players are simultaneously downed, the run ends (game over)
 
 **Success Criteria:**
+
 1. Enemy chases nearest player around walls; players can kill it with auto-attack (screws/bolts)
 2. Player reaches 0 HP → enters downed state; teammate revives with hold key
 3. All players downed simultaneously → "Game Over" screen on all clients
 
 **Pitfall watch:**
+
 - P5 (bullet sync) — use MultiplayerSpawner for bullet instantiation + initial velocity; clients simulate locally; host sends RPC on hit to despawn and apply damage; do NOT add MultiplayerSynchronizer per bullet
 - P6 (NavigationAgent2D on clients) — set `set_physics_process(is_multiplayer_authority())` on enemy `_ready()`; only host calls `navigation_agent.target_position`; clients render synced position only
 - P7 (spawnable list gaps) — enemy and XP orb scenes must be pre-registered in spawner before testing; add to list now even if only one type exists
@@ -123,6 +135,7 @@ Wave 2 *(blocked on Wave 1 — depends on Player scene existing)*
 **Plans:** 5 plans
 
 Plans:
+
 - [x] 03-01-PLAN.md — Navmesh spike: central obstacle + enemy spawn points + NavigationPolygon bake (checkpoint)
 - [x] 03-02-PLAN.md — Enemy.tscn + Enemy.gd + XpOrb.tscn + XpOrb.gd (new combat scenes)
 - [x] 03-03-PLAN.md — Player health + downed state machine + revive input + GameOver scene
@@ -137,6 +150,7 @@ Plans:
 **UI hint:** no
 
 **Requirements:**
+
 - WEAP-01: Enemies occasionally drop a car-part item pickup on death (random chance)
 - WEAP-02: Player walking over an item pickup collects it; triggers weapon unlock or upgrade
 - WEAP-03: Collecting a new car-part unlocks the corresponding weapon (added to WeaponManager)
@@ -152,11 +166,13 @@ Plans:
 - WEAP-08: All active weapons and their levels reset on death
 
 **Success Criteria:**
+
 1. Enemy death occasionally drops a car-part pickup visible on all clients
 2. Player collecting pickup unlocks the corresponding weapon which begins firing automatically
 3. Player can have at least 3 different active weapons firing simultaneously on independent timers
 
 **Pitfall watch:**
+
 - W1 (pickup double-collect) — pickup collection must be host-authoritative; client sends RPC to host, host validates and despawns; never let clients despawn pickups locally
 - W2 (weapon timers fire on clients) — weapon `fire()` method must guard with authority check; timers run on all peers but only host executes the actual spawn logic
 - P7 (spawnable list gaps) — all 5 weapon projectile scenes and all car-part pickup scenes must be pre-registered in MultiplayerSpawner before testing any of them
@@ -165,6 +181,7 @@ Plans:
 **Plans:** 5 plans
 
 Plans:
+
 - [x] 04-01-PLAN.md — CarPartPickup scene + PickupSpawner wiring + Game.gd 25% drop branch
 - [x] 04-02-PLAN.md — WeaponManager scaffold + ScrewsAndBolts migration + Player.gd refactor + airbag interception
 - [x] 04-03-PLAN.md — ExhaustFlames + SpinningTires weapons + WeaponManager activation dispatch
@@ -172,16 +189,20 @@ Plans:
 - [x] 04-05-PLAN.md — AirbagShield visual ring + GameState game-over reset integration
 
 Wave 1 *(autonomous)*
+
 - 04-01: CarPartPickup.tscn + CarPartPickup.gd + Game.gd pickup drop + weapon_unlocked RPC
 
 Wave 2 *(blocked on Wave 1 — weapon_unlocked RPC must exist)*
+
 - 04-02: WeaponManager.gd + Player.tscn + Player.gd refactor + airbag receive_damage
 
 Wave 3 *(parallel — blocked on Wave 2, no file overlap between 03 and 04)*
+
 - 04-03: ExhaustFlames.gd + SpinningTires.gd + WeaponManager _activate_weapon_node (exhaust, tires)
 - 04-04: AntennaBeam.gd + HornShockwave.gd + WeaponManager dispatch (antenna, shockwave)
 
 Wave 4 *(blocked on Wave 3 — WeaponManager _activate_weapon_node must be fully wired)*
+
 - 04-05: AirbagShield.gd + WeaponManager airbag wiring + GameState._broadcast_game_over reset
 
 ---
@@ -192,6 +213,7 @@ Wave 4 *(blocked on Wave 3 — WeaponManager _activate_weapon_node must be fully
 **UI hint:** no
 
 **Requirements:**
+
 - ROLE-01: Tank has noticeably higher max HP than other roles
 - ROLE-02: Tank has a melee aura ability that damages nearby enemies
 - ROLE-03: Tank's Stage 2 signature ability: sustained aura burst (larger radius, short duration)
@@ -211,14 +233,46 @@ Wave 4 *(blocked on Wave 3 — WeaponManager _activate_weapon_node must be fully
 - ELEM-07: Element abilities trigger the appropriate CARIAD HUD indicator when activated
 
 **Success Criteria:**
+
 1. Tank, Speedster, and Engineer feel distinctly different to play in a 3-player session
 2. Every element modifier produces a visible gameplay effect (burn DOT, enemy slow, team heal)
 3. Using an elemental ability fires the correct CARIAD HUD indicator on all screens
 
 **Pitfall watch:**
+
 - P3 (authority guards) — all role ability logic that changes game state (aura damage, heal pulses, drone targeting) must be host-authoritative; ability input captured on owning client, sent to host via RPC, host executes and syncs result
 - P12 (input authority) — ability activation RPC must route client input → host validation → broadcast result; never let clients apply ability effects directly
 - Design pass required — per-role ability specs (range, cooldown, AoE shape), Stage 2 signature mechanics, and element modifier tuning need a design document before planning this phase
+
+**Plans:** 5 plans
+Plans:
+**Wave 1**
+
+- [ ] 05-01-PLAN.md — Foundation: InputMap (R revive, Space ability), Player.gd scaffold (stats, evolution_stage, element, RPCs, tick skeletons), Player.tscn replication, Enemy.gd status fields
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 05-02-PLAN.md — Role abilities: Tank shield + reflection, Speedster dash + double-dash shockwave, Engineer deploy dispatch
+- [ ] 05-03-PLAN.md — Engineer HealDrone scene + Game.gd drone spawn + Engineer passive heal
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 05-04-PLAN.md — Fire/Ice element procs on Bullet.gd, Fire Burst auto-timer + Ice Trail request in Player._tick_element
+- [ ] 05-05-PLAN.md — IceTrailZone scene + spawner, Earth team heal + shockwave, force_burn bullet wiring
+
+Wave 1 *(autonomous)*
+
+- 05-01: project.godot + Player.gd + Player.tscn + Enemy.gd foundation scaffold
+
+Wave 2 *(blocked on Wave 1)*
+
+- 05-02: Player.gd role ability bodies (Tank/Speedster/Engineer dispatch)
+- 05-03: HealDrone.{gd,tscn} + Game.gd drone spawn + Engineer passive (parallel — no file overlap with 05-02)
+
+Wave 3 *(blocked on Wave 2)*
+
+- 05-04: Bullet.gd element procs + Player.gd _tick_element (depends on 05-02 Player.gd)
+- 05-05: IceTrailZone.{gd,tscn} + Game.gd Earth timers + force_burn wiring (depends on 05-03 Game.gd; parallel to 05-04 — no file overlap)
 
 ---
 
@@ -228,6 +282,7 @@ Wave 4 *(blocked on Wave 3 — WeaponManager _activate_weapon_node must be fully
 **UI hint:** yes
 
 **Requirements:**
+
 - XP-01: Collecting XP orbs fills a visible XP bar on the player's HUD
 - XP-02: On level-up, a card selection overlay appears for that player
 - XP-03: Card selection shows 3 random cards drawn from an eligible pool
@@ -245,11 +300,13 @@ Wave 4 *(blocked on Wave 3 — WeaponManager _activate_weapon_node must be fully
 - EVOL-06: Stage resets to 1 (Normal Car) at the start of each new run
 
 **Success Criteria:**
+
 1. Killing enemies fills the XP bar; bar completing opens a 3-card selection overlay for that player while others continue playing
 2. Selecting a card immediately applies the effect (new weapon fires, stat increases, element upgrades)
 3. Reaching Stage 2 XP threshold transforms the player into a robot (locomotion and combat style change); Stage 3 keeps robot movement but adds full armor and unlocks all abilities
 
 **Pitfall watch:**
+
 - W3 (card pool empty crash) — always ensure at least one fallback card (+10% damage) exists; test edge case where player has all weapons at max level
 - W4 (card UI blocks all input) — card overlay is local UI only; it must NOT pause `SceneTree` or block other players' `_process`; use `CanvasLayer` with local show/hide
 - W5 (XP sync lag) — per-player XP lives on Player node synced via MultiplayerSynchronizer; level-up trigger fires via `@rpc("call_local")` from host to avoid double-triggering
@@ -263,6 +320,7 @@ Wave 4 *(blocked on Wave 3 — WeaponManager _activate_weapon_node must be fully
 **UI hint:** yes
 
 **Requirements:**
+
 - HUD-01: A Car HUD side panel is always visible on all players' screens during gameplay
 - HUD-02: Panel contains labeled indicator boxes: AC, ENGINE, SEAT MASSAGE, SUSPENSION, LIDAR, V2X
 - HUD-03: Ice ability used → "AC ❄️ COLD" lights up on all screens
@@ -282,11 +340,13 @@ Wave 4 *(blocked on Wave 3 — WeaponManager _activate_weapon_node must be fully
 - HLTH-07: Each player may be revived at most once per 15-minute loop; counter resets at loop end
 
 **Success Criteria:**
+
 1. Each of the 6 HUD indicators (AC, ENGINE, SEAT MASSAGE, SUSPENSION, LIDAR, V2X) lights up on its trigger event on all screens simultaneously
 2. 15-minute timer counts down and is visible to all players; loop ends and next loop starts harder
 3. Second loop visibly has more enemies with higher HP than first loop
 
 **Pitfall watch:**
+
 - P11 (HUD events before client connects) — gate `GameEvents` HUD RPCs behind `Lobby.all_players_ready`; V2X auto-timer starts only after Game.tscn fully loaded on all peers
 - P8 (loop timer not authoritative) — loop timer lives in `GameState` autoload, host is sole writer; MultiplayerSynchronizer distributes read-only view; clients never tick the timer locally
 - P10 (room transition desync) — LOOP-02 room clear transition must use `@rpc("call_local", "reliable")` so all peers change scene in the same call; host waits one frame before spawning next room enemies
@@ -299,6 +359,7 @@ Wave 4 *(blocked on Wave 3 — WeaponManager _activate_weapon_node must be fully
 **UI hint:** no
 
 **Requirements:**
+
 - ROOM-01: Room 1 (ERBA) — open, wide space; tutorial-level enemy density; teaches movement + combat
 - ROOM-02: Room 2 (Bamberg Altstadt) — narrow corridors; higher enemy density; punishes clustering
 - ROOM-03: Room 3 (Burg Altenburg) — large arena; boss fight
@@ -308,11 +369,13 @@ Wave 4 *(blocked on Wave 3 — WeaponManager _activate_weapon_node must be fully
 - ROOM-07: All room transitions are simultaneous across all clients
 
 **Success Criteria:**
+
 1. Full run navigates Room 1 → Room 2 → Room 3/Boss with all clients transitioning simultaneously
 2. Boss enters at least 2 distinct attack phases with different behavior; mob swarms spawn between phases
 3. Defeating the boss ends the loop; next loop starts from Room 1 with higher difficulty
 
 **Pitfall watch:**
+
 - P10 (room transition desync) — all transitions use `@rpc("call_local", "reliable")`; Room 2 transition tested with 2 players before Room 3 is built
 - P7 (spawnable list gaps) — boss scene, boss projectile variants, and all mob swarm enemy types must be pre-registered in MultiplayerSpawner before boss fight is testable
 - Design pass required — boss phase thresholds, HP values per loop, mob wave counts and composition need a design document before planning this phase
@@ -328,7 +391,7 @@ Wave 4 *(blocked on Wave 3 — WeaponManager _activate_weapon_node must be fully
 | 2. Player Movement & Sync | 2/2 | Complete | 2026-05-09 |
 | 3. Room 1, Enemy AI, Combat Core | 5/5 | Complete | 2026-05-09 |
 | 4. Weapons & Item Pickups | 5/5 | Complete | 2026-05-31 |
-| 5. Roles & Elements | 0/? | Not started | — |
+| 5. Roles & Elements | 0/5 | Planned | — |
 | 6. XP, Level-Up Cards & Evolution | 0/? | Not started | — |
 | 7. CarHUD, Loop Timer & Difficulty Scaling | 0/? | Not started | — |
 | 8. Rooms 2 & 3, Boss | 0/? | Not started | — |

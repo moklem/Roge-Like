@@ -644,22 +644,25 @@ func emit_hud(event_name: String) -> void:
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Does Player.tscn's MultiplayerSynchronizer currently list specific variable names, or does it use the "All" replication mode?**
    - What we know: The sync works for `health` and `is_downed` (confirmed from prior phases).
    - What's unclear: Whether adding `shield_active`, `evolution_stage`, `dash_invincible` requires manual SceneReplicationConfig editing in the Godot editor (property list approach) or whether there's a script-based way to extend it.
    - Recommendation: The implementer should read Player.tscn's replication config before the first wave that needs `shield_active` visible to peers.
+   - **RESOLVED → Plan 05-01 Task 3:** Explicitly edits Player.tscn SceneReplicationConfig to append `shield_active`, `evolution_stage`, `dash_invincible` as replicated properties.
 
 2. **Should Ice Trail zones replicate to clients or stay host-only?**
    - What we know: Ice Trail slows enemies, which are host-simulated. Clients never need the zone for gameplay logic.
    - What's unclear: Whether the visual (light-blue Area2D) on clients is needed for player feedback.
    - Recommendation: Start with host-only (no spawner, direct `add_child` on host). If playtest shows it's confusing, add a client-facing visual later.
+   - **RESOLVED → Plan 05-05 Task 1:** Uses `$IceTrailSpawner` (MultiplayerSpawner) so zones replicate to clients for visual feedback.
 
 3. **How does the host know which enemy attacked the Tank (for shield reflection)?**
    - What we know: `receive_damage` is called by Enemy.gd via `rpc_id(body.peer_id, CONTACT_DAMAGE)`. The call comes from the enemy node.
    - What's unclear: Inside `receive_damage` on the owning peer, there is no parameter for "which enemy caused this." The host has already sent the RPC — the owning peer only knows the amount.
    - Recommendation: Extend `receive_damage(amount: int)` signature to `receive_damage(amount: int, attacker_path: String = "")` — host passes `enemy.get_path()` as a string. Owning peer, on shield intercept, sends `request_reflect.rpc_id(1, attacker_path, reflect_amount)` to host. Host resolves path to node and calls `take_damage`.
+   - **RESOLVED → Plan 05-02 Task 1:** Extends `receive_damage` signature to `receive_damage(amount: int, attacker_path: String = "")` exactly per this recommendation.
 
 ---
 
