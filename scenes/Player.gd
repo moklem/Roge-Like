@@ -274,7 +274,7 @@ func _fire_burst() -> void:
 				})
 		else:
 			if game.has_method("request_fire"):
-				game.request_fire.rpc_id(1, global_position, spread, peer_id)
+				game.request_fire.rpc_id(1, global_position, spread, peer_id, true)
 	# ELEM-07: HUD event — host-only (T-05-14 mitigation)
 	if multiplayer.is_server():
 		GameEvents.emit_hud("engine")
