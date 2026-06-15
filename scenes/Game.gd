@@ -28,6 +28,10 @@ var _revive_progress: Dictionary = {}
 ## Phase 5 Plan 03 (D-13, ROLE-07): Engineer passive heal accumulator (host-only)
 var _engineer_passive_accum: float = 0.0
 
+## Phase 5 Plan 05 (D-19, ELEM-05/06): Earth element accumulators (host-only)
+var _earth_heal_accum: float = 0.0
+var _earth_shock_accum: float = 0.0
+
 func _ready() -> void:
 	# P7: custom spawn_functions forward data Dictionary to every peer automatically
 	$MultiplayerSpawner.spawn_function = _do_spawn         # players (existing)
@@ -251,12 +255,13 @@ func weapon_unlocked(weapon_id: String, collector_peer_id: int) -> void:
 # ENGINEER HEAL DRONE (ROLE-07, ROLE-08, ROLE-09 — Phase 5 Plan 03)
 # ==============================================================================
 
-## P8: host-only _process for Engineer passive heal timer.
-## Clients skip all passive heal logic — host broadcasts via receive_heal rpc_id.
+## P8: host-only _process for Engineer passive heal timer + Earth element effects.
+## Clients skip all host-only logic — host broadcasts heals/damage via rpc_id.
 func _process(delta: float) -> void:
 	if not multiplayer.is_server():
 		return
 	_tick_engineer_passive(delta)
+	_tick_earth_effects(delta)
 
 ## D-13 (ROLE-07): Engineer passive — every 5s, +10 HP to all OTHER players within 200px.
 ## Pitfall 6: uses rpc_id routing (direct on host, rpc_id on remote) — mirrors Enemy.gd lines 91-94.
@@ -339,3 +344,72 @@ func _do_spawn_ice_trail(data: Dictionary) -> Node:
 	zone.position = data["pos"]
 	zone.name = "IceTrail_%d" % (randi() % 99999)
 	return zone
+
+# ==============================================================================
+# EARTH ELEMENT (D-19, ELEM-05/06/07 — Phase 5 Plan 05)
+# ==============================================================================
+
+## D-19 (ELEM-05/06/07): Tick Earth element passive heal and periodic shockwave.
+## Runs ONLY on host (inside _process which guards is_server()).
+## Determines if at least one Earth player is alive; if so, accumulates timers.
+## T-05-15: All damage and heal calls are host-only; HUD emit is host-only (T-05-18).
+func _tick_earth_effects(delta: float) -> void:
+	# Collect all alive Earth players — effects active when at least one exists
+	var earth_players: Array = []
+	for p in get_tree().get_nodes_in_group("players"):
+		if p.element == "earth" and not p.is_downed:
+			earth_players.append(p)
+	if earth_players.is_empty():
+		return
+
+	# --- ELEM-05: Team Heal +2 HP/sec to ALL players (no proximity) ---
+	_earth_heal_accum += delta
+	if _earth_heal_accum >= 1.0:
+		_earth_heal_accum = 0.0
+		for target in get_tree().get_nodes_in_group("players"):
+			if target.is_downed:
+				continue
+			# Pitfall 6: direct call on host peer, rpc_id for remote peers (T-05-17)
+			if target.peer_id == multiplayer.get_unique_id():
+				target.receive_heal(2)
+			else:
+				target.receive_heal.rpc_id(target.peer_id, 2)
+		# ELEM-07: Earth heal fires SEAT MASSAGE HUD (T-05-18: host-only emit)
+		GameEvents.emit_hud("seat_massage")
+
+	# --- ELEM-06: Shockwave every 8s — knockback + 15 damage to enemies in 120px ---
+	_earth_shock_accum += delta
+	if _earth_shock_accum >= 8.0:
+		_earth_shock_accum = 0.0
+		for earth_player in earth_players:
+			var earth_pos: Vector2 = earth_player.global_position
+			# Visual ring broadcast to all peers (call_local so host also sees it)
+			_show_earth_shockwave.rpc(earth_pos)
+			# Host-only damage + knockback (T-05-15)
+			for enemy in get_tree().get_nodes_in_group("enemies"):
+				var dist: float = enemy.global_position.distance_to(earth_pos)
+				if dist <= 120.0:
+					enemy.take_damage(15)
+					# Knockback: push enemy away from Earth player (D-19)
+					if is_instance_valid(enemy) and not enemy.is_queued_for_deletion():
+						enemy.velocity += (enemy.global_position - earth_pos).normalized() * 350.0
+		# ELEM-07: Earth shockwave fires SEAT MASSAGE HUD (T-05-18: host-only, one emit per wave)
+		GameEvents.emit_hud("seat_massage")
+
+## D-19 (ELEM-06): Broadcast expanding green ring visual to all peers.
+## Clone of HornShockwave._show_visual with RADIUS=120 and Earth green color.
+## call_local so host also renders the ring.
+@rpc("any_peer", "call_local", "unreliable_ordered")
+func _show_earth_shockwave(pos: Vector2) -> void:
+	const RADIUS: float = 120.0
+	var ring := ColorRect.new()
+	ring.color = Color(0.4, 0.8, 0.2, 0.8)
+	ring.size = Vector2(RADIUS * 2.0, RADIUS * 2.0)
+	ring.pivot_offset = Vector2(RADIUS, RADIUS)
+	ring.position = pos - Vector2(RADIUS, RADIUS)
+	ring.scale = Vector2(0.1, 0.1)
+	add_child(ring)
+	var tween := ring.create_tween()
+	tween.tween_property(ring, "scale", Vector2(2.0, 2.0), 0.35)
+	tween.parallel().tween_property(ring, "modulate:a", 0.0, 0.35)
+	tween.tween_callback(ring.queue_free)
