@@ -35,6 +35,12 @@ func _ready() -> void:
 	$HurtboxArea.body_entered.connect(_on_hurtbox_body_entered)
 	$HurtboxArea.body_exited.connect(_on_hurtbox_body_exited)
 
+## WR-003: Health bar update runs on ALL peers so clients see synced current_hp.
+## _physics_process is disabled on clients (P6 guard), so health bar must live here.
+func _process(_delta: float) -> void:
+	if has_node("HealthBar"):
+		$HealthBar.value = float(current_hp) / float(MAX_HP) * 100.0
+
 func _physics_process(_delta: float) -> void:
 	var target := _find_nearest_player()
 	if target == null or global_position.distance_to(target.global_position) > DETECT_RADIUS:
@@ -51,8 +57,6 @@ func _physics_process(_delta: float) -> void:
 		else:
 			velocity = Vector2.ZERO
 	move_and_slide()
-	# Update health bar on all peers (reads synced current_hp)
-	$HealthBar.value = float(current_hp) / float(MAX_HP) * 100.0
 	# Phase 5: Burn DoT and Slow countdown (host-only — P6 guard already applied in _ready)
 	_tick_status_effects(_delta)
 
