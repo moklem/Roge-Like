@@ -17,6 +17,12 @@ var state: int = 0  # 0 = IDLE, 1 = CHASE
 ## D-10: Track which player peer_ids are currently in contact to prevent repeated damage
 var _players_in_contact: Dictionary = {}
 
+## Phase 5: Status effect fields (D-17 Burn DoT, D-18 Ice Slow)
+var speed_multiplier: float = 1.0   # D-18 Ice Slow: reduces to 0.5 for 2 sec
+var _slow_timer: float = 0.0        # counts down slow duration
+var _burn_timer: float = 0.0        # counts down burn duration (max 3 sec)
+var _burn_tick_timer: float = 0.0   # 1-sec interval for burn damage ticks
+
 ## CMBT-08: Signal for Game.gd to spawn XP orb at death position
 signal died(pos: Vector2)
 
@@ -41,12 +47,14 @@ func _physics_process(_delta: float) -> void:
 		# Pitfall 1: Check is_navigation_finished() to prevent jitter when adjacent
 		if not $NavigationAgent2D.is_navigation_finished():
 			var next: Vector2 = $NavigationAgent2D.get_next_path_position()
-			velocity = (next - global_position).normalized() * SPEED
+			velocity = (next - global_position).normalized() * SPEED * speed_multiplier
 		else:
 			velocity = Vector2.ZERO
 	move_and_slide()
 	# Update health bar on all peers (reads synced current_hp)
 	$HealthBar.value = float(current_hp) / float(MAX_HP) * 100.0
+	# Phase 5: Burn DoT and Slow countdown (host-only — P6 guard already applied in _ready)
+	_tick_status_effects(_delta)
 
 func _find_nearest_player() -> Node:
 	var nearest: Node = null
@@ -71,6 +79,38 @@ func take_damage(amount: int) -> void:
 		died.emit(global_position)
 		# CMBT-07: queue_free on host propagates to all clients via MultiplayerSpawner
 		queue_free()
+
+## Phase 5: Status effect tick — called from _physics_process (host-only via P6 guard)
+func _tick_status_effects(delta: float) -> void:
+	# Ice Slow countdown
+	if _slow_timer > 0.0:
+		_slow_timer -= delta
+		if _slow_timer <= 0.0:
+			speed_multiplier = 1.0
+			modulate = Color.WHITE  # clear blue tint
+	# Burn DoT countdown
+	if _burn_timer > 0.0:
+		_burn_timer -= delta
+		_burn_tick_timer -= delta
+		if _burn_tick_timer <= 0.0:
+			_burn_tick_timer = 1.0
+			take_damage(5)  # 5 damage/sec — D-17; take_damage already has authority guard
+		if _burn_timer <= 0.0:
+			modulate = Color.WHITE  # clear orange tint
+
+## Phase 5: Apply Burn DoT to this enemy (D-17). Called by Bullet.gd on host after proc check.
+## Burns do not stack — refresh duration (D-17).
+func apply_burn() -> void:
+	_burn_timer = 3.0
+	_burn_tick_timer = 1.0
+	modulate = Color(1.0, 0.6, 0.2)  # orange tint
+
+## Phase 5: Apply Ice Slow to this enemy (D-18). Called by Bullet.gd on host after proc check.
+## Slows to 50% speed for 2 seconds.
+func apply_slow() -> void:
+	speed_multiplier = 0.5
+	_slow_timer = 2.0
+	modulate = Color(0.5, 0.7, 1.0)  # blue tint
 
 ## D-10: Host-only contact damage — once per contact
 func _on_hurtbox_body_entered(body: Node) -> void:
