@@ -111,8 +111,8 @@ func _on_enemy_died(pos: Vector2) -> void:
 		return
 	# Always drop XP orb — call_deferred prevents "Can't change state while flushing queries"
 	$PickupSpawner.spawn.call_deferred({"type": "xp_orb", "pos": pos})
-	# D-03: 25% → TEST: 100% drop damit alle Waffen schnell getestet werden können
-	if randf() < 1.0:
+	# D-03: 25% drop rate — restored from debug 100% override
+	if randf() < 0.25:
 		var part_id: String = CAR_PART_IDS[randi() % CAR_PART_IDS.size()]
 		$PickupSpawner.spawn.call_deferred({"type": "car_part", "pos": pos + Vector2(10, 0), "weapon_id": part_id})
 	# TEST: Sofort neuen Feind spawnen damit immer Gegner da sind
