@@ -26,6 +26,9 @@ const DASH_WINDOW: float = 0.8         # double-dash availability window (Stage-
 const DASH_SHOCK_RADIUS: float = 80.0  # shockwave Area2D radius (Stage-2 second dash)
 const DASH_SHOCK_DAMAGE: int = 25      # shockwave damage to enemies
 
+## Engineer drone constants
+const ENGINEER_DRONE_COOLDOWN: float = 13.0  # drone lives 10s, 3s gap before re-deploy
+
 @export var peer_id: int = 0
 @export var role_label: String = ""
 
@@ -179,14 +182,14 @@ func _use_stage1_ability() -> void:
 			_do_dash()
 			_ability_cooldown = DASH_COOLDOWN
 		"Engineer":
-			# D-14: Request host to deploy a Heal Drone at current position
+			# D-14: Deploy Heal Drone — max 2 active, 12s cooldown
 			var game := get_node_or_null("/root/Game")
 			if game and game.has_method("request_deploy_drone"):
 				if multiplayer.is_server():
 					game.request_deploy_drone(peer_id)
 				else:
 					game.request_deploy_drone.rpc_id(1, peer_id)
-			_ability_cooldown = 1.0  # short re-deploy guard
+			_ability_cooldown = ENGINEER_DRONE_COOLDOWN
 
 ## Phase 5: Stage-2 abilities — Tank Stage-2 shield + reflect, Speedster double-dash, Engineer Stage-2 drone (D-09, D-12, D-15).
 func _use_stage2_ability() -> void:
@@ -201,14 +204,14 @@ func _use_stage2_ability() -> void:
 			_dash_window_timer = DASH_WINDOW  # 0.8 s window for second dash
 			_ability_cooldown = DASH_COOLDOWN  # reset if window lapses unused
 		"Engineer":
-			# D-15: Stage-2 drone follows Engineer — Game.gd reads evolution_stage to upgrade
+			# D-15: Stage-2 drone follows Engineer — max 2 active, 12s cooldown
 			var game := get_node_or_null("/root/Game")
 			if game and game.has_method("request_deploy_drone"):
 				if multiplayer.is_server():
 					game.request_deploy_drone(peer_id)
 				else:
 					game.request_deploy_drone.rpc_id(1, peer_id)
-			_ability_cooldown = 1.0  # short re-deploy guard
+			_ability_cooldown = ENGINEER_DRONE_COOLDOWN
 
 ## Phase 5: Speedster Stage-2 second-dash — triggers shockwave landing (D-12).
 ## Called when Space pressed during _dash_window_timer > 0.0.

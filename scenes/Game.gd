@@ -25,6 +25,11 @@ const REVIVE_PROXIMITY: float = 80.0
 ## Revive accumulator — keyed by target player peer_id → seconds accumulated
 var _revive_progress: Dictionary = {}
 
+## HUD labels for local player status (built programmatically in _ready)
+var _hud_hp_label: Label = null
+var _hud_ability_label: Label = null
+var _hud_event_label: Label = null
+
 ## Phase 5 Plan 03 (D-13, ROLE-07): Engineer passive heal accumulator (host-only)
 var _engineer_passive_accum: float = 0.0
 
@@ -50,6 +55,7 @@ func _ready() -> void:
 
 	# Bake navigation polygon at runtime so new obstacles are properly carved out
 	call_deferred("_bake_navigation")
+	_setup_player_hud()
 	if multiplayer.is_server():
 		_spawn_all_players()   # existing
 		_spawn_enemies()       # CMBT-03: D-19 fixed spawn points, 3-5 enemies
@@ -58,6 +64,83 @@ func _bake_navigation() -> void:
 	var nav := get_node_or_null("Room1/NavigationRegion2D")
 	if nav:
 		nav.bake_navigation_polygon(false)
+
+# ==============================================================================
+# PLAYER HUD (top-right: HP + Ability status for local peer)
+# ==============================================================================
+
+func _setup_player_hud() -> void:
+	var hud := get_node_or_null("HUD")
+	if hud == null:
+		return
+	var panel := PanelContainer.new()
+	panel.name = "PlayerInfoPanel"
+	panel.anchor_left = 1.0
+	panel.anchor_right = 1.0
+	panel.anchor_top = 0.0
+	panel.anchor_bottom = 0.0
+	panel.offset_left = -215
+	panel.offset_right = -10
+	panel.offset_top = 10
+	panel.offset_bottom = 10  # grows with content
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.0, 0.0, 0.0, 0.65)
+	style.set_corner_radius_all(5)
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	style.content_margin_top = 7
+	style.content_margin_bottom = 7
+	panel.add_theme_stylebox_override("panel", style)
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 4)
+	panel.add_child(vbox)
+	_hud_hp_label = Label.new()
+	_hud_hp_label.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
+	vbox.add_child(_hud_hp_label)
+	_hud_ability_label = Label.new()
+	vbox.add_child(_hud_ability_label)
+	_hud_event_label = Label.new()
+	_hud_event_label.visible = false
+	_hud_event_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.2))
+	vbox.add_child(_hud_event_label)
+	GameEvents.hud_event.connect(_on_hud_event)
+	hud.add_child(panel)
+
+func _on_hud_event(event_name: String) -> void:
+	if _hud_event_label == null:
+		return
+	match event_name:
+		"engine":       _hud_event_label.text = "FEUER BURST!"
+		"ac":           _hud_event_label.text = "EIS SPUR"
+		"seat_massage": _hud_event_label.text = "ERDE PULS"
+		_:              _hud_event_label.text = event_name.to_upper()
+	_hud_event_label.modulate = Color.WHITE
+	_hud_event_label.visible = true
+	var tween := _hud_event_label.create_tween()
+	tween.tween_property(_hud_event_label, "modulate:a", 0.0, 1.2).set_delay(0.5)
+	tween.tween_callback(func(): _hud_event_label.visible = false)
+
+func _update_player_hud() -> void:
+	if _hud_hp_label == null:
+		return
+	var local_id := multiplayer.get_unique_id()
+	var local_player: Node = null
+	for p in get_tree().get_nodes_in_group("players"):
+		if p.peer_id == local_id:
+			local_player = p
+			break
+	if local_player == null:
+		_hud_hp_label.text = "HP: --"
+		_hud_ability_label.text = "Fähigkeit: --"
+		return
+	_hud_hp_label.text = "HP  %d / %d" % [local_player.health, local_player.MAX_HP]
+	var cd: float = local_player._ability_cooldown
+	if cd <= 0.0:
+		_hud_ability_label.text = "[SPACE]  BEREIT"
+		_hud_ability_label.add_theme_color_override("font_color", Color(0.3, 0.9, 0.4))
+	else:
+		_hud_ability_label.text = "[SPACE]  CD: %.1fs" % cd
+		_hud_ability_label.add_theme_color_override("font_color", Color(0.9, 0.7, 0.2))
 
 # ==============================================================================
 # PLAYER SPAWNING (existing — unchanged)
@@ -256,13 +339,12 @@ func weapon_unlocked(weapon_id: String, collector_peer_id: int) -> void:
 # ENGINEER HEAL DRONE (ROLE-07, ROLE-08, ROLE-09 — Phase 5 Plan 03)
 # ==============================================================================
 
-## P8: host-only _process for Engineer passive heal timer + Earth element effects.
-## Clients skip all host-only logic — host broadcasts heals/damage via rpc_id.
+## P8: host runs Engineer passive + Earth effects; all peers update local HUD.
 func _process(delta: float) -> void:
-	if not multiplayer.is_server():
-		return
-	_tick_engineer_passive(delta)
-	_tick_earth_effects(delta)
+	if multiplayer.is_server():
+		_tick_engineer_passive(delta)
+		_tick_earth_effects(delta)
+	_update_player_hud()
 
 ## D-13 (ROLE-07): Engineer passive — every 5s, +10 HP to all OTHER players within 200px.
 ## Pitfall 6: uses rpc_id routing (direct on host, rpc_id on remote) — mirrors Enemy.gd lines 91-94.
@@ -289,20 +371,21 @@ func _tick_engineer_passive(delta: float) -> void:
 			else:
 				target.receive_heal.rpc_id(target.peer_id, 10)
 
-## D-14 (ROLE-08): Client Engineer requests drone deploy → host validates + spawns.
-## Mirrors request_fire structure exactly. Max 1 drone per engineer (D-14).
+## ROLE-08: Client Engineer requests drone deploy → host validates + spawns.
+## Max 2 active drones per engineer; blocks silently when cap is reached.
 @rpc("any_peer", "call_remote", "reliable")
 func request_deploy_drone(requester_peer_id: int) -> void:
 	if not multiplayer.is_server():
 		return
-	# D-14: Remove existing drone for this engineer (max 1 active)
-	# DroneSpawner uses spawn_path "../Room1/Entities" — search there, not Game's direct children
+	# Count drones currently owned by this engineer
 	var entities := get_node_or_null("Room1/Entities")
+	var active_count := 0
 	if entities:
 		for child in entities.get_children():
-			if child.name == "HealDrone_%d" % requester_peer_id:
-				child.queue_free()
-				break
+			if child.get("owning_peer") == requester_peer_id:
+				active_count += 1
+	if active_count >= 1:
+		return  # still active — wait for it to expire
 	# Validate: engineer must exist and not be downed
 	var player_node: Node = null
 	for p in get_tree().get_nodes_in_group("players"):

@@ -9,6 +9,7 @@ extends Node2D
 @export var stage: int = 1
 
 const PULSE_INTERVAL: float = 3.0
+const LIFETIME: float = 10.0          # drone despawns after 10s
 ## Stage-1 stats (D-14)
 const PULSE_HEAL_S1: int = 15
 const PULSE_RADIUS_S1: float = 150.0
@@ -18,6 +19,7 @@ const PULSE_RADIUS_S2: float = 200.0
 
 var _pulse_timer: Timer = null
 var _area: Area2D = null
+var _lifetime_elapsed: float = 0.0
 
 func _ready() -> void:
 	# CRITICAL (Pitfall 2): drone authority stays with host (default).
@@ -26,10 +28,15 @@ func _ready() -> void:
 	_setup_timer()
 	_draw_visual()
 
-func _physics_process(_delta: float) -> void:
-	# Stage-2: follow owning Engineer position (host-only)
+func _physics_process(delta: float) -> void:
 	if not is_multiplayer_authority():
 		return
+	# Lifetime — host despawns after LIFETIME seconds (replicates to clients via DroneSpawner)
+	_lifetime_elapsed += delta
+	if _lifetime_elapsed >= LIFETIME:
+		queue_free()
+		return
+	# Stage-2: follow owning Engineer position
 	if stage < 2:
 		return
 	for p in get_tree().get_nodes_in_group("players"):
