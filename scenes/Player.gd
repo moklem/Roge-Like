@@ -42,9 +42,6 @@ var _ability_cooldown: float = 0.0  # D-06: single ability cooldown timer
 var _dash_window_timer: float = 0.0 # D-12: Speedster double-dash window
 var _ice_trail_timer: float = 0.0   # D-18: Ice Trail spawn interval
 var _fire_burst_timer: float = 0.0  # D-17: Fire Burst auto-fire interval
-var _earth_heal_timer: float = 0.0  # D-19: Earth Team Heal tick interval
-var _earth_shockwave_timer: float = 0.0  # D-19: Earth Shockwave interval
-var _engineer_passive_timer: float = 0.0 # D-13: Engineer passive heal tick interval
 
 ## Phase 5 Plan 02: Tank shield state
 var _shield_timer: float = 0.0          # counts down active shield duration
@@ -67,9 +64,6 @@ func _ready() -> void:
 	element = Lobby.players.get(peer_id, {}).get("element", "")
 	# Phase 5: Initialise element/ability timers so they don't fire immediately
 	_fire_burst_timer = 4.0
-	_earth_shockwave_timer = 8.0
-	_earth_heal_timer = 1.0
-	_engineer_passive_timer = 5.0
 
 func _process(_delta: float) -> void:
 	# D-12: downed visual tint runs on ALL peers from synced is_downed value
