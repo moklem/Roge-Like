@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-06-15T13:52:00Z"
+last_updated: "2026-06-15T14:00:00Z"
 progress:
   total_phases: 8
   completed_phases: 4
   total_plans: 19
-  completed_plans: 19
-  percent: 53
+  completed_plans: 20
+  percent: 55
 ---
 
 # Project State
@@ -20,16 +20,17 @@ See: .planning/PROJECT.md (updated 2026-05-05)
 
 **Core value:** The CARIAD HUD must always fire convincingly — every major game event triggers the corresponding vehicle sensor indicator, making the gameplay feel like a real in-car system demo
 
-**Current focus:** Phase 05 — roles-elements (Plan 05 next)
+**Current focus:** Phase 05 — roles-elements (Phase 5 complete — all 5 plans done)
 
 ---
 
 ## Current Phase
 
 **Phase 5: Roles & Elements**
-Status: In Progress
+Status: Complete
 Started: 2026-06-15
-Plans: 4/5 complete
+Completed: 2026-06-15
+Plans: 5/5 complete
 
 ### Phase Goal
 
@@ -41,11 +42,11 @@ Three mechanically distinct player roles (Tank, Speedster, Engineer) with Stage-
 - [x] 05-02 (Wave 2): Role abilities — Tank shield, Speedster dash, Engineer deploy dispatch
 - [x] 05-03 (Wave 2): Engineer HealDrone scene + Game.gd drone spawn + Engineer passive heal
 - [x] 05-04 (Wave 3): Fire/Ice element procs on Bullet.gd + Player._tick_element
-- [ ] 05-05 (Wave 3): IceTrailZone scene + Earth heal/shockwave + force_burn wiring
+- [x] 05-05 (Wave 3): IceTrailZone scene + Earth heal/shockwave + force_burn wiring
 
 ### Stopped At
 
-05-04 complete (32c4a96). Wave 3 Fire/Ice procs done. 05-05 (IceTrailZone + Earth + force_burn wiring) next.
+05-05 complete (9e312ba, f6559d2). Phase 5 fully complete. ELEM-04 through ELEM-07 implemented.
 
 ---
 
@@ -122,9 +123,9 @@ Completed: 2026-05-09
 
 | Metric | Value |
 |--------|-------|
-| Phases complete | 4 / 8 |
-| Phase 4 plans shipped | 5 / 5 |
-| v1 requirements shipped | ~28 / 84 |
+| Phases complete | 4 / 8 (Phase 5 complete, not yet counted in phase total) |
+| Phase 5 plans shipped | 5 / 5 |
+| v1 requirements shipped | ~32 / 84 (ELEM-04 through ELEM-07 added) |
 | Active blockers | 0 |
 
 ---
@@ -208,6 +209,15 @@ See .planning/PROJECT.md → Key Decisions for the full decision log.
 - request_ice_trail call guarded by has_method — safe before Plan 05 adds it to Game.gd
 - All GameEvents.emit_hud() calls wrapped in multiplayer.is_server() (T-05-14 HUD dedup mitigation)
 - _find_nearest_enemy_global() helper cloned from WeaponManager._find_nearest_enemy using self.global_position
+
+**Phase 5 decisions (05-05):**
+
+- IceTrailZone _slow_timer overridden to 1.5s after apply_slow() — trail slow is shorter than direct slow per D-18
+- request_ice_trail emits emit_hud("ac") on host directly (not inside IceTrailZone) — host-only per T-05-18
+- _tick_earth_effects appended to existing _process host-guard block — no new _process needed
+- _show_earth_shockwave uses call_local so host renders the visual ring
+- request_fire force_burn param defaults false — all existing screws/bolts callers remain valid (backward compatible)
+- Earth shockwave checks is_instance_valid + is_queued_for_deletion before velocity write (post-death safety)
 
 ---
 

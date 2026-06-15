@@ -258,7 +258,7 @@ Plans:
 **Wave 3** *(blocked on Wave 2 completion)*
 
 - [x] 05-04-PLAN.md — Fire/Ice element procs on Bullet.gd, Fire Burst auto-timer + Ice Trail request in Player._tick_element
-- [ ] 05-05-PLAN.md — IceTrailZone scene + spawner, Earth team heal + shockwave, force_burn bullet wiring
+- [x] 05-05-PLAN.md — IceTrailZone scene + spawner, Earth team heal + shockwave, force_burn bullet wiring
 
 Wave 1 *(autonomous)*
 
