@@ -213,7 +213,8 @@ func attempt_revive(reviver_id: int, target_id: int) -> void:
 		_update_revive_bar(target_id, 0.0)
 		return
 	# Accumulate revive progress
-	var dt: float = get_physics_process_delta_time()
+	# CR-004: use get_process_delta_time() — RPC dispatch occurs in _process, not _physics_process
+	var dt: float = get_process_delta_time()
 	var progress: float = _revive_progress.get(target_id, 0.0) + dt
 	_revive_progress[target_id] = progress
 	# HLTH-06: Push revive bar progress to the owning peer via RPC
