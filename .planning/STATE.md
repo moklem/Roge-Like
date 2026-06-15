@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-06-15T13:35:00Z"
+last_updated: "2026-06-15T13:14:00Z"
 progress:
   total_phases: 8
   completed_phases: 4
   total_plans: 19
-  completed_plans: 17
-  percent: 53
+  completed_plans: 18
+  percent: 58
 ---
 
 # Project State
@@ -20,7 +20,7 @@ See: .planning/PROJECT.md (updated 2026-05-05)
 
 **Core value:** The CARIAD HUD must always fire convincingly — every major game event triggers the corresponding vehicle sensor indicator, making the gameplay feel like a real in-car system demo
 
-**Current focus:** Phase 05 — roles-elements (Plan 03 next)
+**Current focus:** Phase 05 — roles-elements (Plan 04 next)
 
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-05-05)
 **Phase 5: Roles & Elements**
 Status: In Progress
 Started: 2026-06-15
-Plans: 2/5 complete
+Plans: 3/5 complete
 
 ### Phase Goal
 
@@ -39,13 +39,13 @@ Three mechanically distinct player roles (Tank, Speedster, Engineer) with Stage-
 
 - [x] 05-01 (Wave 1): Foundation — InputMap (R/Space), Player.gd scaffold, Player.tscn replication, Enemy.gd status effects
 - [x] 05-02 (Wave 2): Role abilities — Tank shield, Speedster dash, Engineer deploy dispatch
-- [ ] 05-03 (Wave 2): Engineer HealDrone scene + Game.gd drone spawn + Engineer passive heal
+- [x] 05-03 (Wave 2): Engineer HealDrone scene + Game.gd drone spawn + Engineer passive heal
 - [ ] 05-04 (Wave 3): Fire/Ice element procs on Bullet.gd + Player._tick_element
 - [ ] 05-05 (Wave 3): IceTrailZone scene + Earth heal/shockwave + force_burn wiring
 
 ### Stopped At
 
-05-02 complete (cc8eeaa). Wave 2 partially done. 05-03 (Engineer HealDrone) next.
+05-03 complete (e7e2217). Wave 2 done. 05-04 (Fire/Ice element procs) next.
 
 ---
 
@@ -190,6 +190,14 @@ See .planning/PROJECT.md → Key Decisions for the full decision log.
 - _spawn_dash_shockwave splits visual (call_local RPC) from damage (host-only loop) — T-05-05 mitigation
 - _shield_ring ColorRect created once and reused via .visible toggle (mirrors AirbagShield.gd pattern)
 - Engineer ability has_method("request_deploy_drone") guard — safe to ship before Plan 03
+
+**Phase 5 decisions (05-03):**
+
+- DroneSpawner spawn_path set to Room1/Entities matching all other MultiplayerSpawner siblings
+- HealDrone authority stays on host (Pitfall 2); owning_peer is data field only — never transferred
+- _tick_engineer_passive in Game.gd _process (host-guarded) keeps all drone/spawn logic co-located in Game.gd
+- Engineer passive heals OTHER players only (not the Engineer themselves) matching D-13 — 200px proximity
+- Drone visual is green 20x20 ColorRect — intentional placeholder art per PROJECT.md policy
 
 ---
 

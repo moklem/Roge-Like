@@ -129,9 +129,9 @@
 - [ ] **ROLE-04**: Speedster moves faster than other roles
 - [ ] **ROLE-05**: Speedster has a dash ability (brief burst of speed / invincibility frames)
 - [ ] **ROLE-06**: Speedster's Stage 2 signature ability: afterimage dash (leaves damaging trail)
-- [ ] **ROLE-07**: Engineer has a passive heal that periodically restores HP to nearby teammates
-- [ ] **ROLE-08**: Engineer deploys a drone that targets nearby enemies
-- [ ] **ROLE-09**: Engineer's Stage 2 signature ability: repair pulse (burst heal to all teammates)
+- [x] **ROLE-07**: Engineer has a passive heal that periodically restores HP to nearby teammates
+- [x] **ROLE-08**: Engineer deploys a drone that targets nearby enemies
+- [x] **ROLE-09**: Engineer's Stage 2 signature ability: repair pulse (burst heal to all teammates)
 - [ ] **ROLE-10**: Each role feels mechanically distinct in a 3-player session
 
 ### Elements
@@ -290,9 +290,9 @@
 | ROLE-04 | Phase 7 | Pending |
 | ROLE-05 | Phase 7 | Pending |
 | ROLE-06 | Phase 7 | Pending |
-| ROLE-07 | Phase 7 | Pending |
-| ROLE-08 | Phase 7 | Pending |
-| ROLE-09 | Phase 7 | Pending |
+| ROLE-07 | Phase 5, Plan 03 | Complete |
+| ROLE-08 | Phase 5, Plan 03 | Complete |
+| ROLE-09 | Phase 5, Plan 03 | Complete |
 | ROLE-10 | Phase 7 | Pending |
 | ELEM-01 | Phase 7 | Pending |
 | ELEM-02 | Phase 7 | Pending |

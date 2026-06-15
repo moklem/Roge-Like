@@ -253,7 +253,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 05-02-PLAN.md — Role abilities: Tank shield + reflection, Speedster dash + double-dash shockwave, Engineer deploy dispatch
-- [ ] 05-03-PLAN.md — Engineer HealDrone scene + Game.gd drone spawn + Engineer passive heal
+- [x] 05-03-PLAN.md — Engineer HealDrone scene + Game.gd drone spawn + Engineer passive heal
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
