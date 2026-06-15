@@ -257,7 +257,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 05-04-PLAN.md — Fire/Ice element procs on Bullet.gd, Fire Burst auto-timer + Ice Trail request in Player._tick_element
+- [x] 05-04-PLAN.md — Fire/Ice element procs on Bullet.gd, Fire Burst auto-timer + Ice Trail request in Player._tick_element
 - [ ] 05-05-PLAN.md — IceTrailZone scene + spawner, Earth team heal + shockwave, force_burn bullet wiring
 
 Wave 1 *(autonomous)*
@@ -391,7 +391,7 @@ Wave 3 *(blocked on Wave 2)*
 | 2. Player Movement & Sync | 2/2 | Complete | 2026-05-09 |
 | 3. Room 1, Enemy AI, Combat Core | 5/5 | Complete | 2026-05-09 |
 | 4. Weapons & Item Pickups | 5/5 | Complete | 2026-05-31 |
-| 5. Roles & Elements | 1/5 | In progress | — |
+| 5. Roles & Elements | 4/5 | In progress | — |
 | 6. XP, Level-Up Cards & Evolution | 0/? | Not started | — |
 | 7. CarHUD, Loop Timer & Difficulty Scaling | 0/? | Not started | — |
 | 8. Rooms 2 & 3, Boss | 0/? | Not started | — |

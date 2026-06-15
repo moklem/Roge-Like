@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-06-15T13:14:00Z"
+last_updated: "2026-06-15T13:52:00Z"
 progress:
   total_phases: 8
   completed_phases: 4
   total_plans: 19
-  completed_plans: 18
-  percent: 58
+  completed_plans: 19
+  percent: 53
 ---
 
 # Project State
@@ -20,7 +20,7 @@ See: .planning/PROJECT.md (updated 2026-05-05)
 
 **Core value:** The CARIAD HUD must always fire convincingly — every major game event triggers the corresponding vehicle sensor indicator, making the gameplay feel like a real in-car system demo
 
-**Current focus:** Phase 05 — roles-elements (Plan 04 next)
+**Current focus:** Phase 05 — roles-elements (Plan 05 next)
 
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-05-05)
 **Phase 5: Roles & Elements**
 Status: In Progress
 Started: 2026-06-15
-Plans: 3/5 complete
+Plans: 4/5 complete
 
 ### Phase Goal
 
@@ -40,12 +40,12 @@ Three mechanically distinct player roles (Tank, Speedster, Engineer) with Stage-
 - [x] 05-01 (Wave 1): Foundation — InputMap (R/Space), Player.gd scaffold, Player.tscn replication, Enemy.gd status effects
 - [x] 05-02 (Wave 2): Role abilities — Tank shield, Speedster dash, Engineer deploy dispatch
 - [x] 05-03 (Wave 2): Engineer HealDrone scene + Game.gd drone spawn + Engineer passive heal
-- [ ] 05-04 (Wave 3): Fire/Ice element procs on Bullet.gd + Player._tick_element
+- [x] 05-04 (Wave 3): Fire/Ice element procs on Bullet.gd + Player._tick_element
 - [ ] 05-05 (Wave 3): IceTrailZone scene + Earth heal/shockwave + force_burn wiring
 
 ### Stopped At
 
-05-03 complete (e7e2217). Wave 2 done. 05-04 (Fire/Ice element procs) next.
+05-04 complete (32c4a96). Wave 3 Fire/Ice procs done. 05-05 (IceTrailZone + Earth + force_burn wiring) next.
 
 ---
 
@@ -198,6 +198,16 @@ See .planning/PROJECT.md → Key Decisions for the full decision log.
 - _tick_engineer_passive in Game.gd _process (host-guarded) keeps all drone/spawn logic co-located in Game.gd
 - Engineer passive heals OTHER players only (not the Engineer themselves) matching D-13 — 200px proximity
 - Drone visual is green 20x20 ColorRect — intentional placeholder art per PROJECT.md policy
+
+**Phase 5 decisions (05-04):**
+
+- force_burn @export on Bullet.gd bypasses 25% proc gate for Fire Burst projectiles (D-17)
+- Element proc placed after take_damage, before queue_free, inside existing authority guard (Pitfall 5 compliance, T-05-11 mitigation)
+- fire_burst: true dict key passed in BulletSpawner spawn data; Plan 05 _do_spawn_bullet reads it to set b.force_burn
+- Ice Trail guard: velocity.length() < 10 prevents trail spawn when idle (D-18)
+- request_ice_trail call guarded by has_method — safe before Plan 05 adds it to Game.gd
+- All GameEvents.emit_hud() calls wrapped in multiplayer.is_server() (T-05-14 HUD dedup mitigation)
+- _find_nearest_enemy_global() helper cloned from WeaponManager._find_nearest_enemy using self.global_position
 
 ---
 
