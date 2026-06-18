@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
+status: ready_to_execute
 last_updated: "2026-06-18T00:00:00.000Z"
-stopped_at: "Phase 6 context gathered"
-resume_file: ".planning/phases/06-xp-level-up-cards-and-evolution/06-CONTEXT.md"
+stopped_at: "Phase 6 planned — 4 plans ready"
+resume_file: ".planning/phases/06-xp-level-up-cards-and-evolution/06-01-PLAN.md"
 progress:
   total_phases: 8
   completed_phases: 5
-  total_plans: 19
+  total_plans: 23
   completed_plans: 19
   percent: 63
 ---
@@ -22,11 +22,35 @@ See: .planning/PROJECT.md (updated 2026-05-05)
 
 **Core value:** The CARIAD HUD must always fire convincingly — every major game event triggers the corresponding vehicle sensor indicator, making the gameplay feel like a real in-car system demo
 
-**Current focus:** Phase 05 — roles-elements
+**Current focus:** Phase 06 — xp-level-up-cards-and-evolution
 
 ---
 
 ## Current Phase
+
+**Phase 6: XP, Level-Up Cards & Evolution**
+Status: Ready to execute
+Planned: 2026-06-18
+Plans: 0/4 complete
+
+### Phase Goal
+
+Per-player progression loop — kill enemies to earn XP, level up triggers card pick, stage transforms appearance and unlocks ability
+
+### Plans
+
+- [ ] 06-01 (Wave 1): XP state vars + receive_xp RPC + XpOrb grant + MultiplayerSynchronizer + GameState reset
+- [ ] 06-02 (Wave 2): PlayerHUD.tscn/gd (XP bar CanvasLayer) + CardOverlay.tscn/gd (card selection UI)
+- [ ] 06-03 (Wave 3): Card flow wiring + evolution stage logic + confirm_card_pick RPC + airbag migration
+- [ ] 06-04 (Wave 4): All 6 weapon Level 2/3 stat scaling + stage3_damage_mult + Earth element_tier
+
+### Stopped At
+
+Phase 6 planning complete (4 plans, 4 waves). Ready to execute.
+
+---
+
+## Previous Phase
 
 **Phase 5: Roles & Elements**
 Status: Complete

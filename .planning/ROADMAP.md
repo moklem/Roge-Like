@@ -312,6 +312,37 @@ Wave 3 *(blocked on Wave 2)*
 - W5 (XP sync lag) — per-player XP lives on Player node synced via MultiplayerSynchronizer; level-up trigger fires via `@rpc("call_local")` from host to avoid double-triggering
 - P8 (GameState not authoritative) — XP totals and level thresholds authoritative on host; card selection sent to host via RPC, host validates and broadcasts confirmed card effect
 
+**Plans:** 4 plans
+
+Plans:
+
+- [ ] 06-01-PLAN.md — XP state vars (xp, level, element_tier, is_picking_card, stage3_damage_mult) + receive_xp RPC + XpOrb grant wiring + Player.tscn MultiplayerSynchronizer extension + GameState reset
+- [ ] 06-02-PLAN.md — PlayerHUD.tscn/gd (XP bar CanvasLayer, LevelLabel, StageLabel) + CardOverlay.tscn/gd (3-card selection, A/D navigation, Space confirm)
+- [ ] 06-03-PLAN.md — Card flow wiring (pool build, filter, fallback, confirm_card_pick RPC) + evolution stage logic + Player.tscn stage visual containers + airbag_active→airbag_count migration
+- [ ] 06-04-PLAN.md — All 6 weapon Level 2/3 stat scaling (D-11 table) + stage3_damage_mult reads + Earth element_tier scaling in Game.gd
+
+Wave 1 *(autonomous)*
+
+- 06-01: Player.gd vars + XpOrb.gd + Player.tscn replication + GameState.gd reset
+
+Wave 2 *(autonomous — new files, no overlap with Wave 1)*
+
+- 06-02: PlayerHUD.{tscn,gd} + CardOverlay.{tscn,gd}
+
+Wave 3 *(blocked on Waves 1 and 2 — card flow needs Player vars and CardOverlay scene)*
+
+- 06-03: Player.gd card flow + Game.gd confirm_card_pick + Player.tscn stage containers + WeaponManager.gd airbag migration
+
+Wave 4 *(blocked on Wave 3 — needs stage3_damage_mult var wired)*
+
+- 06-04: WeaponManager.gd + all weapon .gd files + Game.gd Earth tier scaling
+
+**Cross-cutting constraints:**
+
+- `CanvasLayer` must be used for ALL local UI (W4) — never `SceneTree.paused`
+- All XP/card/evolution state changes are host-authoritative: owning peer sends intent RPC → host validates → host broadcasts result (P8)
+- `is_multiplayer_authority()` guards on all owning-peer UI and input logic
+
 ---
 
 ### Phase 7: CarHUD, Loop Timer & Difficulty Scaling
