@@ -391,7 +391,7 @@ Wave 3 *(blocked on Wave 2)*
 | 2. Player Movement & Sync | 2/2 | Complete | 2026-05-09 |
 | 3. Room 1, Enemy AI, Combat Core | 5/5 | Complete | 2026-05-09 |
 | 4. Weapons & Item Pickups | 5/5 | Complete | 2026-05-31 |
-| 5. Roles & Elements | 4/5 | In progress | — |
-| 6. XP, Level-Up Cards & Evolution | 0/? | Not started | — |
+| 5. Roles & Elements | 5/5 | Complete | 2026-06-15 |
+| 6. XP, Level-Up Cards & Evolution | 0/4 | Not started | — |
 | 7. CarHUD, Loop Timer & Difficulty Scaling | 0/? | Not started | — |
 | 8. Rooms 2 & 3, Boss | 0/? | Not started | — |
