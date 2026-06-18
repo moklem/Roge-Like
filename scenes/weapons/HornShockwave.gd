@@ -58,7 +58,8 @@ func _on_fire_timer(weapon_manager: Node) -> void:
 	var damage: int = int(float(DAMAGE) * player.stage3_damage_mult)  # D-22 Stage 3 mult
 	if level >= 2:
 		radius = 220.0                  # L2: 150→220px
-		_timer.wait_time = 2.5          # L2: 3s→2.5s cooldown (D-11)
+		if _timer.wait_time != 2.5:
+			_timer.wait_time = 2.5      # L2: 3s→2.5s cooldown (D-11) — applied once
 	# Update collision area radius before overlap query
 	if is_instance_valid(_area):
 		for child in _area.get_children():

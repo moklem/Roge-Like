@@ -7,7 +7,6 @@ extends Node
 
 const ORBIT_RADIUS: float = 50.0
 const ORBIT_SPEED: float = 2.0   # radians/sec
-const DAMAGE: int = 15
 const HIT_COOLDOWN: float = 0.5
 
 var _angle: float = 0.0

@@ -59,6 +59,5 @@ func _broadcast_game_over() -> void:
 		p.element_tier = 1
 		p.stage3_damage_mult = 1.0
 		p.is_picking_card = false
-		if p.has_method("set_evolution_stage"):
-			p.set_evolution_stage(1)  # back to Stage 1 (Normal Car)
+		p.evolution_stage = 1  # direct reset — skip deferred visual swap before scene change
 	get_tree().change_scene_to_file("res://scenes/ui/GameOver.tscn")

@@ -80,8 +80,10 @@ func _on_fire_timer(weapon_manager: Node) -> void:
 		else:
 			_apply_damage.rpc_id(1, player.global_position, dir, level, player.peer_id)
 		await get_tree().create_timer(0.2).timeout
-		# T-06-14: Guard against self being freed during the 0.2s await
+		# T-06-14: Guard against self or player being freed / downed during the 0.2s await
 		if not is_instance_valid(self):
+			return
+		if not is_instance_valid(player) or player.is_downed:
 			return
 	# Primary (or only for L1) beam
 	if multiplayer.is_server():

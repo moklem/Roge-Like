@@ -1,5 +1,7 @@
 extends Area2D
 ## XP orb pickup — spawned by Game.gd when enemy dies (CMBT-08).
+
+const PLAYER_SCRIPT = preload("res://scenes/Player.gd")
 ## Collection is host-authoritative (CMBT-09, D-16).
 ## Pitfall 5: _collected flag prevents double-collection race condition.
 
@@ -37,9 +39,9 @@ func _request_collect(_orb_name: String) -> void:
 	for p in get_tree().get_nodes_in_group("players"):
 		if p.peer_id == collector_peer_id:
 			if collector_peer_id == multiplayer.get_unique_id():
-				p.receive_xp(p.XP_PER_ORB)  # D-01: XP_PER_ORB per orb (host-local, no RPC)
+				p.receive_xp(PLAYER_SCRIPT.XP_PER_ORB)  # D-01: XP_PER_ORB per orb (host-local, no RPC)
 			else:
-				p.receive_xp.rpc_id(collector_peer_id, p.XP_PER_ORB)  # D-01: XP_PER_ORB per orb
+				p.receive_xp.rpc_id(collector_peer_id, PLAYER_SCRIPT.XP_PER_ORB)  # D-01: XP_PER_ORB per orb
 			break
 	# CMBT-09: queue_free on host propagates to all clients via PickupSpawner
 	queue_free()

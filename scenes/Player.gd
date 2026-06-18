@@ -440,7 +440,6 @@ func _show_dash_shockwave(pos: Vector2) -> void:
 ##   reflection is best-effort and skipped when path is empty.
 @rpc("any_peer", "call_remote", "reliable")
 func receive_damage(amount: int, attacker_path: String = "") -> void:
-	print("receive_damage called! hp=", health, " -> ", health - amount)
 	# Plan 02 D-11: Speedster i-frames ignore ALL damage (checked before everything else)
 	if dash_invincible:
 		return
@@ -455,7 +454,6 @@ func receive_damage(amount: int, attacker_path: String = "") -> void:
 		else:
 			health = 1                     # D-11 L1: survive at 1 HP
 		$WeaponManager.consume_airbag()
-		print("Airbag absorbed lethal hit! hp=", health)
 		return
 	# Plan 02 D-08/D-09: Tank shield intercept — block all damage while active
 	if shield_active:
@@ -465,7 +463,6 @@ func receive_damage(amount: int, attacker_path: String = "") -> void:
 			_request_reflect(amount, attacker_path)
 		return  # block damage regardless of stage
 	health -= amount
-	print("receive_damage done! hp=", health)
 	if health <= 0:
 		health = 0
 		_enter_downed()
@@ -530,9 +527,11 @@ func _update_xp_hud() -> void:
 ## Phase 6 (D-03, D-04, EVOL-02, EVOL-03): Self-apply stage change after level-up.
 ## Option C from RESEARCH: owning peer self-applies since receive_xp is already host-authorized.
 func _check_stage_threshold() -> void:
-	if level == STAGE2_LEVEL and evolution_stage < 2:
-		set_evolution_stage(2)   # D-16: auto-grants Stage 2 signature ability
-	elif level == STAGE3_LEVEL and evolution_stage < 3:
+	if level >= STAGE2_LEVEL and evolution_stage < 2:
+		set_evolution_stage.rpc(2)
+		set_evolution_stage(2)
+	if level >= STAGE3_LEVEL and evolution_stage < 3:
+		set_evolution_stage.rpc(3)
 		set_evolution_stage(3)
 
 ## Phase 6 (XP-03, XP-04, XP-05, XP-06): Build eligible card pool for this player.
@@ -543,7 +542,8 @@ func _build_card_pool() -> Array:
 		# Weapon unlocks — exclude already-owned weapons (XP-05)
 		for wid in ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave", "airbag_shield"]:
 			if not wm.unlocked_weapons.has(wid):
-				pool.append({"type": "weapon_unlock", "weapon_id": wid})
+				if wm.unlocked_weapons.size() < wm.MAX_WEAPONS:
+					pool.append({"type": "weapon_unlock", "weapon_id": wid})
 		# Weapon upgrades — exclude maxed weapons (XP-05)
 		for wid in wm.unlocked_weapons:
 			var lvl: int = wm.weapon_level.get(wid, 1)
@@ -553,7 +553,7 @@ func _build_card_pool() -> Array:
 	if element_tier < 3:
 		pool.append({"type": "element_upgrade", "new_tier": element_tier + 1})
 	# Stat boosts — always eligible (XP-04)
-	for stat in ["Speed", "Max HP", "Damage", "Cooldown"]:
+	for stat in ["Speed", "Max HP", "Damage"]:
 		pool.append({"type": "stat_boost", "stat": stat, "amount": 10})
 	# XP-06: fallback ensures pool never empty
 	if pool.size() == 0:
