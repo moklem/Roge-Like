@@ -29,6 +29,11 @@ const DASH_SHOCK_DAMAGE: int = 25      # shockwave damage to enemies
 ## Engineer drone constants
 const ENGINEER_DRONE_COOLDOWN: float = 13.0  # drone lives 10s, 3s gap before re-deploy
 
+## Phase 6: XP/evolution tuning constants (D-01/D-02/D-03/D-04, planner-calculated)
+const XP_PER_ORB: int = 15           # D-01 tuned: 5→15 to hit Stage 2 in ~8-12 min
+const STAGE2_LEVEL: int = 5          # D-03: Proto-Bot at Level 5 (cumulative 700 XP)
+const STAGE3_LEVEL: int = 10         # D-04: Full AutoBot at Level 10 (cumulative 2700 XP)
+
 @export var peer_id: int = 0
 @export var role_label: String = ""
 
@@ -45,6 +50,13 @@ var _ability_cooldown: float = 0.0  # D-06: single ability cooldown timer
 var _dash_window_timer: float = 0.0 # D-12: Speedster double-dash window
 var _ice_trail_timer: float = 0.0   # D-18: Ice Trail spawn interval
 var _fire_burst_timer: float = 0.0  # D-17: Fire Burst auto-fire interval
+
+## Phase 6: XP/level/evolution progression state (D-05, D-17). Replicated via MultiplayerSynchronizer.
+var xp: int = 0
+var level: int = 1
+var element_tier: int = 1
+var is_picking_card: bool = false
+var stage3_damage_mult: float = 1.0
 
 ## Phase 5 Plan 02: Tank shield state
 var _shield_timer: float = 0.0          # counts down active shield duration
@@ -441,6 +453,32 @@ func receive_heal(amount: int) -> void:
 	if is_downed:
 		return
 	health = mini(health + amount, MAX_HP)
+
+## Phase 6 (XP-01, D-05): Receive XP from host after orb collection. Runs on owning peer only.
+## Mirrors receive_heal RPC pattern (lines 439-443). Host calls receive_xp.rpc_id(peer_id, amount).
+@rpc("any_peer", "call_remote", "reliable")
+func receive_xp(amount: int) -> void:
+	if is_downed:
+		return
+	xp += amount
+	# D-02: handle multiple level-ups in one grant (subtract threshold, re-check)
+	var threshold: int = _xp_threshold(level)
+	while xp >= threshold:
+		xp -= threshold
+		level += 1
+		# Card pick + stage check wired in Plans 05/06 — guarded so Plan 01 runs standalone
+		if has_method("_trigger_card_pick"):
+			_trigger_card_pick()
+		if has_method("_check_stage_threshold"):
+			_check_stage_threshold()
+		threshold = _xp_threshold(level)
+	# HUD update wired in Plan 02 — guarded so Plan 01 runs standalone
+	if has_method("_update_xp_hud"):
+		_update_xp_hud()
+
+## D-02: XP required to advance FROM level lvl to lvl+1 = 100 + (lvl-1) * 50.
+func _xp_threshold(lvl: int) -> int:
+	return 100 + (lvl - 1) * 50
 
 ## Phase 5: Set evolution stage (D-04/D-20). Called by Phase 6 when XP threshold reached.
 @rpc("any_peer", "call_remote", "reliable")

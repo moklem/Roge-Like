@@ -53,4 +53,12 @@ func _broadcast_game_over() -> void:
 	for p in get_tree().get_nodes_in_group("players"):
 		if p.has_node("WeaponManager"):
 			p.get_node("WeaponManager").reset()
+		# Phase 6 (D-14, EVOL-06): reset progression for the next run
+		p.xp = 0
+		p.level = 1
+		p.element_tier = 1
+		p.stage3_damage_mult = 1.0
+		p.is_picking_card = false
+		if p.has_method("set_evolution_stage"):
+			p.set_evolution_stage(1)  # back to Stage 1 (Normal Car)
 	get_tree().change_scene_to_file("res://scenes/ui/GameOver.tscn")
