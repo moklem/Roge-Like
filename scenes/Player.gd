@@ -89,6 +89,11 @@ func _process(_delta: float) -> void:
 	# HLTH-01: Update health bar from synced health value (all peers)
 	if has_node("HealthBar"):
 		$HealthBar.value = float(health) / float(MAX_HP) * 100.0
+	# Phase 6 D-10: LevelUpLabel driven by synced is_picking_card (visible on ALL peers)
+	if has_node("LevelUpLabel"):
+		$LevelUpLabel.visible = is_picking_card
+		if is_picking_card:
+			$LevelUpLabel.text = "%s is leveling up!" % role_label
 
 func _physics_process(delta: float) -> void:
 	# P3: Only the authority peer reads input and moves
@@ -96,6 +101,11 @@ func _physics_process(delta: float) -> void:
 		return
 	# HLTH-04: Downed players cannot act
 	if is_downed:
+		velocity = Vector2.ZERO
+		move_and_slide()
+		return
+	# Phase 6 D-07: Freeze movement while picking a card (no time limit)
+	if is_picking_card:
 		velocity = Vector2.ZERO
 		move_and_slide()
 		return
@@ -427,11 +437,18 @@ func receive_damage(amount: int, attacker_path: String = "") -> void:
 	# Plan 02 D-11: Speedster i-frames ignore ALL damage (checked before everything else)
 	if dash_invincible:
 		return
-	# D-13: Airbag Shield intercepts lethal hits — absorb hit, health stays at 1, charge consumed
-	if health - amount <= 0 and has_node("WeaponManager") and $WeaponManager.airbag_active:
-		health = 1
+	# Phase 6 D-07: invulnerable while picking a card
+	if is_picking_card:
+		return
+	# Phase 6 D-11 airbag migration: airbag_active bool → airbag_count int; Level 2 heals to 25%
+	if health - amount <= 0 and has_node("WeaponManager") and $WeaponManager.airbag_count > 0:
+		var airbag_level: int = $WeaponManager.weapon_level.get("airbag_shield", 1)
+		if airbag_level >= 2:
+			health = maxi(1, MAX_HP / 4)  # D-11 L2: heal to 25% HP instead of 1
+		else:
+			health = 1                     # D-11 L1: survive at 1 HP
 		$WeaponManager.consume_airbag()
-		print("Airbag absorbed lethal hit! hp=1")
+		print("Airbag absorbed lethal hit! hp=", health)
 		return
 	# Plan 02 D-08/D-09: Tank shield intercept — block all damage while active
 	if shield_active:
@@ -480,10 +497,119 @@ func receive_xp(amount: int) -> void:
 func _xp_threshold(lvl: int) -> int:
 	return 100 + (lvl - 1) * 50
 
-## Phase 5: Set evolution stage (D-04/D-20). Called by Phase 6 when XP threshold reached.
+## Phase 5/6: Set evolution stage (D-04/D-20, D-13, D-22). Called by Phase 6 when XP threshold reached.
 @rpc("any_peer", "call_remote", "reliable")
 func set_evolution_stage(stage: int) -> void:
 	evolution_stage = stage
+	call_deferred("_swap_stage_visual", stage)  # D-13: instant, deferred for physics safety
+	if stage == 3:
+		# D-22: Stage 3 stat boost — applied once on transition to Full AutoBot
+		stage3_damage_mult = 1.2
+		MAX_HP += 25
+		health = mini(health + 25, MAX_HP)
+
+func _swap_stage_visual(stage: int) -> void:
+	# D-12, D-13: Hide all stage containers, show correct one
+	for s in [1, 2, 3]:
+		var container := get_node_or_null("Stage%dContainer" % s)
+		if container:
+			container.visible = (s == stage)
+	_update_xp_hud()
+
+func _update_xp_hud() -> void:
+	if has_node("PlayerHUD") and is_multiplayer_authority():
+		$PlayerHUD.update_hud(xp, level, _xp_threshold(level), evolution_stage)
+
+## Phase 6 (D-03, D-04, EVOL-02, EVOL-03): Self-apply stage change after level-up.
+## Option C from RESEARCH: owning peer self-applies since receive_xp is already host-authorized.
+func _check_stage_threshold() -> void:
+	if level == STAGE2_LEVEL and evolution_stage < 2:
+		set_evolution_stage(2)   # D-16: auto-grants Stage 2 signature ability
+	elif level == STAGE3_LEVEL and evolution_stage < 3:
+		set_evolution_stage(3)
+
+## Phase 6 (XP-03, XP-04, XP-05, XP-06): Build eligible card pool for this player.
+func _build_card_pool() -> Array:
+	var pool: Array = []
+	var wm: Node = get_node_or_null("WeaponManager")
+	if wm:
+		# Weapon unlocks — exclude already-owned weapons (XP-05)
+		for wid in ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave", "airbag_shield"]:
+			if not wm.unlocked_weapons.has(wid):
+				pool.append({"type": "weapon_unlock", "weapon_id": wid})
+		# Weapon upgrades — exclude maxed weapons (XP-05)
+		for wid in wm.unlocked_weapons:
+			var lvl: int = wm.weapon_level.get(wid, 1)
+			if lvl < 3:
+				pool.append({"type": "weapon_upgrade", "weapon_id": wid, "new_level": lvl + 1})
+	# Element upgrade (D-19, D-20): Fire/Ice max Tier 3; Earth also max Tier 3 (D-21)
+	if element_tier < 3:
+		pool.append({"type": "element_upgrade", "new_tier": element_tier + 1})
+	# Stat boosts — always eligible (XP-04)
+	for stat in ["Speed", "Max HP", "Damage", "Cooldown"]:
+		pool.append({"type": "stat_boost", "stat": stat, "amount": 10})
+	# XP-06: fallback ensures pool never empty
+	if pool.size() == 0:
+		pool.append({"type": "fallback"})
+	return pool
+
+func _draw_cards(pool: Array) -> Array:
+	pool.shuffle()
+	var cards: Array = []
+	for i in range(mini(3, pool.size())):
+		cards.append(pool[i])
+	# XP-06: pad to 3 with fallback if pool had fewer than 3 entries
+	while cards.size() < 3:
+		cards.append({"type": "fallback"})
+	return cards
+
+## Phase 6 (XP-02, D-06, D-07): Show card overlay for this player only.
+## Must only run on owning peer (receive_xp already runs on owning peer).
+func _trigger_card_pick() -> void:
+	if not is_multiplayer_authority():
+		return
+	is_picking_card = true    # D-07: freezes input + invulnerability (see _physics_process + receive_damage)
+	var pool: Array = _build_card_pool()
+	var cards: Array = _draw_cards(pool)
+	if has_node("CardOverlay"):
+		$CardOverlay.show_cards(cards)
+	_update_xp_hud()
+
+func _confirm_card_pick() -> void:
+	var selected_index: int = 0
+	if has_node("CardOverlay"):
+		selected_index = $CardOverlay.get_selected_index()
+	var game := get_node_or_null("/root/Game")
+	if game and game.has_method("confirm_card_pick"):
+		if multiplayer.is_server():
+			game.confirm_card_pick(peer_id, selected_index)
+		else:
+			game.confirm_card_pick.rpc_id(1, peer_id, selected_index)
+
+## Phase 6 (D-19): Host calls this RPC to increment element_tier on the owning peer.
+@rpc("any_peer", "call_remote", "reliable")
+func receive_element_tier_up() -> void:
+	element_tier = mini(element_tier + 1, 3)  # D-20: max Tier 3
+	_update_xp_hud()
+
+## Phase 6 (D-08): Keyboard card navigation — A/D cycle, Space/Enter confirm.
+## Only active on owning peer while is_picking_card is true.
+func _unhandled_input(event: InputEvent) -> void:
+	if not is_multiplayer_authority():
+		return
+	if not is_picking_card:
+		return
+	if event.is_action_pressed("ui_left"):    # A key
+		if has_node("CardOverlay"):
+			$CardOverlay.navigate(-1)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("ui_right"): # D key
+		if has_node("CardOverlay"):
+			$CardOverlay.navigate(1)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("ui_accept"): # Space or Enter
+		_confirm_card_pick()
+		get_viewport().set_input_as_handled()
 
 ## HLTH-04: Enter downed state — disable actions, trigger visual, notify GameState
 func _enter_downed() -> void:
