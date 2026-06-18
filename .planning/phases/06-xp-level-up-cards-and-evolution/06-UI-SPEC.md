@@ -1,9 +1,10 @@
 ---
 phase: 6
 slug: xp-level-up-cards-and-evolution
-status: draft
+status: approved
 design_system: godot-default-theme
 created: 2026-06-18
+reviewed_at: 2026-06-18
 ---
 
 # Phase 6 — UI Design Contract: XP, Level-Up Cards & Evolution
@@ -48,6 +49,8 @@ Exceptions:
 - HealthBar (pre-existing): 8px height, unchanged in this phase
 - Teammate level-up Label: no padding (world-space Label, matches existing RoleLabel style at `offset_top = -50`)
 - Card panel minimum width: 160px (`custom_minimum_size = Vector2(160, 64)`) — fits 3 cards side-by-side at 1280px
+- **Stage visual ColorRects (world-space, Node2D children of Player):** offset values are pixel geometry centered on the player origin — non-multiples-of-4 values (±10, ±18, ±22, ±6, ±14px) are geometrically required to achieve the declared pixel dimensions (e.g., a 20px-wide body requires ±10 from center; a 36px-tall body requires ±18). The 4px grid rule applies to UI Control layout (HUD, card overlay), not to world-space sprite geometry on Node2D nodes.
+- **LevelUpLabel world-space position:** `offset_top = -70`, `offset_bottom = -54` — 16px-tall label band positioned 54–70px above the player origin. Art-fit values for visual placement above the player character and existing RoleLabel (which sits at offset_top = -50). Non-multiple-of-4 values are justified by the need to avoid overlapping the RoleLabel.
 
 ---
 
@@ -104,7 +107,9 @@ All values given as Godot `Color(r, g, b, a)` and hex for reference. Colors are 
 **60/30/10 mapping for Phase 6 UI surfaces:**
 - 60% dominant: World background (#1F1F1F) — unchanged
 - 30% secondary: Card panel backgrounds (#2E2E38), HUD strip (#141414)
-- 10% accent: XP bar fill (#66FF66) and selected card border (#66FF66) only — no other uses
+- 10% accent: XP bar fill (#66FF66) and selected card border (#66FF66) only — no other uses in interactive UI elements
+
+**Secondary decorative color (not an interactive accent):** Stage 3 armor plates use cyan (`#00D9D9`) exclusively on `Stage3Container` ColorRect nodes in the game world. This is a character-art decoration color — it is NOT applied to any interactive UI element (no button borders, no HUD feedback, no overlay highlights). The interactive accent constraint (10% rule) is not violated by this color.
 
 ---
 
@@ -140,8 +145,10 @@ All strings are exact — executor must use these character-for-character.
 | Effect description (weapon unlock) | `"Unlocks {WeaponName}"` | `CardDescLabel` (bottom of card) |
 | Effect description (weapon upgrade Lv2) | See weapon table below | `CardDescLabel` |
 | Effect description (element upgrade) | `"Proc rate: {N}%"` | `CardDescLabel` |
-| Effect description (stat boost) | `"+{N}% {stat name}"` | `CardDescLabel` |
+| Effect description (stat boost) | `"Increases {StatName} by {N}%"` | `CardDescLabel` |
 | Effect description (fallback) | `"+10% all damage"` | `CardDescLabel` |
+
+**Valid stat boost stat names (exhaustive list):** `"Speed"`, `"Max HP"`, `"Damage"`, `"Cooldown"`. These map to `CardNameLabel` template `"+{N}% {StatName}"` and `CardDescLabel` template `"Increases {StatName} by {N}%"`. Executor uses these exact strings — no other stat names are valid in this phase.
 
 **Weapon card descriptions (exact):**
 
@@ -367,11 +374,11 @@ No registry vetting required.
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS (N/A — Godot 4, no npm registry)
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS (N/A — Godot 4, no npm registry)
 
-**Approval:** pending
+**Approval:** approved 2026-06-18
