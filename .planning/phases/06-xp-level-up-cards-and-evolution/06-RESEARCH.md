@@ -1,4 +1,4 @@
-# Phase 6: XP, Level-Up Cards & Evolution — Research
+﻿# Phase 6: XP, Level-Up Cards & Evolution — Research
 
 **Researched:** 2026-06-18
 **Domain:** Godot 4.6 GDScript — per-player XP/level progression, card selection overlay UI, MultiplayerSynchronizer extension, weapon upgrade stat scaling, evolution stage visuals
@@ -674,22 +674,25 @@ func _broadcast_game_over() -> void:
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Stage 2 and Stage 3 exact level thresholds (D-03, D-04)**
    - What we know: D-02 formula gives XP-to-level mapping. D-03 says Stage 2 must be reachable before Room 3 (~8-10 min). Enemy density is ~8 initial enemies, respawning on death (Game.gd _on_enemy_died always spawns a replacement).
    - What's unclear: Exact enemies-per-minute rate in Room 1 with current spawn setup. 8 enemies × 5 XP/kill = 40 XP per "clear". Level 2 requires 100 XP (20 kills), Level 3 requires 150 XP more (30 kills). At ~3-5 enemies per minute, Level 2 in ~4-7 min, Level 5 in ~18-25 min.
    - Recommendation: Planner should calculate Stage 2 at Level 5 (requires 100+150+200+250 = 700 XP total) and Stage 3 at Level 10 or higher. Start with Stage 2 = Level 5, Stage 3 = Level 10. Adjust XP per orb if timing is off.
+   - RESOLVED: Stage 2 = Level 5 (STAGE2_LEVEL = 5), Stage 3 = Level 10 (STAGE3_LEVEL = 10). XP per orb tuned from 5 to 15 to hit the 8-12 min Stage 2 timing target (15 XP/orb * ~47 kills = ~700 XP in 8-12 min at current enemy density).
 
 2. **Stage threshold authority: who detects and who triggers?**
    - What we know: `receive_xp` runs on owning peer. `set_evolution_stage` is `@rpc("any_peer", "call_remote")`.
    - What's unclear: The cleanest authoritative path. Option A: owning peer detects threshold in `receive_xp`, sends `request_stage_change.rpc_id(1, stage)` to host, host calls `set_evolution_stage.rpc_id(peer_id, stage)`. Option B: owning peer calls `set_evolution_stage.rpc_id(1, stage)` to host, host re-calls `set_evolution_stage.rpc_id(peer_id, stage)`. Option C: since level/xp are already authoritative via receive_xp (host sent the XP), owning peer can self-apply stage change directly.
    - Recommendation: Option C is simplest and consistent with how health changes work (receive_damage runs on owning peer and directly mutates health). The owning peer's `receive_xp` is already gated by the host's `receive_xp.rpc_id(peer_id)` call — it's host-authorized. Stage change from that same path is implicitly authorized. Planner should adopt Option C to avoid extra RPC round-trips.
+   - RESOLVED: Adopted Option C. Stage threshold check runs inside receive_xp on the owning peer; because receive_xp is only callable via host rpc_id, the stage transition is implicitly host-authorized. No additional RPC round-trip needed.
 
 3. **confirm_card_pick RPC: where does the card pool live during pick?**
    - What we know: Card pool is built on the owning peer in `_trigger_card_pick()`. After Space is pressed, owning peer sends `confirm_card_pick.rpc_id(1, peer_id, card_index)`.
    - What's unclear: Host re-validates by re-building the card pool. But between the card draw and the confirmation, no state has changed (is_picking_card prevents new level-ups). Host can safely re-build the same pool deterministically since weapon_level and element_tier are synced.
    - Recommendation: Host re-builds pool using the same `_build_card_pool()` logic (move to Player.gd as a static-like helper), validates `card_index < pool.size()`, then applies. Host reads WeaponManager state from the player node's synced properties.
+   - RESOLVED: confirm_card_pick RPC on Game.gd; host re-builds pool from synced player state (weapon_level, element_tier) and validates card_index < pool.size() before applying effect. is_picking_card flag prevents concurrent level-ups that could cause desync.
 
 ---
 
