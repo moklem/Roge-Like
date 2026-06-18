@@ -29,5 +29,17 @@ func _request_collect(_orb_name: String) -> void:
 	if _collected:
 		return  # Pitfall 5: already collected by another player
 	_collected = true
-	# CMBT-09: queue_free on host propagates to all clients via MultiplayerSpawner (PickupSpawner)
+	# Phase 6 (XP-01, D-01): grant XP to the collecting player.
+	# sender_id == 0 means the host player collected directly (not via RPC) → host peer.
+	var collector_peer_id: int = multiplayer.get_remote_sender_id()
+	if collector_peer_id == 0:
+		collector_peer_id = multiplayer.get_unique_id()  # host collected its own orb
+	for p in get_tree().get_nodes_in_group("players"):
+		if p.peer_id == collector_peer_id:
+			if collector_peer_id == multiplayer.get_unique_id():
+				p.receive_xp(p.XP_PER_ORB)  # D-01: XP_PER_ORB per orb (host-local, no RPC)
+			else:
+				p.receive_xp.rpc_id(collector_peer_id, p.XP_PER_ORB)  # D-01: XP_PER_ORB per orb
+			break
+	# CMBT-09: queue_free on host propagates to all clients via PickupSpawner
 	queue_free()
