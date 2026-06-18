@@ -17,7 +17,8 @@ var _active: bool = false
 
 func activate() -> void:
 	## Called by WeaponManager._activate_weapon_node("spinning_tires")
-	for i in range(3):
+	## Phase 6 D-11: Create 5 tires (max for L3) so L2/L3 work without re-create; extras hidden.
+	for i in range(5):
 		var tire := Area2D.new()
 		tire.name = "Tire%d" % i
 		tire.collision_layer = 0
@@ -35,6 +36,9 @@ func activate() -> void:
 		visual.size = Vector2(16, 16)
 		visual.position = Vector2(-8, -8)
 		tire.add_child(visual)
+		# Tires beyond index 2 start hidden (visible only when level allows)
+		if i >= 3:
+			tire.visible = false
 		add_child(tire)
 		_tires.append(tire)
 	_active = true
@@ -51,27 +55,40 @@ func deactivate() -> void:
 func _physics_process(delta: float) -> void:
 	if not _active or _tires.is_empty():
 		return
-	_angle += ORBIT_SPEED * delta
+	# Phase 6 D-11: Read weapon level for speed, count, and damage scaling
+	var weapon_manager: Node = get_parent()
+	var level: int = weapon_manager.weapon_level.get("spinning_tires", 1)
+	var speed_mult: float = 1.25 if level >= 2 else 1.0   # L2: +25% rotation speed
+	var damage_per_tick: int = 18 if level >= 3 else 12   # L1/L2: 12 (base), L3: 18
+	_angle += ORBIT_SPEED * speed_mult * delta
 	# get_parent() == WeaponManager, get_parent().get_parent() == Player
-	var player: Node = get_parent().get_parent()
+	var player: Node = weapon_manager.get_parent()
 	if not is_instance_valid(player) or player.is_downed:
 		return
+	# Stage 3 damage multiplier (D-22)
+	damage_per_tick = int(float(damage_per_tick) * player.stage3_damage_mult)
+	# D-11: Active orbit count: L1=3, L2=4, L3=5
+	var active_count: int = mini(3 + maxi(level - 1, 0), _tires.size())
 	# Update orbit positions — runs on ALL peers for visual sync (D-14 visual half)
 	for i in range(_tires.size()):
-		var angle_offset: float = _angle + (float(i) * TAU / 3.0)
-		_tires[i].global_position = player.global_position + Vector2(
-			cos(angle_offset), sin(angle_offset)
-		) * ORBIT_RADIUS
+		if i < active_count:
+			var angle_offset: float = _angle + (float(i) * TAU / float(active_count))
+			_tires[i].global_position = player.global_position + Vector2(
+				cos(angle_offset), sin(angle_offset)
+			) * ORBIT_RADIUS
+			_tires[i].visible = true
+		else:
+			_tires[i].visible = false
 	# D-14: Host-only damage detection (CR-03 fix: use is_server(), not is_multiplayer_authority())
 	if not multiplayer.is_server():
 		return
 	var now: float = Time.get_unix_time_from_system()
-	for tire in _tires:
-		for body in tire.get_overlapping_bodies():
+	for i in range(active_count):
+		for body in _tires[i].get_overlapping_bodies():
 			if not body.is_in_group("enemies"):
 				continue
 			var key: String = str(body.get_path())
 			var last_hit: float = _hit_times.get(key, -INF)
 			if now - last_hit >= HIT_COOLDOWN:
 				_hit_times[key] = now
-				body.take_damage(DAMAGE)
+				body.take_damage(damage_per_tick)

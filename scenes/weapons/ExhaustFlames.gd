@@ -64,6 +64,22 @@ func _on_fire_timer(weapon_manager: Node) -> void:
 		return
 	if player.is_downed:
 		return
+	# Phase 6 D-11: level-specific params
+	var level: int = weapon_manager.weapon_level.get("exhaust_flames", 1)
+	var half_angle: float = HALF_ANGLE                      # L1: ±30° (60° total)
+	var radius: float = RADIUS                              # L1: 120px
+	var damage: int = int(float(DAMAGE) * player.stage3_damage_mult)  # D-22 Stage 3 mult
+	if level >= 2:
+		half_angle = deg_to_rad(45.0)                       # L2: 90° total cone
+		radius = 160.0                                      # L2: 120→160px range
+	if level >= 3:
+		half_angle = deg_to_rad(60.0)                       # L3: 120° total cone
+	# Update area shape radius to match current level
+	if is_instance_valid(_area):
+		for child in _area.get_children():
+			if child is CollisionShape2D and child.shape is CircleShape2D:
+				child.shape.radius = radius
+				break
 	var nearest: Node = weapon_manager._find_nearest_enemy(player)
 	if nearest == null:
 		return
@@ -76,8 +92,15 @@ func _on_fire_timer(weapon_manager: Node) -> void:
 		if not body.is_in_group("enemies"):
 			continue
 		var to_enemy: Vector2 = (body.global_position - player.global_position).normalized()
-		if abs(aim_dir.angle_to(to_enemy)) <= HALF_ANGLE:
-			body.take_damage(DAMAGE)
+		if abs(aim_dir.angle_to(to_enemy)) <= half_angle:
+			body.take_damage(damage)
+			# L3: Brief slow — enemy velocity halved for 1s (T-06-15 mitigation)
+			if level >= 3 and is_instance_valid(body) and not body.is_queued_for_deletion():
+				body.velocity *= 0.5
+				get_tree().create_timer(1.0).timeout.connect(func():
+					if is_instance_valid(body) and not body.is_queued_for_deletion():
+						body.velocity *= 2.0
+				)
 
 @rpc("any_peer", "call_local", "unreliable_ordered")
 func _show_visual(aim_dir: Vector2, pos: Vector2) -> void:
