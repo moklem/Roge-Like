@@ -26,6 +26,21 @@ properties/4/replication_mode = 2
 properties/5/path = NodePath(".:evolution_stage")
 properties/5/allow_spawn = true
 properties/5/replication_mode = 2
+properties/6/path = NodePath(".:xp")
+properties/6/allow_spawn = true
+properties/6/replication_mode = 2
+properties/7/path = NodePath(".:level")
+properties/7/allow_spawn = true
+properties/7/replication_mode = 2
+properties/8/path = NodePath(".:element_tier")
+properties/8/allow_spawn = true
+properties/8/replication_mode = 2
+properties/9/path = NodePath(".:is_picking_card")
+properties/9/allow_spawn = true
+properties/9/replication_mode = 2
+properties/10/path = NodePath(".:stage3_damage_mult")
+properties/10/allow_spawn = true
+properties/10/replication_mode = 2
 
 [node name="Player" type="CharacterBody2D"]
 collision_layer = 2
@@ -77,3 +92,76 @@ visible = false
 
 [node name="WeaponManager" type="Node" parent="."]
 script = ExtResource("2_weapon_manager")
+
+[node name="Stage1Container" type="Node2D" parent="."]
+
+[node name="Stage2Container" type="Node2D" parent="."]
+visible = false
+
+[node name="Stage2Body" type="ColorRect" parent="Stage2Container"]
+offset_left = -10.0
+offset_top = -18.0
+offset_right = 10.0
+offset_bottom = 18.0
+color = Color(0.45, 0.45, 0.45, 1)
+
+[node name="Stage2ArmLeft" type="ColorRect" parent="Stage2Container"]
+offset_left = -22.0
+offset_top = -6.0
+offset_right = -10.0
+offset_bottom = 6.0
+color = Color(0.45, 0.45, 0.45, 1)
+
+[node name="Stage2ArmRight" type="ColorRect" parent="Stage2Container"]
+offset_left = 10.0
+offset_top = -6.0
+offset_right = 22.0
+offset_bottom = 6.0
+color = Color(0.45, 0.45, 0.45, 1)
+
+[node name="Stage3Container" type="Node2D" parent="."]
+visible = false
+
+[node name="Stage3Body" type="ColorRect" parent="Stage3Container"]
+offset_left = -14.0
+offset_top = -20.0
+offset_right = 14.0
+offset_bottom = 20.0
+color = Color(0.25, 0.75, 1, 1)
+
+[node name="Stage3ArmorTop" type="ColorRect" parent="Stage3Container"]
+offset_left = -14.0
+offset_top = -24.0
+offset_right = 14.0
+offset_bottom = -20.0
+color = Color(0, 0.85, 0.85, 1)
+
+[node name="Stage3ArmorBottom" type="ColorRect" parent="Stage3Container"]
+offset_left = -14.0
+offset_top = 20.0
+offset_right = 14.0
+offset_bottom = 24.0
+color = Color(0, 0.85, 0.85, 1)
+
+[node name="Stage3ArmorLeft" type="ColorRect" parent="Stage3Container"]
+offset_left = -18.0
+offset_top = -20.0
+offset_right = -14.0
+offset_bottom = 20.0
+color = Color(0, 0.85, 0.85, 1)
+
+[node name="Stage3ArmorRight" type="ColorRect" parent="Stage3Container"]
+offset_left = 14.0
+offset_top = -20.0
+offset_right = 18.0
+offset_bottom = 20.0
+color = Color(0, 0.85, 0.85, 1)
+
+[node name="LevelUpLabel" type="Label" parent="."]
+offset_left = -48.0
+offset_top = -70.0
+offset_right = 48.0
+offset_bottom = -54.0
+horizontal_alignment = 1
+text = ""
+visible = false
