@@ -540,6 +540,7 @@ func _do_spawn_ice_trail(data: Dictionary) -> Node:
 ## Runs ONLY on host (inside _process which guards is_server()).
 ## Determines if at least one Earth player is alive; if so, accumulates timers.
 ## T-05-15: All damage and heal calls are host-only; HUD emit is host-only (T-05-18).
+## Phase 6 D-21: heal rate and shockwave cooldown scale with element_tier.
 func _tick_earth_effects(delta: float) -> void:
 	# Collect all alive Earth players — effects active when at least one exists
 	var earth_players: Array = []
@@ -549,7 +550,16 @@ func _tick_earth_effects(delta: float) -> void:
 	if earth_players.is_empty():
 		return
 
-	# --- ELEM-05: Team Heal +2 HP/sec to ALL players (no proximity) ---
+	# D-21: Use highest element_tier among alive Earth players for tier-scaled values
+	var element_tier: int = 1
+	for ep in earth_players:
+		element_tier = maxi(element_tier, ep.element_tier)
+	element_tier = clamp(element_tier, 1, 3)
+	# D-21 tier arrays: index by tier (T1=2 HP/s, T2=4, T3=6; cooldown T1=8s, T2=6s, T3=5s)
+	var heal_rate: int = [2, 2, 4, 6][element_tier]
+	var sw_cooldown: float = [8.0, 8.0, 6.0, 5.0][element_tier]
+
+	# --- ELEM-05: Team Heal scaled by element_tier HP/sec to ALL players (no proximity) ---
 	_earth_heal_accum += delta
 	if _earth_heal_accum >= 1.0:
 		_earth_heal_accum = 0.0
@@ -558,15 +568,15 @@ func _tick_earth_effects(delta: float) -> void:
 				continue
 			# Pitfall 6: direct call on host peer, rpc_id for remote peers (T-05-17)
 			if target.peer_id == multiplayer.get_unique_id():
-				target.receive_heal(2)
+				target.receive_heal(heal_rate)
 			else:
-				target.receive_heal.rpc_id(target.peer_id, 2)
+				target.receive_heal.rpc_id(target.peer_id, heal_rate)
 		# ELEM-07: Earth heal fires SEAT MASSAGE HUD (T-05-18: host-only emit)
 		GameEvents.emit_hud("seat_massage")
 
-	# --- ELEM-06: Shockwave every 8s — knockback + 15 damage to enemies in 120px ---
+	# --- ELEM-06: Shockwave at element_tier-scaled interval — knockback + 15 damage ---
 	_earth_shock_accum += delta
-	if _earth_shock_accum >= 8.0:
+	if _earth_shock_accum >= sw_cooldown:
 		_earth_shock_accum = 0.0
 		for earth_player in earth_players:
 			var earth_pos: Vector2 = earth_player.global_position
@@ -580,6 +590,13 @@ func _tick_earth_effects(delta: float) -> void:
 					# Knockback: push enemy away from Earth player (D-19)
 					if is_instance_valid(enemy) and not enemy.is_queued_for_deletion():
 						enemy.velocity += (enemy.global_position - earth_pos).normalized() * 350.0
+					# D-21 Tier 3: shockwave also briefly slows enemies (×0.5 for 1s)
+					if element_tier >= 3 and is_instance_valid(enemy) and not enemy.is_queued_for_deletion():
+						enemy.velocity *= 0.5
+						get_tree().create_timer(1.0).timeout.connect(func():
+							if is_instance_valid(enemy) and not enemy.is_queued_for_deletion():
+								enemy.velocity *= 2.0
+						)
 		# ELEM-07: Earth shockwave fires SEAT MASSAGE HUD (T-05-18: host-only, one emit per wave)
 		GameEvents.emit_hud("seat_massage")
 

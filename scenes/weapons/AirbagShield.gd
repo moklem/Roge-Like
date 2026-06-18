@@ -1,7 +1,7 @@
 extends Node
 ## AirbagShield — death-prevention passive charge. NOT a timer weapon.
-## D-13: Shows a visible ring while airbag_active=true. Ring disappears when charge consumed
-##       (airbag_active set to false in Player.receive_damage after absorbing lethal hit).
+## Phase 6 D-11: Shows a visible ring while airbag_count > 0. Ring disappears when count
+##       reaches 0 via WeaponManager.consume_airbag() (called from Player.receive_damage).
 ## Visual: yellow ring (hollow ColorRect border effect via two overlapping ColorRects).
 ## Activated by WeaponManager.add_weapon("airbag_shield") → _activate_weapon_node.
 
@@ -54,8 +54,8 @@ func show_ring() -> void:
 		_ring.visible = true
 
 func hide_ring() -> void:
-	## Called when airbag charge is consumed (airbag_active set false in Player.receive_damage).
-	## WeaponManager calls this via consume_airbag() after setting airbag_active = false.
+	## Called when airbag_count reaches 0 via WeaponManager.consume_airbag().
+	## WeaponManager.consume_airbag() decrements count and calls this when count == 0.
 	if _ring:
 		_ring.visible = false
 

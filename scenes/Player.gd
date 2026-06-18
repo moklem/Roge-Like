@@ -249,24 +249,31 @@ func _use_second_dash() -> void:
 func _tick_element(delta: float) -> void:
 	match element:
 		"fire":
-			# D-17 (ELEM-02): Fire Burst auto-fire timer (4s cooldown — Claude's discretion)
+			# Phase 6 D-19: Fire Burst proc rate scales with element_tier.
+			# T1=4s interval, T2=2s, T3=1.33s (proc rate = 0.25 * element_tier)
 			_fire_burst_timer -= delta
+			var fire_interval: float = 4.0 / float(element_tier)
 			if _fire_burst_timer <= 0.0:
-				_fire_burst_timer = 4.0
+				_fire_burst_timer = fire_interval
 				_fire_burst()
 		"ice":
 			# D-18 (ELEM-04): Ice Trail — only while moving (velocity threshold)
 			if velocity.length() < 10.0:
 				return  # idle — no trail spawned
 			_ice_trail_timer -= delta
+			# Phase 6 D-19: Ice Trail spawn interval scales with element_tier.
+			# T1=0.3s, T2=0.15s, T3=0.1s (proc rate = 0.25 * element_tier)
+			var ice_interval: float = 0.3 / float(element_tier)
 			if _ice_trail_timer <= 0.0:
-				_ice_trail_timer = 0.3
+				_ice_trail_timer = ice_interval
 				var game := get_node_or_null("/root/Game")
 				if game and game.has_method("request_ice_trail"):
 					if multiplayer.is_server():
 						game.request_ice_trail(global_position)
 					else:
 						game.request_ice_trail.rpc_id(1, global_position)
+		# Phase 6 D-21: Earth element_tier is read by Game.gd _tick_earth_effects directly
+		# from the Player node — no additional action needed here.
 
 ## D-17 (ELEM-02): Fire Burst — auto-fire 3-5 projectiles at nearest enemy with 100% burn proc.
 ## Modelled on WeaponManager._fire_screws() lines 51-69. Fires on the owning peer's authority;

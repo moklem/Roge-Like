@@ -24,6 +24,7 @@ const MAX_AIRBAG_CHARGES: int = 2    # Level 3 dual-charge (D-11)
 
 ## Screws-and-bolts fire cooldown (migrated from Player.FIRE_INTERVAL)
 const SCREWS_INTERVAL: float = 0.5
+var _screws_interval: float = 0.5  # Phase 6 D-11: updated to 0.35 at Level 3 via upgrade_weapon
 var _screws_cooldown: float = 0.0
 
 func _ready() -> void:
@@ -44,30 +45,50 @@ func tick(delta: float) -> void:
 	if unlocked_weapons.has("screws_and_bolts"):
 		_screws_cooldown -= delta
 		if _screws_cooldown <= 0.0:
-			_screws_cooldown = SCREWS_INTERVAL
+			_screws_cooldown = _screws_interval
 			if not DEBUG_WEAPON_TEST:
 				_fire_screws()
 
-## D-08: ScrewsAndBolts fire — migrated from Player._try_fire exactly.
+## D-08: ScrewsAndBolts fire — migrated from Player._try_fire; Phase 6 D-11 adds L2/L3 spread.
 func _fire_screws() -> void:
 	var player: CharacterBody2D = get_parent()
 	var nearest := _find_nearest_enemy(player)
 	if nearest == null:
 		return
-	var dir: Vector2 = (nearest.global_position - player.global_position).normalized()
+	var base_dir: Vector2 = (nearest.global_position - player.global_position).normalized()
 	var game := get_node_or_null("/root/Game")
 	if game == null:
 		return
-	if multiplayer.is_server():
-		if game.has_node("BulletSpawner"):
-			game.get_node("BulletSpawner").spawn({
-				"pos": player.global_position,
-				"dir": dir,
-				"owner_id": player.peer_id
-			})
+	var level: int = weapon_level.get("screws_and_bolts", 1)
+	var dirs: Array = _get_screws_dirs(base_dir, level)
+	for d in dirs:
+		if multiplayer.is_server():
+			if game.has_node("BulletSpawner"):
+				game.get_node("BulletSpawner").spawn({
+					"pos": player.global_position,
+					"dir": d,
+					"owner_id": player.peer_id
+				})
+		else:
+			if game.has_method("request_fire"):
+				game.request_fire.rpc_id(1, player.global_position, d, player.peer_id)
+
+## Phase 6 D-11: Compute bolt fire directions per level.
+## L1: 1 bolt straight ahead. L2: 2 bolts ±15°. L3: 3 bolts at 0°, +30°, -30°.
+func _get_screws_dirs(base_dir: Vector2, level: int) -> Array:
+	if level >= 3:
+		return [
+			base_dir.rotated(0.0),
+			base_dir.rotated(deg_to_rad(30.0)),
+			base_dir.rotated(deg_to_rad(-30.0)),
+		]
+	elif level >= 2:
+		return [
+			base_dir.rotated(deg_to_rad(15.0)),
+			base_dir.rotated(deg_to_rad(-15.0)),
+		]
 	else:
-		if game.has_method("request_fire"):
-			game.request_fire.rpc_id(1, player.global_position, dir, player.peer_id)
+		return [base_dir]
 
 ## Shared utility — used by ScrewsAndBolts and timer-based weapons (Wave 3).
 func _find_nearest_enemy(player: Node) -> Node:
@@ -119,6 +140,7 @@ func reset() -> void:
 	unlocked_weapons = []
 	weapon_level = {}
 	airbag_count = 0
+	_screws_interval = SCREWS_INTERVAL
 	_screws_cooldown = 0.0
 
 ## Called by add_weapon() to instantiate and activate a weapon node.
@@ -189,7 +211,6 @@ func upgrade_weapon(weapon_id: String) -> void:
 	if current >= 3:
 		return  # already at max (XP-05 guard)
 	weapon_level[weapon_id] = current + 1
-	# L3 ScrewsAndBolts: reduce cooldown to 0.35s (D-11)
+	# L3 ScrewsAndBolts: reduce fire interval to 0.35s (D-11)
 	if weapon_id == "screws_and_bolts" and weapon_level[weapon_id] == 3:
-		if has_node("ScrewsAndBolts"):
-			get_node("ScrewsAndBolts").wait_time = 0.35
+		_screws_interval = 0.35

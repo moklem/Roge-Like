@@ -52,13 +52,36 @@ func _on_fire_timer(weapon_manager: Node) -> void:
 		return
 	if player.is_downed:
 		return
+	# Phase 6 D-11: Level scaling for Horn Shockwave
+	var level: int = weapon_manager.weapon_level.get("horn_shockwave", 1)
+	var radius: float = RADIUS          # L1: 150px
+	var damage: int = int(float(DAMAGE) * player.stage3_damage_mult)  # D-22 Stage 3 mult
+	if level >= 2:
+		radius = 220.0                  # L2: 150→220px
+		_timer.wait_time = 2.5          # L2: 3s→2.5s cooldown (D-11)
+	# Update collision area radius before overlap query
+	if is_instance_valid(_area):
+		for child in _area.get_children():
+			if child is CollisionShape2D and child.shape is CircleShape2D:
+				child.shape.radius = radius
+				break
 	_show_visual.rpc(player.global_position)
 	if not multiplayer.is_server():
 		return
 	_area.global_position = player.global_position
 	for body in _area.get_overlapping_bodies():
-		if body.is_in_group("enemies"):
-			body.take_damage(DAMAGE)
+		if not body.is_in_group("enemies"):
+			continue
+		body.take_damage(damage)
+		# L2: Knockback — push enemy away from player
+		if level >= 2:
+			var knockback: float = 300.0 if level < 3 else 600.0  # L3: ×2 knockback
+			var push_dir: Vector2 = (body.global_position - player.global_position).normalized()
+			if is_instance_valid(body) and not body.is_queued_for_deletion():
+				body.velocity += push_dir * knockback
+		# L3: Brief stun — zero velocity (enemy AI will re-path naturally after)
+		if level >= 3 and is_instance_valid(body) and not body.is_queued_for_deletion():
+			body.velocity = Vector2.ZERO
 
 @rpc("any_peer", "call_local", "unreliable_ordered")
 func _show_visual(pos: Vector2) -> void:
