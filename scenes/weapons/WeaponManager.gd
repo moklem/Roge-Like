@@ -18,8 +18,9 @@ const DEBUG_WEAPON_TEST: bool = false
 ## D-02: weapon_id → int (always 1 at unlock in Phase 4; Phase 6 card picks increment this)
 var unlocked_weapons: Array[String] = []
 var weapon_level: Dictionary = {}
-## D-13: Airbag death-prevention charge flag (synced via MultiplayerSynchronizer)
-var airbag_active: bool = false
+## Phase 6 D-11: Airbag death-prevention charge count (int replaces previous bool flag)
+var airbag_count: int = 0            # Phase 6 D-11: int count; L3=2 charges
+const MAX_AIRBAG_CHARGES: int = 2    # Level 3 dual-charge (D-11)
 
 ## Screws-and-bolts fire cooldown (migrated from Player.FIRE_INTERVAL)
 const SCREWS_INTERVAL: float = 0.5
@@ -80,24 +81,26 @@ func _find_nearest_enemy(player: Node) -> Node:
 	return nearest
 
 ## WEAP-03: Add weapon by ID. Returns false silently if at cap (D-15) or already unlocked (D-01).
-## Special case: airbag_shield can be 're-armed' (airbag_active set back to true) even when already
-## in unlocked_weapons, as long as the charge was previously consumed (D-13: pick up again to re-arm).
+## Special case: airbag_shield can be 're-armed' (charge incremented up to cap) even when already
+## in unlocked_weapons, as long as under the charge cap (D-13: pick up again to re-arm).
 func add_weapon(weapon_id: String) -> bool:
 	if unlocked_weapons.size() >= MAX_WEAPONS:
 		return false  # D-15: silent cap
-	# D-13 special case: airbag_shield re-arm — second pickup re-arms the charge without re-adding
+	# Phase 6 D-13 special case: airbag_shield re-arm — second pickup adds a charge (up to cap)
 	if weapon_id == "airbag_shield" and unlocked_weapons.has(weapon_id):
-		if not airbag_active:
-			airbag_active = true
-			return true  # charge re-armed
-		return false  # already armed — silently ignore (D-01)
+		var lvl: int = weapon_level.get("airbag_shield", 1)
+		var cap: int = MAX_AIRBAG_CHARGES if lvl >= 3 else 1
+		if airbag_count < cap:
+			airbag_count = mini(airbag_count + 1, cap)
+			return true
+		return false  # already at cap — silently ignore (D-01)
 	if unlocked_weapons.has(weapon_id):
 		return false  # D-01: already unlocked — silent ignore (no upgrade in Phase 4)
 	unlocked_weapons.append(weapon_id)
 	weapon_level[weapon_id] = 1  # D-02: Phase 6 will increment this via card picks
-	# Airbag is a passive charge, not a timer weapon
+	# Phase 6 D-11: Airbag is a passive charge, not a timer weapon
 	if weapon_id == "airbag_shield":
-		airbag_active = true
+		airbag_count = 1              # arm with 1 charge on first unlock
 	_activate_weapon_node(weapon_id)
 	return true
 
@@ -115,7 +118,7 @@ func reset() -> void:
 			get_node(node_name).queue_free()
 	unlocked_weapons = []
 	weapon_level = {}
-	airbag_active = false
+	airbag_count = 0
 	_screws_cooldown = 0.0
 
 ## Called by add_weapon() to instantiate and activate a weapon node.
@@ -169,8 +172,24 @@ func _deferred_activate_airbag(wep: Node) -> void:
 		wep.activate()
 
 ## Called by Player.gd receive_damage after airbag absorbs a lethal hit.
-## Hides the visual ring to reflect consumed charge.
+## Phase 6 D-11: Decrements charge count; hides ring only when count reaches 0.
 func consume_airbag() -> void:
-	airbag_active = false
-	if has_node("AirbagShield"):
-		get_node("AirbagShield").hide_ring()
+	airbag_count = maxi(airbag_count - 1, 0)
+	if airbag_count == 0:
+		if has_node("AirbagShield"):
+			get_node("AirbagShield").hide_ring()
+
+## Phase 6 (XP-08, D-11): Increment weapon level for a card pick. Called on owning peer
+## by host via rpc_id from Game.gd _apply_card_effect.
+@rpc("any_peer", "call_remote", "reliable")
+func upgrade_weapon(weapon_id: String) -> void:
+	if not unlocked_weapons.has(weapon_id):
+		return
+	var current: int = weapon_level.get(weapon_id, 1)
+	if current >= 3:
+		return  # already at max (XP-05 guard)
+	weapon_level[weapon_id] = current + 1
+	# L3 ScrewsAndBolts: reduce cooldown to 0.35s (D-11)
+	if weapon_id == "screws_and_bolts" and weapon_level[weapon_id] == 3:
+		if has_node("ScrewsAndBolts"):
+			get_node("ScrewsAndBolts").wait_time = 0.35

@@ -1,7 +1,9 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource path="res://scenes/Player.gd" id="1_player" type="Script"]
 [ext_resource path="res://scenes/weapons/WeaponManager.gd" id="2_weapon_manager" type="Script"]
+[ext_resource type="PackedScene" path="res://scenes/ui/PlayerHUD.tscn" id="3_player_hud"]
+[ext_resource type="PackedScene" path="res://scenes/ui/CardOverlay.tscn" id="4_card_overlay"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_1"]
 radius = 12.0
@@ -165,3 +167,7 @@ offset_bottom = -54.0
 horizontal_alignment = 1
 text = ""
 visible = false
+
+[node name="PlayerHUD" parent="." instance=ExtResource("3_player_hud")]
+
+[node name="CardOverlay" parent="." instance=ExtResource("4_card_overlay")]

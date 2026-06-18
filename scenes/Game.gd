@@ -336,6 +336,105 @@ func weapon_unlocked(weapon_id: String, collector_peer_id: int) -> void:
 			return
 
 # ==============================================================================
+# CARD PICK (XP-02, XP-08 — Phase 6 Plan 03)
+# ==============================================================================
+
+## Phase 6 (XP-02, XP-08, P8): Client owning peer sends card pick index → host validates → applies effect.
+## Mirrors attempt_revive pattern: "any_peer" + is_server() guard + peer lookup by peer_id.
+@rpc("any_peer", "call_remote", "reliable")
+func confirm_card_pick(requester_peer_id: int, card_index: int) -> void:
+	if not multiplayer.is_server():
+		return
+	var player_node: Node = null
+	for p in get_tree().get_nodes_in_group("players"):
+		if p.peer_id == requester_peer_id:
+			player_node = p
+			break
+	if player_node == null:
+		return
+	if not player_node.is_picking_card:
+		return  # race-condition guard: already confirmed
+	# Rebuild pool on host to validate index (P8: host re-validates card eligibility)
+	var pool: Array = _build_card_pool_for_player(player_node)
+	if card_index < 0 or card_index >= pool.size():
+		card_index = 0  # fallback to first card
+	_apply_card_effect(requester_peer_id, player_node, pool[card_index])
+	_card_pick_complete.rpc_id(requester_peer_id, requester_peer_id)
+
+## Phase 6: Rebuild card pool on the host side for validation.
+## Reads synced weapon_level, unlocked_weapons, element_tier from Player node.
+func _build_card_pool_for_player(player_node: Node) -> Array:
+	var pool: Array = []
+	var wm: Node = player_node.get_node_or_null("WeaponManager")
+	if wm:
+		for wid in ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave", "airbag_shield"]:
+			if not wm.unlocked_weapons.has(wid):
+				pool.append({"type": "weapon_unlock", "weapon_id": wid})
+		for wid in wm.unlocked_weapons:
+			var lvl: int = wm.weapon_level.get(wid, 1)
+			if lvl < 3:
+				pool.append({"type": "weapon_upgrade", "weapon_id": wid, "new_level": lvl + 1})
+	if player_node.element_tier < 3:
+		pool.append({"type": "element_upgrade", "new_tier": player_node.element_tier + 1})
+	for stat in ["Speed", "Max HP", "Damage", "Cooldown"]:
+		pool.append({"type": "stat_boost", "stat": stat, "amount": 10})
+	if pool.size() == 0:
+		pool.append({"type": "fallback"})
+	return pool
+
+## Phase 6: Apply the selected card's effect on the owning peer. Host-only.
+func _apply_card_effect(peer_id: int, player_node: Node, card: Dictionary) -> void:
+	match card.get("type", ""):
+		"weapon_unlock":
+			# Reuse existing weapon_unlocked RPC path (covers WEAP-07)
+			weapon_unlocked.rpc(card["weapon_id"], peer_id)
+		"weapon_upgrade":
+			var wm := player_node.get_node_or_null("WeaponManager")
+			if wm:
+				if peer_id == multiplayer.get_unique_id():
+					wm.upgrade_weapon(card["weapon_id"])
+				else:
+					wm.upgrade_weapon.rpc_id(peer_id, card["weapon_id"])
+		"element_upgrade":
+			if peer_id == multiplayer.get_unique_id():
+				player_node.receive_element_tier_up()
+			else:
+				player_node.receive_element_tier_up.rpc_id(peer_id)
+		"stat_boost":
+			_apply_stat_boost_rpc.rpc_id(peer_id, card.get("stat", ""), card.get("amount", 10))
+		"fallback":
+			# Fallback: +5% damage via stage3_damage_mult additive bump
+			_apply_stat_boost_rpc.rpc_id(peer_id, "Damage", 5)
+
+## Phase 6 (XP-08): Apply stat boost to the owning peer. Runs on owning peer via rpc_id.
+@rpc("authority", "call_remote", "reliable")
+func _apply_stat_boost_rpc(stat: String, amount: int) -> void:
+	# Find local player node (owning peer)
+	var local_id := multiplayer.get_unique_id()
+	for p in get_tree().get_nodes_in_group("players"):
+		if p.peer_id == local_id:
+			match stat:
+				"Speed":      p.SPEED += int(float(p.SPEED) * float(amount) / 100.0)
+				"Max HP":     p.MAX_HP += int(float(p.MAX_HP) * float(amount) / 100.0)
+				"Damage":     p.stage3_damage_mult += float(amount) / 100.0
+				"Cooldown":   pass  # TODO Phase 7: cooldown reduction not yet wired
+			return
+
+## Phase 6: Signal owning peer that card pick is complete — clear overlay and flag.
+@rpc("authority", "call_remote", "reliable")
+func _card_pick_complete(_for_peer_id: int) -> void:
+	# Runs on the owning peer
+	var local_id := multiplayer.get_unique_id()
+	for p in get_tree().get_nodes_in_group("players"):
+		if p.peer_id == local_id:
+			p.is_picking_card = false
+			if p.has_node("CardOverlay"):
+				p.get_node("CardOverlay").hide_overlay()
+			if p.has_method("_update_xp_hud"):
+				p._update_xp_hud()
+			return
+
+# ==============================================================================
 # ENGINEER HEAL DRONE (ROLE-07, ROLE-08, ROLE-09 — Phase 5 Plan 03)
 # ==============================================================================
 
