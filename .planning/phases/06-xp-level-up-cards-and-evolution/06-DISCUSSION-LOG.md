@@ -4,172 +4,132 @@
 > Decisions are captured in CONTEXT.md — this log preserves the alternatives considered.
 
 **Date:** 2026-06-18
-**Phase:** 6-xp-level-up-cards-and-evolution
-**Areas discussed:** XP thresholds & pacing, Card overlay UX, Weapon upgrade stats, Phase 5 dependency scope
+**Phase:** 06-xp-level-up-cards-and-evolution
+**Areas discussed:** Element upgrade cards, Stage 2 locomotion, XP/level state architecture, HUD layout
 
 ---
 
-## XP thresholds & pacing
+## Element Upgrade Cards
 
-### XP per orb
-
-| Option | Description | Selected |
-|--------|-------------|----------|
-| 10 XP per orb | ~10 kills per level-up — fast, demo-friendly | |
-| 5 XP per orb | ~20 kills per level-up — slower pace | ✓ |
-| You decide | Claude picks default | |
-
-**User's choice:** 5 XP per orb
-**Notes:** Slower pace preferred — more deliberate progression.
-
-### XP scaling per level
+### What happens when a player picks an element upgrade card?
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Flat — 100 XP per level | Every level takes the same 20 kills | |
-| Increasing — +50 XP each level | Early levels fast, later levels slower | ✓ |
-| You decide | Claude picks formula | |
+| Boost proc rate | Fire/Ice proc chance increases 25%→50%→75% per tier | ✓ |
+| Upgrade effect tier | Stronger burn/slow/heal per pick, same proc rate | |
+| Both — proc rate + strength | Level 2 boosts rate, Level 3 boosts strength | |
 
-**User's choice:** Increasing thresholds: level N requires (100 + (N-1) × 50) XP above previous level.
-
-### Stage 2 timing
-
-| Option | Description | Selected |
-|--------|-------------|----------|
-| Stage 2 at Level 5, Stage 3 at Level 10 | Mid-run Stage 2, late Stage 3 | |
-| Stage 2 at Level 3, Stage 3 at Level 6 | Earlier evolution | |
-| Stage 2 at Level 7, Stage 3 at Level 12 | Later, risk audience not seeing Stage 3 | |
-| You decide | Claude picks thresholds | |
-
-**User's choice:** Stage 2 should be reachable before Room 3 in Run 1. Planner calculates exact level to ensure this timing.
-**Notes:** Not a specific level number — a timing constraint. Planner must verify with XP formula and current spawn rates.
-
-### Stage 3 timing
-
-| Option | Description | Selected |
-|--------|-------------|----------|
-| During Room 3 / boss fight | Climactic moment, always visible in demo | |
-| Late same run — if run goes well | Bonus for skilled play, not guaranteed | |
-| You decide | Claude picks | |
-
-**User's choice:** Room 2 of the second run.
-**Notes:** Stage 3 is not meant to be hit in Run 1. XP and evolution carry over via LOOP-06, so players who survive into loop 2 hit Stage 3 in Room 2 of that loop.
+**User's choice:** Boost proc rate
+**Notes:** Simple and clean. Proc rate doubles per tier.
 
 ---
 
-## Card overlay UX
-
-### Player state during card pick
+### How many times can a player upgrade their element?
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Freeze + still vulnerable | Tension — can be hit while reading cards | |
-| Freeze + briefly invulnerable | Safe window to pick without risk | ✓ |
-| Can still move | Overlay is translucent, player still active | |
+| 2 upgrades max | 25%→50%→75%; card removed from pool after Tier 3 | ✓ |
+| 1 upgrade max | 25%→50% only | |
+| Unlimited (+15% per pick, cap at 100%) | Stack until 100% | |
 
-**User's choice:** Freeze + invulnerable while picking.
-
-### Time limit
-
-| Option | Description | Selected |
-|--------|-------------|----------|
-| No time limit | Wait until player picks | ✓ |
-| Auto-pick after ~10 seconds | Keeps game moving if player is AFK | |
-
-**User's choice:** No time limit — wait indefinitely.
-**Notes:** Good for demo context where players may be distracted by the audience.
-
-### Card navigation
-
-| Option | Description | Selected |
-|--------|-------------|----------|
-| Press 1/2/3 to pick | Immediate number-key selection | |
-| Arrow keys + Enter | Gamepad-style navigation | |
-| Click (mouse) | Mouse selection | |
-
-**User's choice:** A/D keys to cycle between the 3 cards, Space or Enter to confirm.
-**Notes:** Keyboard-only per PROJECT.md. A/D feels more natural than number keys for cycling.
-
-### Teammate indicator
-
-| Option | Description | Selected |
-|--------|-------------|----------|
-| Yes — "[Name] is leveling up!" label | Visible to all peers above frozen player | ✓ |
-| No indicator | Invisible to others | |
-| You decide | Claude decides | |
-
-**User's choice:** Yes — label visible on all peers.
+**User's choice:** 2 upgrades max (3 tiers total)
+**Notes:** element_tier: int tracks current tier (1/2/3).
 
 ---
 
-## Weapon upgrade stats
-
-### Upgrade approach
+### Earth element upgrade (no proc rate — passive)
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Generic: +25% damage, -15% cooldown per level | One formula for all weapons | |
-| Per-weapon — each has unique Level 2/3 behavior | More interesting, needs design spec | ✓ |
-| You decide | Claude picks | |
+| Shockwave upgrade | Faster shockwave cooldown per tier, heal rate unchanged | |
+| Heal rate upgrade | Higher heal/sec per tier, shockwave unchanged | |
+| Both — heal and shockwave scale | Each tier boosts both heal rate and shockwave cooldown | ✓ |
 
-**User's choice:** Per-weapon upgrade behaviors.
-
-### Behavior definition
-
-| Option | Description | Selected |
-|--------|-------------|----------|
-| Claude proposes all 6 weapons in CONTEXT.md | Fast, user reviews before planning | ✓ |
-| Walk through weapon by weapon | User-driven, ~18 more questions | |
-
-**User's choice:** Claude proposes in CONTEXT.md.
-**Notes:** All 6 weapon upgrade behaviors (Level 2 + Level 3) are specified in CONTEXT.md D-11. User can revise before running /gsd-plan-phase 6.
+**User's choice:** Both — heal and shockwave scale
+**Notes:** Tier 3 also adds a brief slow (×0.5) on shockwave hit.
 
 ---
 
-## Phase 5 dependency scope
+## Stage 2 Locomotion
 
-### Phase ordering decision
-
-| Option | Description | Selected |
-|--------|-------------|----------|
-| Stub Phase 5 dependencies — skip element cards and signature abilities | Phase 6 proceeds without Phase 5 | |
-| Do Phase 5 first, then return to Phase 6 | Full card pool available at planning time | ✓ |
-| Include element upgrade cards as stubs (no real effect) | Visual completeness without Phase 5 | |
-
-**User's choice:** Do Phase 5 first, then return to Phase 6.
-**Notes:** This CONTEXT.md is written and ready. Run /gsd-discuss-phase 5 next, then /gsd-plan-phase 5, then /gsd-plan-phase 6.
-
-### Stage 2 signature ability delivery
+### Should Stage 2 have a mechanical movement change?
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Auto-granted at Stage 2 threshold | Automatic, no card pick needed | ✓ |
-| Via special card in level-up pool | Requires explicit card selection | |
+| Purely visual — same WASD controls | Stage 1→2→3 are cosmetic shape changes; WASD unchanged | ✓ |
+| Speed boost at Stage 2 | +20% SPEED when entering Stage 2 | |
+| Strafe ability at Stage 2 | Hold Shift to strafe without changing weapon direction | |
 
-**User's choice:** Auto-granted when Stage 2 XP threshold is hit.
+**User's choice:** Purely visual — same WASD controls
+**Notes:** "Moves like a robot" is flavor text only. No code changes to movement physics.
 
-### Evolution visual approach
+---
+
+### Stage 3 stat boost?
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Claude designs placeholder shapes | Stage 1 compact rectangle → Stage 2 T/cross shape → Stage 3 armored rectangle | ✓ |
-| User describes stage shapes | Custom descriptions | |
+| Stat boost at Stage 3 | +20% damage and +25 max HP on Stage 3 activation | ✓ |
+| Purely visual | Stage 3 is cosmetic only, no extra stats | |
 
-**User's choice:** Claude designs. Specifications in CONTEXT.md D-12.
+**User's choice:** Stat boost at Stage 3
+**Notes:** stage3_damage_mult: float on Player (1.0 → 1.2 on Stage 3). MAX_HP +25, immediate +25 HP.
+
+---
+
+## XP / Level State Architecture
+
+### Where should per-player XP and level live?
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Player.gd (Recommended) | xp, level on Player node; MultiplayerSynchronizer replicates | ✓ |
+| GameState.gd | Dict per player in GameState; host sole writer; more RPCs | |
+
+**User's choice:** Player.gd
+**Notes:** Aligns with Phase 5 pattern — evolution_stage, health, shield_active all live on Player.
+
+---
+
+## HUD Layout
+
+### Where should the XP bar appear?
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| On the player character (world space) | XP bar below HealthBar, moves with player | |
+| Screen-edge HUD (CanvasLayer) | Fixed bottom of screen, stays put while player moves | ✓ |
+
+**User's choice:** Screen-edge CanvasLayer
+**Notes:** New PlayerHUD.tscn, child of Player scene, visible only on owning peer.
+
+---
+
+### What should the HUD show?
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| XP bar + level number + stage indicator | Bottom: LVL N + XP bar + Stage N | ✓ |
+| XP bar + level number only | Stage visible via visual shape, no HUD slot | |
+
+**User's choice:** XP bar + level number + stage indicator
 
 ---
 
 ## Claude's Discretion
 
-- Exact level for Stage 2 and Stage 3 XP thresholds (planner calculates from formula and timing targets)
-- Invulnerability duration during card pick (suggest 0.5–1s or full pick duration)
-- Color choices for evolution stage placeholder shapes
-- Card pool draw implementation (eligible pool filtering, fallback card logic)
-- Whether level-up indicator uses RPC broadcast or derived from synced `is_picking_card` property
+- Exact XP orb value for timing (5 XP/orb starting point; planner may tune)
+- Exact level for Stage 2 / Stage 3 unlocks (planner calculates from formula + timing targets)
+- Invulnerability during card pick = full duration of pick (is_picking_card blocks all damage)
+- Color choices for placeholder stage shapes
+- Card pool draw implementation (random eligible pool + fallback)
+- Level-up indicator on teammates: derived from synced is_picking_card vs separate RPC
+- Earth tier implementation in _tick_element match statement
+- Stage 3 damage multiplier read path in weapon fire functions
 
 ## Deferred Ideas
 
-- Stat boost card exact +% values (tuning — start at +10%, adjust in playtesting)
-- Element upgrade card effects (depend on Phase 5)
-- XP magnet range / orb drift-to-player effect (v2 QOL)
-- Card overlay visual polish (animation, glow, sound — v2 scope)
+- Stat boost card exact percentages (start with +10%, tune later)
+- XP magnet pull effect — v2 polish
+- Card pick visual polish (animated flip, glow, sound) — v2 polish
+- Stage 2 locomotion mechanics — explicitly confirmed out of scope
