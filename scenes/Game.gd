@@ -609,7 +609,7 @@ func request_ice_trail(pos: Vector2) -> void:
 		return
 	# Pitfall 4: call_deferred prevents physics-state mutation during flushing
 	$IceTrailSpawner.spawn.call_deferred({"pos": pos})
-	GameEvents.emit_hud("ac")
+	GameEvents.emit_hud.rpc("ac")  # CR-03: must use .rpc() so client CarHUDs receive the event
 
 ## Spawn function registered with IceTrailSpawner (P7 pattern — replicates zone to all peers).
 func _do_spawn_ice_trail(data: Dictionary) -> Node:
@@ -658,7 +658,7 @@ func _tick_earth_effects(delta: float) -> void:
 			else:
 				target.receive_heal.rpc_id(target.peer_id, heal_rate)
 		# ELEM-07: Earth heal fires SEAT MASSAGE HUD (T-05-18: host-only emit)
-		GameEvents.emit_hud("seat_massage")
+		GameEvents.emit_hud.rpc("seat_massage")  # CR-03: .rpc() broadcasts to all client CarHUDs
 
 	# --- ELEM-06: Shockwave at element_tier-scaled interval — knockback + 15 damage ---
 	_earth_shock_accum += delta
@@ -684,7 +684,7 @@ func _tick_earth_effects(delta: float) -> void:
 								enemy.velocity *= 2.0
 						)
 		# ELEM-07: Earth shockwave fires SEAT MASSAGE HUD (T-05-18: host-only, one emit per wave)
-		GameEvents.emit_hud("seat_massage")
+		GameEvents.emit_hud.rpc("seat_massage")  # CR-03: .rpc() broadcasts to all client CarHUDs
 
 ## D-19 (ELEM-06): Broadcast expanding green ring visual to all peers.
 ## Clone of HornShockwave._show_visual with RADIUS=120 and Earth green color.
