@@ -126,7 +126,6 @@ func apply_slow() -> void:
 
 ## D-10: Host-only contact damage — once per contact
 func _on_hurtbox_body_entered(body: Node) -> void:
-	print("Hurtbox body_entered: ", body.name, " group=", body.is_in_group("players"), " auth=", is_multiplayer_authority())
 	if not is_multiplayer_authority():
 		return
 	if not body.is_in_group("players"):
@@ -137,7 +136,6 @@ func _on_hurtbox_body_entered(body: Node) -> void:
 	if _players_in_contact.has(pid):
 		return  # already tracking this contact — no repeat damage
 	_players_in_contact[pid] = true
-	print("Contact damage to player ", pid, " (", CONTACT_DAMAGE, " HP)")
 	# HLTH-02: call_remote rpc_id to self is a no-op in Godot 4.
 	# Host player (peer_id == 1) must be called directly; clients use rpc_id.
 	# WR-02: pass is_elite flag so Player.receive_damage can gate SUSPENSION on elite hits only.

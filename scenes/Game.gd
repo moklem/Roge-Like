@@ -223,7 +223,7 @@ func _on_enemy_died(pos: Vector2) -> void:
 	if randf() < 0.25:
 		var part_id: String = CAR_PART_IDS[randi() % CAR_PART_IDS.size()]
 		$PickupSpawner.spawn.call_deferred({"type": "car_part", "pos": pos + Vector2(10, 0), "weapon_id": part_id})
-	# TEST: Sofort neuen Feind spawnen damit immer Gegner da sind
+	# D-03 (design): respawn one enemy immediately on death to keep pressure constant.
 	var points := $Room1/EnemySpawnPoints.get_children()
 	if points.size() > 0:
 		var spawn_pos: Vector2 = points[randi() % points.size()].global_position
