@@ -59,7 +59,7 @@ func _on_area_entered(area: Node) -> void:
 		if enemy.has_method("apply_burn"):
 			enemy.apply_burn()
 		if multiplayer.is_server():
-			GameEvents.emit_hud("engine")
+			GameEvents.emit_hud.rpc("engine")
 	else:
 		var owner_elem: String = Lobby.players.get(owner_peer_id, {}).get("element", "")
 		match owner_elem:
@@ -68,12 +68,12 @@ func _on_area_entered(area: Node) -> void:
 					if enemy.has_method("apply_burn"):
 						enemy.apply_burn()
 					if multiplayer.is_server():
-						GameEvents.emit_hud("engine")
+						GameEvents.emit_hud.rpc("engine")
 			"ice":
 				if randf() < 0.25:
 					if enemy.has_method("apply_slow"):
 						enemy.apply_slow()
 					if multiplayer.is_server():
-						GameEvents.emit_hud("ac")
+						GameEvents.emit_hud.rpc("ac")
 	# CMBT-05: despawn bullet — propagates to all clients via BulletSpawner
 	queue_free()

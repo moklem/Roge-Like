@@ -303,7 +303,7 @@ func _fire_burst() -> void:
 				game.request_fire.rpc_id(1, global_position, spread, peer_id, true)
 	# ELEM-07: HUD event — host-only (T-05-14 mitigation)
 	if multiplayer.is_server():
-		GameEvents.emit_hud("engine")
+		GameEvents.emit_hud.rpc("engine")
 
 ## Helper: find the nearest enemy node in group "enemies" using global_position.
 ## Cloned from WeaponManager._find_nearest_enemy but operates on self.global_position.
