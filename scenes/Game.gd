@@ -339,10 +339,13 @@ func attempt_revive(reviver_id: int, target_id: int) -> void:
 		# Increment BEFORE calling receive_revive (host-side, safe from client tampering — T-07-08)
 		GameState.revives_used[target_id] = GameState.revives_used.get(target_id, 0) + 1
 		# receive_revive is @rpc("any_peer", "call_remote", "reliable") on Player.gd.
-		# Host (any_peer) sends it to the target's owning client peer_id.
-		# The owning peer calls revive() locally, setting health and is_downed,
-		# which MultiplayerSynchronizer replicates outward to all clients.
-		target.receive_revive.rpc_id(target.peer_id)
+		# call_remote is a no-op when sender == receiver (host cannot rpc to itself).
+		# Mirror the heal/damage pattern (Enemy.gd lines 135-138, _tick_engineer_passive):
+		# call directly on host player, use rpc_id for remote peers (CR-01 fix).
+		if target.peer_id == multiplayer.get_unique_id():
+			target.receive_revive()   # host player: direct call (call_remote is no-op to self)
+		else:
+			target.receive_revive.rpc_id(target.peer_id)
 
 ## Phase 7 Plan 03 (HUD-06, D-09, T-07-07): Host-routed SUSPENSION indicator trigger.
 ## Called by Player.receive_damage on the owning peer when delivered damage >= 15.
