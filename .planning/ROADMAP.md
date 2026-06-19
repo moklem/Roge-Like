@@ -14,7 +14,7 @@
 | 4 | Weapons & Item Pickups | Vampire Survivors weapon loop — enemies drop car-part pickups, player collects to unlock/upgrade weapons | WEAP-01–08 | no |
 | 5 | Roles & Elements | 5/5 | Complete   | 2026-06-15 |
 | 6 | XP, Level-Up Cards & Evolution | Per-player progression loop — kill enemies to earn XP, level up triggers card pick, stage transforms appearance and unlocks ability | XP-01–09, EVOL-01–06 | yes |
-| 7 | CarHUD, Loop Timer & Difficulty Scaling | 3/3 | Complete   | 2026-06-19 |
+| 7 | CarHUD, Loop Timer & Difficulty Scaling | 3/3 | Complete    | 2026-06-19 |
 | 8 | Rooms 2 & 3, Boss | Full 3-room run playable end-to-end; boss with multiple attack phases and mob swarms | ROOM-01–07 | no |
 
 ---
