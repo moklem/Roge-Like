@@ -36,12 +36,15 @@ func _request_collect(_orb_name: String) -> void:
 	var collector_peer_id: int = multiplayer.get_remote_sender_id()
 	if collector_peer_id == 0:
 		collector_peer_id = multiplayer.get_unique_id()  # host collected its own orb
+	# D-19: scale XP from Phase 6 base (Player.XP_PER_ORB = 15) by loop_number.
+	# Loop 1 = 15 XP (unchanged), loop 2 ≈ 19 XP, loop 3 ≈ 23 XP (planner discretion per RESEARCH.md Open Q3).
+	var xp_amount: int = roundi(float(PLAYER_SCRIPT.XP_PER_ORB) * (1.0 + (GameState.loop_number - 1) * 0.25))
 	for p in get_tree().get_nodes_in_group("players"):
 		if p.peer_id == collector_peer_id:
 			if collector_peer_id == multiplayer.get_unique_id():
-				p.receive_xp(PLAYER_SCRIPT.XP_PER_ORB)  # D-01: XP_PER_ORB per orb (host-local, no RPC)
+				p.receive_xp(xp_amount)  # host-local, no RPC
 			else:
-				p.receive_xp.rpc_id(collector_peer_id, PLAYER_SCRIPT.XP_PER_ORB)  # D-01: XP_PER_ORB per orb
+				p.receive_xp.rpc_id(collector_peer_id, xp_amount)
 			break
 	# CMBT-09: queue_free on host propagates to all clients via PickupSpawner
 	queue_free()

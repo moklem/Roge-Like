@@ -7,8 +7,8 @@ extends CharacterBody2D
 
 const SPEED: float = 80.0
 const DETECT_RADIUS: float = 300.0
-const CONTACT_DAMAGE: int = 10
-const MAX_HP: int = 50
+var CONTACT_DAMAGE: int = 10  # must be var for spawn-time difficulty scaling (Pitfall 2, D-19)
+var MAX_HP: int = 50           # must be var for spawn-time difficulty scaling (Pitfall 2, D-19)
 
 ## Synced via MultiplayerSynchronizer (SceneReplicationConfig)
 var current_hp: int = MAX_HP
