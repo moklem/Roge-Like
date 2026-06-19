@@ -382,6 +382,28 @@ Wave 4 *(blocked on Wave 3 — needs stage3_damage_mult var wired)*
 - P8 (loop timer not authoritative) — loop timer lives in `GameState` autoload, host is sole writer; MultiplayerSynchronizer distributes read-only view; clients never tick the timer locally
 - P10 (room transition desync) — LOOP-02 room clear transition must use `@rpc("call_local", "reliable")` so all peers change scene in the same call; host waits one frame before spawning next room enemies
 
+**Plans:** 3 plans
+
+Plans:
+
+- [ ] 07-01-PLAN.md — Autoload + data foundation: emit_hud RPC, GameState loop_number=1 + start_next_loop() hook, Enemy const→var, XpOrb loop-scaled XP
+- [ ] 07-02-PLAN.md — New scenes: CarHUD.tscn/.gd (5 indicators + Loop label + fade tween) + EliteEnemy.tscn/.gd (2× HP, 1.5× damage, purple)
+- [ ] 07-03-PLAN.md — Game.gd/Player.gd integration: CarHUD instantiation, elite spawn timer + LIDAR, difficulty scaling, revive-once-per-loop gate, host-routed SUSPENSION
+
+Wave 1 *(autonomous)*
+
+- 07-01: GameEvents.gd + GameState.gd + Enemy.gd + XpOrb.gd foundation
+
+Wave 2 *(blocked on Wave 1 — new scenes need emit_hud RPC, GameState.loop_number, Enemy var stats)*
+
+- 07-02: CarHUD.{tscn,gd} + EliteEnemy.{tscn,gd} (no file overlap with Wave 3)
+
+Wave 3 *(blocked on Waves 1 and 2 — wires the new scenes into the running game)*
+
+- 07-03: Game.gd + Player.gd integration (CarHUD instantiate, elite timer/LIDAR, difficulty scaling, revive gate, SUSPENSION)
+
+**Descoped/deferred (locked decisions):** HUD-08 (V2X) removed per D-11; LOOP-01 (visible countdown) removed per D-15; LOOP-02 (room transition) is Phase 8. LOOP-03 satisfied by `start_next_loop()` hook (Phase 8 calls it); LOOP-06 already handled by existing reset path (D-18).
+
 ---
 
 ### Phase 8: Rooms 2 & 3, Boss
@@ -424,5 +446,5 @@ Wave 4 *(blocked on Wave 3 — needs stage3_damage_mult var wired)*
 | 4. Weapons & Item Pickups | 5/5 | Complete | 2026-05-31 |
 | 5. Roles & Elements | 5/5 | Complete | 2026-06-15 |
 | 6. XP, Level-Up Cards & Evolution | 0/4 | Not started | — |
-| 7. CarHUD, Loop Timer & Difficulty Scaling | 0/? | Not started | — |
+| 7. CarHUD, Loop Timer & Difficulty Scaling | 0/3 | Not started | — |
 | 8. Rooms 2 & 3, Boss | 0/? | Not started | — |
