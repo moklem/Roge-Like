@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in-progress
-stopped_at: "Phase 7 Plan 01 complete — Plans 02 and 03 remaining"
-last_updated: "2026-06-19T00:40:00.000Z"
+stopped_at: "Phase 7 Plan 02 complete — Plan 03 remaining"
+last_updated: "2026-06-19T01:30:00.000Z"
 progress:
   total_phases: 8
   completed_phases: 6
   total_plans: 26
-  completed_plans: 24
-  percent: 77
+  completed_plans: 25
+  percent: 80
 ---
 
 # Roadmap: Roge-Like
@@ -439,11 +439,11 @@ Wave 4 *(blocked on Wave 3 — needs stage3_damage_mult var wired)*
 | 4. Weapons & Item Pickups | 5/5 | Complete | 2026-05-31 |
 | 5. Roles & Elements | 5/5 | Complete | 2026-06-15 |
 | 6. XP, Level-Up Cards & Evolution | 4/4 | Complete | 2026-06-18 |
-| 7. CarHUD, Loop Timer & Difficulty Scaling | 1/3 | In progress | — |
+| 7. CarHUD, Loop Timer & Difficulty Scaling | 2/3 | In progress | — |
 | 8. Rooms 2 & 3, Boss | 0/? | Not started | — |
 
 ## Session
 
-**Last session:** 2026-06-19T00:40:00.000Z
-**Stopped at:** Phase 7 Plan 01 complete — autoload + data foundation
-**Resume file:** .planning/phases/07-carhud-loop-timer-difficulty-scaling/07-02-PLAN.md
+**Last session:** 2026-06-19T01:30:00.000Z
+**Stopped at:** Phase 7 Plan 02 complete — CarHUD scene + EliteEnemy built
+**Resume file:** .planning/phases/07-carhud-loop-timer-difficulty-scaling/07-03-PLAN.md

@@ -96,30 +96,30 @@
 - [ ] **HLTH-04**: Player reaching 0 HP enters a downed state (cannot act, visible downed indicator)
 - [ ] **HLTH-05**: A teammate can walk near a downed player and hold a key to revive them
 - [ ] **HLTH-06**: Revive has a visible hold-progress bar (not instant)
-- [ ] **HLTH-07**: Each player may be revived at most once per 15-minute loop; counter resets at loop end
+- [x] **HLTH-07**: Each player may be revived at most once per 15-minute loop; counter resets at loop end
 - [ ] **HLTH-08**: If all players are simultaneously downed, the run ends (game over)
 
 ### Car HUD
 
-- [ ] **HUD-01**: A Car HUD side panel is always visible on all players' screens during gameplay
-- [ ] **HUD-02**: Panel contains labeled indicator boxes: AC, ENGINE, SEAT MASSAGE, SUSPENSION, LIDAR, V2X
-- [ ] **HUD-03**: Ice ability used → "AC ❄️ COLD" lights up on all screens
-- [ ] **HUD-04**: Fire ability used → "ENGINE 🔥 OVERHEAT" lights up on all screens
-- [ ] **HUD-05**: Earth healing active → "SEAT MASSAGE 🌿 ACTIVE" lights up on all screens
-- [ ] **HUD-06**: Any player takes a significant hit → "SUSPENSION ⚡ IMPACT" lights up on all screens
-- [ ] **HUD-07**: Enemy spawns in the current room → "LIDAR 🔴 OBJECT DETECTED" lights up on all screens
-- [ ] **HUD-08**: Random interval auto-trigger → "V2X 📡 SIGNAL SENT" lights up on all screens
-- [ ] **HUD-09**: Each indicator fades out after a few seconds (not permanently lit)
-- [ ] **HUD-10**: HUD event broadcasts via RPC — all clients see the same indicator fire simultaneously
+- [x] **HUD-01**: A Car HUD side panel is always visible on all players' screens during gameplay
+- [x] **HUD-02**: Panel contains labeled indicator boxes: AC, ENGINE, SEAT MASSAGE, SUSPENSION, LIDAR, V2X
+- [x] **HUD-03**: Ice ability used → "AC ❄️ COLD" lights up on all screens
+- [x] **HUD-04**: Fire ability used → "ENGINE 🔥 OVERHEAT" lights up on all screens
+- [x] **HUD-05**: Earth healing active → "SEAT MASSAGE 🌿 ACTIVE" lights up on all screens
+- [x] **HUD-06**: Any player takes a significant hit → "SUSPENSION ⚡ IMPACT" lights up on all screens
+- [x] **HUD-07**: Enemy spawns in the current room → "LIDAR 🔴 OBJECT DETECTED" lights up on all screens
+- [x] **HUD-08**: Random interval auto-trigger → "V2X 📡 SIGNAL SENT" lights up on all screens
+- [x] **HUD-09**: Each indicator fades out after a few seconds (not permanently lit)
+- [x] **HUD-10**: HUD event broadcasts via RPC — all clients see the same indicator fire simultaneously
 
 ### Roguelike Loop
 
-- [ ] **LOOP-01**: A visible 15-minute countdown timer is shown on all players' screens
-- [ ] **LOOP-02**: After the current room is cleared, all players transition to the next room simultaneously
-- [ ] **LOOP-03**: Run ends when the boss is defeated or the timer expires — next loop starts, harder
-- [ ] **LOOP-04**: Each successive loop increases enemy HP, damage, and spawn density
-- [ ] **LOOP-05**: Loop number is visible to all players
-- [ ] **LOOP-06**: Weapons, XP level, and evolution stage carry over between rooms within a session; reset only on full death (team wipe)
+- [x] **LOOP-01**: A visible 15-minute countdown timer is shown on all players' screens
+- [x] **LOOP-02**: After the current room is cleared, all players transition to the next room simultaneously
+- [x] **LOOP-03**: Run ends when the boss is defeated or the timer expires — next loop starts, harder
+- [x] **LOOP-04**: Each successive loop increases enemy HP, damage, and spawn density
+- [x] **LOOP-05**: Loop number is visible to all players
+- [x] **LOOP-06**: Weapons, XP level, and evolution stage carry over between rooms within a session; reset only on full death (team wipe)
 
 ### Roles
 
@@ -266,24 +266,24 @@
 | HLTH-04 | Phase 3 | Pending |
 | HLTH-05 | Phase 3 | Pending |
 | HLTH-06 | Phase 3 | Pending |
-| HLTH-07 | Phase 6 | Pending |
+| HLTH-07 | Phase 6 | Complete |
 | HLTH-08 | Phase 3 | Pending |
-| HUD-01 | Phase 6 | Pending |
-| HUD-02 | Phase 6 | Pending |
-| HUD-03 | Phase 6 | Pending |
-| HUD-04 | Phase 6 | Pending |
-| HUD-05 | Phase 6 | Pending |
-| HUD-06 | Phase 6 | Pending |
-| HUD-07 | Phase 6 | Pending |
-| HUD-08 | Phase 6 | Pending |
-| HUD-09 | Phase 6 | Pending |
-| HUD-10 | Phase 6 | Pending |
-| LOOP-01 | Phase 6 | Pending |
-| LOOP-02 | Phase 6 | Pending |
-| LOOP-03 | Phase 6 | Pending |
-| LOOP-04 | Phase 6 | Pending |
-| LOOP-05 | Phase 6 | Pending |
-| LOOP-06 | Phase 6 | Pending |
+| HUD-01 | Phase 6 | Complete |
+| HUD-02 | Phase 6 | Complete |
+| HUD-03 | Phase 6 | Complete |
+| HUD-04 | Phase 6 | Complete |
+| HUD-05 | Phase 6 | Complete |
+| HUD-06 | Phase 6 | Complete |
+| HUD-07 | Phase 6 | Complete |
+| HUD-08 | Phase 6 | Complete |
+| HUD-09 | Phase 6 | Complete |
+| HUD-10 | Phase 6 | Complete |
+| LOOP-01 | Phase 6 | Complete |
+| LOOP-02 | Phase 6 | Complete |
+| LOOP-03 | Phase 6 | Complete |
+| LOOP-04 | Phase 6 | Complete |
+| LOOP-05 | Phase 6 | Complete |
+| LOOP-06 | Phase 6 | Complete |
 | ROLE-01 | Phase 7 | Pending |
 | ROLE-02 | Phase 7 | Pending |
 | ROLE-03 | Phase 7 | Pending |
@@ -310,6 +310,7 @@
 | ROOM-07 | Phase 8 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 84 total
 - Mapped to phases: 84
 - Unmapped: 0 ✓
