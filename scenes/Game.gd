@@ -404,7 +404,10 @@ func confirm_card_pick(_unused_peer_id: int, card_index: int) -> void:
 	if card_index < 0 or card_index >= pool.size():
 		card_index = 0  # fallback to first card
 	_apply_card_effect(requester_peer_id, player_node, pool[card_index])
-	_card_pick_complete.rpc_id(requester_peer_id)
+	if requester_peer_id == multiplayer.get_unique_id():
+		_card_pick_complete()
+	else:
+		_card_pick_complete.rpc_id(requester_peer_id)
 
 ## Phase 6: Rebuild card pool on the host side for validation.
 ## Reads synced weapon_level, unlocked_weapons, element_tier from Player node.
