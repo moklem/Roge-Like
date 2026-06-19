@@ -1,0 +1,57 @@
+[gd_scene format=3 uid="uid://eliteenemy_phase7"]
+
+[ext_resource type="Script" uid="uid://eliteenemy_gd_phase7" path="res://scenes/enemies/EliteEnemy.gd" id="1_elite"]
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_elite"]
+radius = 18.0
+height = 48.0
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_elite"]
+radius = 22.0
+
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_elite"]
+properties/0/path = NodePath(".:position")
+properties/0/spawn = true
+properties/0/replication_mode = 2
+properties/1/path = NodePath(".:current_hp")
+properties/1/spawn = true
+properties/1/replication_mode = 2
+properties/2/path = NodePath(".:state")
+properties/2/spawn = true
+properties/2/replication_mode = 2
+
+[node name="EliteEnemy" type="CharacterBody2D" unique_id=111111001]
+collision_layer = 4
+collision_mask = 3
+script = ExtResource("1_elite")
+
+[node name="Sprite" type="ColorRect" parent="." unique_id=111111002]
+offset_left = -24.0
+offset_top = -24.0
+offset_right = 24.0
+offset_bottom = 24.0
+color = Color(0.55, 0.1, 0.55, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=111111003]
+shape = SubResource("CapsuleShape2D_elite")
+
+[node name="NavigationAgent2D" type="NavigationAgent2D" parent="." unique_id=111111004]
+
+[node name="HurtboxArea" type="Area2D" parent="." unique_id=111111005]
+collision_layer = 16
+collision_mask = 34
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HurtboxArea" unique_id=111111006]
+shape = SubResource("CircleShape2D_elite")
+
+[node name="HealthBar" type="ProgressBar" parent="." unique_id=111111007]
+offset_left = -28.0
+offset_top = -44.0
+offset_right = 28.0
+offset_bottom = -36.0
+value = 100.0
+show_percentage = false
+
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=111111008]
+replication_interval = 0.05
+replication_config = SubResource("SceneReplicationConfig_elite")
