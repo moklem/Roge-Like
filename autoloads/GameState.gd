@@ -4,11 +4,12 @@ extends Node
 ## D-13: Only host writes; all writes guarded by multiplayer.is_server().
 
 var loop_timer: float = 0.0  # seconds remaining; host only writes
-var loop_number: int = 0
+var loop_number: int = 1  # D-16: starts at 1; Phase 8 increments via start_next_loop()
 var revives_used: Dictionary = {}  # peer_id → int (count used this loop)
 
 func _ready() -> void:
-	pass  # Minimal until Phase 6 wires loop timer and difficulty scaling
+	# D-16 / Pitfall 6: ensure correct base even before peers connect
+	loop_number = 1
 
 func _process(delta: float) -> void:
 	# Guard: peer must exist and be fully connected before querying is_server().
@@ -43,6 +44,19 @@ func track_downed(_peer_id: int) -> void:
 	if all_downed:
 		# D-14: Immediate game over — no grace period
 		_broadcast_game_over.rpc()
+
+## LOOP-03 / D-17: Called by Phase 8 after boss defeat. Hook point for next-loop setup.
+## Increments loop_number, clears revives_used (HLTH-07 / D-22). Host-guarded.
+func start_next_loop() -> void:
+	if not multiplayer.has_multiplayer_peer():
+		return
+	if multiplayer.multiplayer_peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
+		return
+	if not multiplayer.is_server():
+		return
+	loop_number += 1
+	revives_used = {}
+	print("Loop %d started" % loop_number)
 
 ## D-14: Broadcast game over to all peers including host (call_local)
 @rpc("authority", "call_local", "reliable")
