@@ -9,6 +9,9 @@ const SPEED: float = 80.0
 const DETECT_RADIUS: float = 300.0
 var CONTACT_DAMAGE: int = 10  # must be var for spawn-time difficulty scaling (Pitfall 2, D-19)
 var MAX_HP: int = 50           # must be var for spawn-time difficulty scaling (Pitfall 2, D-19)
+## WR-02: set to true in EliteEnemy._ready() so the SUSPENSION indicator is only triggered by
+## elite contacts — not by scaled normal enemies whose CONTACT_DAMAGE exceeds 15 at loop 3+.
+var is_elite: bool = false
 
 ## Synced via MultiplayerSynchronizer (SceneReplicationConfig)
 var current_hp: int = MAX_HP
@@ -132,10 +135,11 @@ func _on_hurtbox_body_entered(body: Node) -> void:
 	print("Contact damage to player ", pid, " (", CONTACT_DAMAGE, " HP)")
 	# HLTH-02: call_remote rpc_id to self is a no-op in Godot 4.
 	# Host player (peer_id == 1) must be called directly; clients use rpc_id.
+	# WR-02: pass is_elite flag so Player.receive_damage can gate SUSPENSION on elite hits only.
 	if body.peer_id == multiplayer.get_unique_id():
-		body.receive_damage(CONTACT_DAMAGE)
+		body.receive_damage(CONTACT_DAMAGE, "", is_elite)
 	else:
-		body.receive_damage.rpc_id(body.peer_id, CONTACT_DAMAGE)
+		body.receive_damage.rpc_id(body.peer_id, CONTACT_DAMAGE, "", is_elite)
 
 ## D-10: Clear contact when player moves away — allows next contact to deal damage
 func _on_hurtbox_body_exited(body: Node) -> void:

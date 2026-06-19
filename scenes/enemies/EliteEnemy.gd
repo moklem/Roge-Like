@@ -14,6 +14,7 @@ func _ready() -> void:
 	# Both are var (converted in Plan 01, confirmed in 07-01-SUMMARY.md).
 	MAX_HP = 100
 	CONTACT_DAMAGE = 15
+	is_elite = true  # WR-02: marks this instance so _on_hurtbox_body_entered passes from_elite=true
 	# Phase 7 Plan 03 (D-19, D-20): apply difficulty scaling here — AFTER base stats are set.
 	# _do_spawn_enemy cannot scale EliteEnemy stats because _ready() runs AFTER the spawn_function
 	# returns (when Spawner calls add_child). Setting stats here ensures the final effective values

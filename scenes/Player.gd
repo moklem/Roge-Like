@@ -439,7 +439,7 @@ func _show_dash_shockwave(pos: Vector2) -> void:
 ## Plan 02: attacker_path optional param added (Open Question 3) — callers may omit it;
 ##   reflection is best-effort and skipped when path is empty.
 @rpc("any_peer", "call_remote", "reliable")
-func receive_damage(amount: int, attacker_path: String = "") -> void:
+func receive_damage(amount: int, attacker_path: String = "", from_elite: bool = false) -> void:
 	# Plan 02 D-11: Speedster i-frames ignore ALL damage (checked before everything else)
 	if dash_invincible:
 		return
@@ -463,13 +463,13 @@ func receive_damage(amount: int, attacker_path: String = "") -> void:
 			_request_reflect(amount, attacker_path)
 		return  # block damage regardless of stage
 	health -= amount
-	# Phase 7 Plan 03 (HUD-06, D-09): SUSPENSION fires when actually-delivered damage >= 15.
+	# Phase 7 Plan 03 (HUD-06, D-09): SUSPENSION fires on elite enemy hits only (WR-02 fix).
 	# Placed after health -= amount so blocked/absorbed hits (shield, airbag, dash) never reach here.
-	# Normal enemy CONTACT_DAMAGE=10 is safely below threshold (Pitfall 4, RESEARCH.md).
-	# Elite enemy CONTACT_DAMAGE=15 (×mult at loop 1) — exactly at threshold: fires SUSPENSION.
+	# WR-02: using from_elite flag instead of amount >= 15 threshold — at loop 3+ normal enemies
+	# deal CONTACT_DAMAGE=15 (int(10 * 1.5)) and would incorrectly trigger SUSPENSION otherwise.
 	# Routing: receive_damage runs on owning peer (may be client) — call host via RPC,
 	# host validates is_server() and calls emit_hud.rpc("suspension") to all peers (T-07-07).
-	if amount >= 15:
+	if from_elite:
 		var game := get_node_or_null("/root/Game")
 		if game and game.has_method("notify_significant_hit"):
 			if multiplayer.is_server():
