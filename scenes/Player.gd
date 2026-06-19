@@ -463,6 +463,22 @@ func receive_damage(amount: int, attacker_path: String = "") -> void:
 			_request_reflect(amount, attacker_path)
 		return  # block damage regardless of stage
 	health -= amount
+	# Phase 7 Plan 03 (HUD-06, D-09): SUSPENSION fires when actually-delivered damage >= 15.
+	# Placed after health -= amount so blocked/absorbed hits (shield, airbag, dash) never reach here.
+	# Normal enemy CONTACT_DAMAGE=10 is safely below threshold (Pitfall 4, RESEARCH.md).
+	# Elite enemy CONTACT_DAMAGE=15 (×mult at loop 1) — exactly at threshold: fires SUSPENSION.
+	# Routing: receive_damage runs on owning peer (may be client) — call host via RPC,
+	# host validates is_server() and calls emit_hud.rpc("suspension") to all peers (T-07-07).
+	if amount >= 15:
+		var game := get_node_or_null("/root/Game")
+		if game and game.has_method("notify_significant_hit"):
+			if multiplayer.is_server():
+				# Host owns this player: call directly (no self-RPC needed)
+				game.notify_significant_hit()
+			else:
+				# Client owns this player: route to host via rpc_id(1)
+				# Mirrors Enemy.gd lines 135-138 and confirm_card_pick host-routing pattern
+				game.notify_significant_hit.rpc_id(1)
 	if health <= 0:
 		health = 0
 		_enter_downed()

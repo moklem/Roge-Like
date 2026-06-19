@@ -331,11 +331,30 @@ func attempt_revive(reviver_id: int, target_id: int) -> void:
 	if progress >= REVIVE_DURATION:
 		# Revive complete — call receive_revive RPC on the owning peer
 		_revive_progress.erase(target_id)
+		# Phase 7 Plan 03 (HLTH-07, D-22): Revive limit — at most once per loop per player.
+		# Check runs host-side (attempt_revive already guards is_server() above).
+		# Silent fail: target stays downed, no error text (D-22, UI-SPEC).
+		if GameState.revives_used.get(target_id, 0) >= 1:
+			return  # silently blocked — player already revived once this loop
+		# Increment BEFORE calling receive_revive (host-side, safe from client tampering — T-07-08)
+		GameState.revives_used[target_id] = GameState.revives_used.get(target_id, 0) + 1
 		# receive_revive is @rpc("any_peer", "call_remote", "reliable") on Player.gd.
 		# Host (any_peer) sends it to the target's owning client peer_id.
 		# The owning peer calls revive() locally, setting health and is_downed,
 		# which MultiplayerSynchronizer replicates outward to all clients.
 		target.receive_revive.rpc_id(target.peer_id)
+
+## Phase 7 Plan 03 (HUD-06, D-09, T-07-07): Host-routed SUSPENSION indicator trigger.
+## Called by Player.receive_damage on the owning peer when delivered damage >= 15.
+## Pattern: mirrors confirm_card_pick (any_peer + is_server() guard + host broadcast).
+## T-07-07: @rpc("any_peer","call_remote","reliable") allows client-owned players to notify
+## host; host validates by guard and emits the broadcast — clients cannot emit directly.
+@rpc("any_peer", "call_remote", "reliable")
+func notify_significant_hit() -> void:
+	if not multiplayer.is_server():
+		return  # host-only guard (T-07-07: client request received, host decides to broadcast)
+	# Host is authority for GameEvents.emit_hud (D-07, Pitfall 1 in RESEARCH.md)
+	GameEvents.emit_hud.rpc("suspension")
 
 ## HLTH-06: Push revive bar update to the owning peer — Player.set_revive_progress is an RPC
 func _update_revive_bar(target_id: int, progress: float) -> void:
