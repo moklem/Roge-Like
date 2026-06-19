@@ -14,6 +14,10 @@ const CAR_PART_IDS    := ["exhaust_flames", "spinning_tires", "antenna_beam", "h
 const HEAL_DRONE_SCENE := preload("res://scenes/roles/HealDrone.tscn")
 ## Phase 5 Plan 05 (D-18, ELEM-04): Ice Trail frost zone spawnable scene
 const ICE_TRAIL_SCENE := preload("res://scenes/elements/IceTrailZone.tscn")
+## Phase 7 Plan 03 (D-13, HUD-07): Elite enemy scene pre-loaded for EnemySpawner dispatch
+const ELITE_ENEMY_SCENE := preload("res://scenes/enemies/EliteEnemy.tscn")
+## Phase 7 Plan 03 (D-01, HUD-01): CarHUD global dashboard scene
+const CAR_HUD_SCENE := preload("res://scenes/ui/CarHUD.tscn")
 
 ## D-13: Revive duration 3-4 seconds (mirrors Player.REVIVE_DURATION)
 const REVIVE_DURATION: float = 3.5
@@ -37,6 +41,10 @@ var _engineer_passive_accum: float = 0.0
 var _earth_heal_accum: float = 0.0
 var _earth_shock_accum: float = 0.0
 
+## Phase 7 Plan 03 (D-13, HUD-07): Elite enemy spawn timer accumulators (host-only)
+var _elite_spawn_timer: float = 0.0
+var _elite_spawn_interval: float = 0.0  # randomized in _ready via randf_range(45, 90)
+
 func _ready() -> void:
 	# P7: custom spawn_functions forward data Dictionary to every peer automatically
 	$MultiplayerSpawner.spawn_function = _do_spawn         # players (existing)
@@ -52,6 +60,14 @@ func _ready() -> void:
 	# Phase 5 Plan 05 (D-18, ELEM-04): IceTrailSpawner for Ice Trail frost zones (P7 pre-register)
 	$IceTrailSpawner.spawn_function = _do_spawn_ice_trail
 	$IceTrailSpawner.add_spawnable_scene("res://scenes/elements/IceTrailZone.tscn")
+	# Phase 7 Plan 03 (Pitfall 5, D-13): Pre-register EliteEnemy BEFORE any elite spawns occur
+	$EnemySpawner.add_spawnable_scene("res://scenes/enemies/EliteEnemy.tscn")
+	# Phase 7 Plan 03 (D-01, HUD-01, Pitfall 3): CarHUD as separate CanvasLayer on Game root
+	# NOT inside $HUD — CarHUD is layer=3, must not conflict with existing HUD CanvasLayer
+	var _car_hud := CAR_HUD_SCENE.instantiate()
+	add_child(_car_hud)
+	# Phase 7 Plan 03 (D-13): Initialize elite spawn interval; host timer uses randf_range(45, 90)
+	_elite_spawn_interval = randf_range(45.0, 90.0)
 
 	# Bake navigation polygon at runtime so new obstacles are properly carved out
 	call_deferred("_bake_navigation")
@@ -99,26 +115,18 @@ func _setup_player_hud() -> void:
 	vbox.add_child(_hud_hp_label)
 	_hud_ability_label = Label.new()
 	vbox.add_child(_hud_ability_label)
-	_hud_event_label = Label.new()
-	_hud_event_label.visible = false
-	_hud_event_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.2))
-	vbox.add_child(_hud_event_label)
-	GameEvents.hud_event.connect(_on_hud_event)
+	# Phase 7 Plan 03 (HUD-10, RESEARCH "Deprecated"): _hud_event_label removed — CarHUD
+	# is now the sole HUD-event consumer. The old hud_event signal connection to _on_hud_event
+	# has been removed; CarHUD.gd connects directly in its own _ready().
+	# _hud_event_label node no longer created (CarHUD renders all indicator events instead).
 	hud.add_child(panel)
 
-func _on_hud_event(event_name: String) -> void:
-	if _hud_event_label == null:
-		return
-	match event_name:
-		"engine":       _hud_event_label.text = "FEUER BURST!"
-		"ac":           _hud_event_label.text = "EIS SPUR"
-		"seat_massage": _hud_event_label.text = "ERDE PULS"
-		_:              _hud_event_label.text = event_name.to_upper()
-	_hud_event_label.modulate = Color.WHITE
-	_hud_event_label.visible = true
-	var tween := _hud_event_label.create_tween()
-	tween.tween_property(_hud_event_label, "modulate:a", 0.0, 1.2).set_delay(0.5)
-	tween.tween_callback(func(): _hud_event_label.visible = false)
+## Phase 7 Plan 03: Old text-label HUD handler — neutralized (no-op).
+## CarHUD.gd is now the sole HUD-event consumer via GameEvents.hud_event signal.
+## This method is no longer connected to GameEvents.hud_event (connection removed in _setup_player_hud).
+## _hud_event_label var remains declared but is null; the label node is no longer created.
+func _on_hud_event(_event_name: String) -> void:
+	pass  # CarHUD handles all indicator events; this handler is retired (HUD-10, D-01)
 
 func _update_player_hud() -> void:
 	if _hud_hp_label == null:
@@ -450,11 +458,13 @@ func _card_pick_complete() -> void:
 # ENGINEER HEAL DRONE (ROLE-07, ROLE-08, ROLE-09 — Phase 5 Plan 03)
 # ==============================================================================
 
-## P8: host runs Engineer passive + Earth effects; all peers update local HUD.
+## P8: host runs Engineer passive + Earth effects + elite spawn; all peers update local HUD.
 func _process(delta: float) -> void:
 	if multiplayer.is_server():
 		_tick_engineer_passive(delta)
 		_tick_earth_effects(delta)
+		# Phase 7 Plan 03 (D-13, HUD-07): Elite enemy spawn timer tick (host-only)
+		_tick_elite_spawn(delta)
 	_update_player_hud()
 
 ## D-13 (ROLE-07): Engineer passive — every 5s, +10 HP to all OTHER players within 200px.
@@ -481,6 +491,31 @@ func _tick_engineer_passive(delta: float) -> void:
 				target.receive_heal(10)
 			else:
 				target.receive_heal.rpc_id(target.peer_id, 10)
+
+## Phase 7 Plan 03 (D-13, HUD-07): Host-only elite enemy spawn timer.
+## Mirrors _tick_engineer_passive pattern (Game.gd lines 462-468).
+## Accumulates delta; when interval reached, spawns one elite at a random spawn point.
+## Interval resets to a new randf_range(45, 90) value after each spawn.
+func _tick_elite_spawn(delta: float) -> void:
+	_elite_spawn_timer += delta
+	if _elite_spawn_timer < _elite_spawn_interval:
+		return
+	_elite_spawn_timer = 0.0
+	_elite_spawn_interval = randf_range(45.0, 90.0)
+	_spawn_elite_enemy()
+
+## Phase 7 Plan 03 (D-13, HUD-07): Spawn one elite enemy at a random EnemySpawnPoint.
+## Uses call_deferred to avoid "Can't change state while flushing queries" (Pitfall, Game.gd lines 196-205).
+## Fires LIDAR on all peers via emit_hud.rpc (D-10, HUD-07; host is authority so RPC is valid).
+func _spawn_elite_enemy() -> void:
+	var points := $Room1/EnemySpawnPoints.get_children()
+	if points.is_empty():
+		return
+	var pos: Vector2 = points[randi() % points.size()].global_position
+	# call_deferred — physics-safe spawn (mirrors _on_enemy_died call_deferred pattern)
+	$EnemySpawner.spawn.call_deferred({"type": "elite", "pos": pos})
+	# LIDAR fires only on elite spawn (D-10, D-13) — host-only emit, valid as authority RPC
+	GameEvents.emit_hud.rpc("lidar")
 
 ## ROLE-08: Client Engineer requests drone deploy → host validates + spawns.
 ## Max 2 active drones per engineer; blocks silently when cap is reached.
