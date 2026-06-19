@@ -32,7 +32,7 @@ var _revive_progress: Dictionary = {}
 ## HUD labels for local player status (built programmatically in _ready)
 var _hud_hp_label: Label = null
 var _hud_ability_label: Label = null
-var _hud_event_label: Label = null
+# WR-05: _hud_event_label removed — CarHUD (Phase 7) is now the sole HUD-event consumer.
 
 ## Phase 5 Plan 03 (D-13, ROLE-07): Engineer passive heal accumulator (host-only)
 var _engineer_passive_accum: float = 0.0
@@ -120,13 +120,6 @@ func _setup_player_hud() -> void:
 	# has been removed; CarHUD.gd connects directly in its own _ready().
 	# _hud_event_label node no longer created (CarHUD renders all indicator events instead).
 	hud.add_child(panel)
-
-## Phase 7 Plan 03: Old text-label HUD handler — neutralized (no-op).
-## CarHUD.gd is now the sole HUD-event consumer via GameEvents.hud_event signal.
-## This method is no longer connected to GameEvents.hud_event (connection removed in _setup_player_hud).
-## _hud_event_label var remains declared but is null; the label node is no longer created.
-func _on_hud_event(_event_name: String) -> void:
-	pass  # CarHUD handles all indicator events; this handler is retired (HUD-10, D-01)
 
 func _update_player_hud() -> void:
 	if _hud_hp_label == null:
