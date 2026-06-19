@@ -335,6 +335,7 @@ func attempt_revive(reviver_id: int, target_id: int) -> void:
 		# Check runs host-side (attempt_revive already guards is_server() above).
 		# Silent fail: target stays downed, no error text (D-22, UI-SPEC).
 		if GameState.revives_used.get(target_id, 0) >= 1:
+			_update_revive_bar(target_id, 0.0)  # WR-01: reset bar so reviver sees failure, not a stuck 100%
 			return  # silently blocked — player already revived once this loop
 		# Increment BEFORE calling receive_revive (host-side, safe from client tampering — T-07-08)
 		GameState.revives_used[target_id] = GameState.revives_used.get(target_id, 0) + 1
