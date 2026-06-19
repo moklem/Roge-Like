@@ -1,3 +1,18 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: unknown
+stopped_at: Phase 7 context gathered
+last_updated: "2026-06-19T00:16:37.825Z"
+progress:
+  total_phases: 8
+  completed_phases: 6
+  total_plans: 23
+  completed_plans: 23
+  percent: 75
+---
+
 # Roadmap: Roge-Like
 
 **8 phases** | **84 v1 requirements** | **Granularity:** Coarse
@@ -426,3 +441,9 @@ Wave 4 *(blocked on Wave 3 — needs stage3_damage_mult var wired)*
 | 6. XP, Level-Up Cards & Evolution | 4/4 | Complete | 2026-06-18 |
 | 7. CarHUD, Loop Timer & Difficulty Scaling | 0/? | Not started | — |
 | 8. Rooms 2 & 3, Boss | 0/? | Not started | — |
+
+## Session
+
+**Last session:** 2026-06-19T00:16:37.810Z
+**Stopped at:** Phase 7 context gathered
+**Resume file:** .planning/phases/07-carhud-loop-timer-difficulty-scaling/07-CONTEXT.md
