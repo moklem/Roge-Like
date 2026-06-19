@@ -14,7 +14,7 @@
 | 4 | Weapons & Item Pickups | Vampire Survivors weapon loop — enemies drop car-part pickups, player collects to unlock/upgrade weapons | WEAP-01–08 | no |
 | 5 | Roles & Elements | 5/5 | Complete   | 2026-06-15 |
 | 6 | XP, Level-Up Cards & Evolution | Per-player progression loop — kill enemies to earn XP, level up triggers card pick, stage transforms appearance and unlocks ability | XP-01–09, EVOL-01–06 | yes |
-| 7 | CarHUD, Loop Timer & Difficulty Scaling | CARIAD HUD side panel always visible and firing on game events; 15-min loop timer; difficulty increases per loop | HUD-01–10, LOOP-01–06, HLTH-07 | yes |
+| 7 | CarHUD, Loop Timer & Difficulty Scaling | 1/3 | In Progress|  |
 | 8 | Rooms 2 & 3, Boss | Full 3-room run playable end-to-end; boss with multiple attack phases and mob swarms | ROOM-01–07 | no |
 
 ---
@@ -382,12 +382,12 @@ Wave 4 *(blocked on Wave 3 — needs stage3_damage_mult var wired)*
 - P8 (loop timer not authoritative) — loop timer lives in `GameState` autoload, host is sole writer; MultiplayerSynchronizer distributes read-only view; clients never tick the timer locally
 - P10 (room transition desync) — LOOP-02 room clear transition must use `@rpc("call_local", "reliable")` so all peers change scene in the same call; host waits one frame before spawning next room enemies
 
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 07-01-PLAN.md — Autoload + data foundation: emit_hud RPC, GameState loop_number=1 + start_next_loop() hook, Enemy const→var, XpOrb loop-scaled XP
+- [x] 07-01-PLAN.md — Autoload + data foundation: emit_hud RPC, GameState loop_number=1 + start_next_loop() hook, Enemy const→var, XpOrb loop-scaled XP
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
