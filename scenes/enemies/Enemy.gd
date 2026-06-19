@@ -14,7 +14,9 @@ var MAX_HP: int = 50           # must be var for spawn-time difficulty scaling (
 var is_elite: bool = false
 
 ## Synced via MultiplayerSynchronizer (SceneReplicationConfig)
-var current_hp: int = MAX_HP
+var current_hp: int  # WR-03: not initialised here — _ready() sets it to MAX_HP so any
+                     # spawn-time MAX_HP override (e.g. _do_spawn_enemy or EliteEnemy._ready)
+                     # is reflected correctly rather than always defaulting to 50.
 var state: int = 0  # 0 = IDLE, 1 = CHASE
 
 ## D-10: Track which player peer_ids are currently in contact to prevent repeated damage
@@ -31,6 +33,9 @@ signal died(pos: Vector2)
 
 func _ready() -> void:
 	add_to_group("enemies")
+	# WR-03: set current_hp here so any bare instantiation (without _do_spawn_enemy) gets the
+	# correct value. _do_spawn_enemy and EliteEnemy._ready() overwrite current_hp after this.
+	current_hp = MAX_HP
 	# P6: NavigationAgent2D must not run on clients — only host runs AI
 	set_physics_process(is_multiplayer_authority())
 	# HurtboxArea (collision_layer=16, mask=32) detects bullet hits via area_entered
