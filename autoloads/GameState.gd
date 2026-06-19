@@ -58,6 +58,14 @@ func start_next_loop() -> void:
 	revives_used = {}
 	print("Loop %d started" % loop_number)
 
+## CR-02 fix: Reset loop-scoped state so next run starts fresh.
+## Called on host before _broadcast_game_over; also resets revives_used so
+## a player who hit the revive cap last game is not blocked in the new run.
+func reset_for_new_run() -> void:
+	loop_number = 1
+	loop_timer  = 0.0
+	revives_used = {}
+
 ## D-14: Broadcast game over to all peers including host (call_local)
 @rpc("authority", "call_local", "reliable")
 func _broadcast_game_over() -> void:
@@ -74,4 +82,6 @@ func _broadcast_game_over() -> void:
 		p.stage3_damage_mult = 1.0
 		p.is_picking_card = false
 		p.evolution_stage = 1  # direct reset — skip deferred visual swap before scene change
+	# CR-02: reset loop-scoped state before scene change so next run starts at loop 1
+	reset_for_new_run()
 	get_tree().change_scene_to_file("res://scenes/ui/GameOver.tscn")
