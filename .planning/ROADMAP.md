@@ -385,9 +385,16 @@ Wave 4 *(blocked on Wave 3 — needs stage3_damage_mult var wired)*
 **Plans:** 3 plans
 
 Plans:
+**Wave 1**
 
 - [ ] 07-01-PLAN.md — Autoload + data foundation: emit_hud RPC, GameState loop_number=1 + start_next_loop() hook, Enemy const→var, XpOrb loop-scaled XP
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 07-02-PLAN.md — New scenes: CarHUD.tscn/.gd (5 indicators + Loop label + fade tween) + EliteEnemy.tscn/.gd (2× HP, 1.5× damage, purple)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 07-03-PLAN.md — Game.gd/Player.gd integration: CarHUD instantiation, elite spawn timer + LIDAR, difficulty scaling, revive-once-per-loop gate, host-routed SUSPENSION
 
 Wave 1 *(autonomous)*
