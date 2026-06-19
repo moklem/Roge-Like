@@ -185,13 +185,30 @@ func _do_spawn(data: Dictionary) -> Node:
 func _spawn_enemies() -> void:
 	# D-19: Fixed spawn points at room edges (added in Plan 01)
 	var points := $Room1/EnemySpawnPoints.get_children()
-	for i in range(min(INITIAL_ENEMY_COUNT, points.size())):
+	# Phase 7 Plan 03 (LOOP-04, D-19): Scale initial spawn count by loop_number.
+	# Formula: INITIAL_ENEMY_COUNT × 1.5^(loop_number-1), rounded, capped by spawn point count.
+	# Loop 1=8 (unchanged), Loop 2≈12, Loop 3≈18 (capped by available spawn points).
+	var spawn_count: int = roundi(INITIAL_ENEMY_COUNT * pow(1.5, GameState.loop_number - 1))
+	for i in range(min(spawn_count, points.size())):
 		$EnemySpawner.spawn({"pos": points[i].global_position})
 
 func _do_spawn_enemy(data: Dictionary) -> Node:
-	var e := ENEMY_SCENE.instantiate()
+	# Phase 7 Plan 03 (D-19, D-20): dispatch on type; elite uses ELITE_ENEMY_SCENE
+	var scene = ELITE_ENEMY_SCENE if data.get("type", "") == "elite" else ENEMY_SCENE
+	var e := scene.instantiate()
 	e.position = data["pos"]
 	e.name = "Enemy_%d" % (randi() % 9999)
+	# Phase 7 Plan 03 (D-19, D-20, D-21): Apply difficulty scaling at spawn time.
+	# For normal enemies: scaling applied here before add_to_tree (Enemy._ready() does not reset stats).
+	# For elite enemies: EliteEnemy._ready() applies its own scaling after calling super._ready()
+	#   (see EliteEnemy.gd _ready). Setting mult here would be overwritten by EliteEnemy._ready()
+	#   so only normal enemies receive the scaling multiplication in this function.
+	# At loop_number=1: mult=1.0 → no change (baseline preserved, Pitfall 6).
+	if data.get("type", "") != "elite":
+		var mult: float = 1.0 + (GameState.loop_number - 1) * 0.25
+		e.MAX_HP = int(e.MAX_HP * mult)
+		e.CONTACT_DAMAGE = int(e.CONTACT_DAMAGE * mult)
+		e.current_hp = e.MAX_HP
 	# CMBT-08: Connect died signal to spawn XP orb at death position
 	e.died.connect(_on_enemy_died)
 	return e

@@ -14,6 +14,14 @@ func _ready() -> void:
 	# Both are var (converted in Plan 01, confirmed in 07-01-SUMMARY.md).
 	MAX_HP = 100
 	CONTACT_DAMAGE = 15
+	# Phase 7 Plan 03 (D-19, D-20): apply difficulty scaling here — AFTER base stats are set.
+	# _do_spawn_enemy cannot scale EliteEnemy stats because _ready() runs AFTER the spawn_function
+	# returns (when Spawner calls add_child). Setting stats here ensures the final effective values
+	# are base(100/15) × mult, not the pre-_ready defaults.
+	# At loop_number=1: mult=1.0, values stay 100/15 (unchanged baseline). (D-21)
+	var mult: float = 1.0 + (GameState.loop_number - 1) * 0.25
+	MAX_HP = int(MAX_HP * mult)
+	CONTACT_DAMAGE = int(CONTACT_DAMAGE * mult)
 	current_hp = MAX_HP
 
 	# Apply distinct visual: dark purple ColorRect, enlarged toward 48×48 (UI-SPEC).
