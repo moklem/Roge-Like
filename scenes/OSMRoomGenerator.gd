@@ -172,8 +172,8 @@ func _apply_layout(room_id: int, anchors: Array) -> void:
 		_add_anchor(room, anchor["pos"], anchor["name"], i)
 		## Spawn point offset from anchor toward room centre
 		if spawn_node != null:
-			var to_centre := (Vector2(GAME_W, GAME_H) * 0.5 - anchor["pos"]).normalized()
-			var sp_pos := (anchor["pos"] + to_centre * (ANCHOR_SIZE * 0.8 + 24.0)).clamp(
+			var to_centre: Vector2 = (Vector2(GAME_W, GAME_H) * 0.5 - anchor["pos"] as Vector2).normalized()
+			var sp_pos: Vector2 = (anchor["pos"] as Vector2 + to_centre * (ANCHOR_SIZE * 0.8 + 24.0)).clamp(
 				Vector2(55, 55), Vector2(GAME_W - 55, GAME_H - 55))
 			var m := Marker2D.new()
 			m.name = "OsmSpawn%d" % si
