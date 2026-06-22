@@ -2,9 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to plan
-stopped_at: Phase 8 context gathered
-last_updated: "2026-06-22T07:59:06.485Z"
+status: UAT in progress
+stopped_at: context exhaustion at 78% (2026-06-22)
+resumed_at: 2026-06-22 (session 2)
+last_updated: "2026-06-22T10:00:00.000Z"
 progress:
   total_phases: 8
   completed_phases: 8
@@ -440,12 +441,13 @@ Wave 4 *(blocked on Wave 3 — needs stage3_damage_mult var wired)*
 | 5. Roles & Elements | 5/5 | Complete | 2026-06-15 |
 | 6. XP, Level-Up Cards & Evolution | 4/4 | Complete | 2026-06-18 |
 | 7. CarHUD, Loop Timer & Difficulty Scaling | 2/3 | In progress | — |
-| 8. Rooms 2 & 3, Boss | 0/? | Not started | — |
+| 8. Rooms 2 & 3, Boss | 3/3 | UAT in progress | — |
 
 ## Session
 
-**Last session:** 2026-06-22T07:59:06.478Z
-**Stopped at:** Completed 08-01-PLAN.md: Room2+Room3 geometry + shared Entities refactor
+**Last session:** 2026-06-22 (session 2)
+**Current state:** Phase 8 all 3 plans implemented + committed. Wave system (3 waves per room) and OSMRoomGenerator also committed. 7 UAT tests pending — manual testing required.
+**Next step:** Run the game, work through UAT-08 tests 1–7 (Room1→Room2→Room3/Boss→loop advance).
 **Resume file:** None
 
 ## Performance Metrics
