@@ -1,7 +1,8 @@
 extends Node
-## OSM-driven room layout: fetches only named/significant buildings as anchor points,
-## then places a handful of landmark obstacles + corridor-divider walls that split
-## the room into sub-areas.  Detail level: low — only structural highlights.
+## OSM-driven room decoration: fetches named buildings and places them as
+## landmark obstacles inside the active room.  Room structure (boundary walls,
+## corridor blocks, Keep, towers) is defined in Game.tscn — this script only
+## adds OSM-sourced buildings on top, with a clearly distinct colour.
 ## Falls back silently when offline.
 
 signal room_osm_ready(room_id: int)
@@ -13,32 +14,18 @@ const BBOXES: Dictionary = {
 	3: [49.877, 10.865, 49.884, 10.875],  ## Burg Altenburg
 }
 
-## Per-room corridor dividers.  Each entry splits the room with a wall + gap.
-## axis: "x" = vertical wall, "y" = horizontal wall.
-## pos: 0-1 fraction of room width/height.
-## gap_t / gap_b: top/left and bottom/right of the gap, as 0-1 fraction.
-const ROOM_DIVIDERS: Dictionary = {
-	1: [  ## 2 vertical dividers → 3 sub-rooms (entry | mid | far)
-		{"axis": "x", "pos": 0.35, "gap_t": 0.38, "gap_b": 0.62},
-		{"axis": "x", "pos": 0.66, "gap_t": 0.38, "gap_b": 0.62},
-	],
-	2: [  ## 1 horizontal divider → lower entry + upper climb
-		{"axis": "y", "pos": 0.50, "gap_t": 0.40, "gap_b": 0.60},
-	],
-	3: [],  ## boss arena — no extra dividers, static room geometry handles it
-}
-
-## Max named landmark buildings to pick as anchor obstacles per room.
+## Max named landmark buildings to place per room.
 const MAX_ANCHORS: int = 5
-## Size of each anchor obstacle in game pixels.
-const ANCHOR_SIZE: float = 58.0
+## Size of each OSM building obstacle in game pixels.
+const ANCHOR_SIZE: float  = 48.0
+## Minimum distance between an OSM anchor centre and any existing StaticBody2D centre.
+const MIN_CLEAR: float    = 72.0
 
 const GAME_W      := 800.0
 const GAME_H      := 600.0
-const MARGIN      := 36.0
-const WALL_W      := 22.0   ## thickness of corridor-divider walls
+const MARGIN      := 60.0   ## keep anchors away from boundary walls
+## Distinct purplish tint — clearly different from room walls (grey 0.3) and blocks.
 const BLD_COLOR   := Color(0.30, 0.27, 0.33, 1.0)
-const WALL_COLOR  := Color(0.32, 0.30, 0.34, 1.0)
 const OSM_TIMEOUT := 12.0
 
 var _http: HTTPRequest
@@ -58,15 +45,13 @@ func fetch_for_room(room_id: int) -> void:
 	_pending_room = room_id
 	var b: Array = BBOXES[room_id]
 	var bbox: String = "%.6f,%.6f,%.6f,%.6f" % [b[0], b[1], b[2], b[3]]
-	## Only named buildings — keeps response tiny and gives us meaningful anchors.
-	## Room 3 also grabs named historic features (castle walls, towers).
+	## Room 3: also grab named historic features (castle keep, towers).
 	var q: String
 	if room_id == 3:
 		q = (
 			"[out:json][timeout:15];"
 			+ "(way[\"name\"][\"building\"](%s);" % bbox
 			+ "way[\"name\"][\"historic\"](%s);" % bbox
-			+ "way[\"barrier\"=\"wall\"](%s);" % bbox
 			+ ");out geom;"
 		)
 	else:
@@ -79,7 +64,7 @@ func fetch_for_room(room_id: int) -> void:
 	)
 	if err != OK:
 		push_warning("OSMRoomGenerator: HTTP request error %d" % err)
-		_apply_layout(_pending_room, [])   ## still add dividers even without OSM data
+		emit_signal("room_osm_ready", _pending_room)
 
 func _on_http_done(_res: int, code: int, _hdrs: PackedStringArray, body: PackedByteArray) -> void:
 	var anchors: Array = []
@@ -89,7 +74,8 @@ func _on_http_done(_res: int, code: int, _hdrs: PackedStringArray, body: PackedB
 			anchors = _extract_anchors(_pending_room, parsed)
 	else:
 		push_warning("OSMRoomGenerator: HTTP %d for room %d" % [code, _pending_room])
-	_apply_layout(_pending_room, anchors)
+	if not anchors.is_empty():
+		_apply_anchors(_pending_room, anchors)
 	emit_signal("room_osm_ready", _pending_room)
 
 ## ── coordinate conversion ────────────────────────────────────────────────────
@@ -136,12 +122,12 @@ func _extract_anchors(room_id: int, data: Dictionary) -> Array:
 		var clat := sum_lat / geom.size()
 		var clon := sum_lon / geom.size()
 		var gpos := _to_game_pos(clat, clon, south, west, lat_cos, scale)
-		## Discard anchors too close to the boundary wall
+		## Discard anchors inside the margin border
 		if gpos.x < MARGIN + ANCHOR_SIZE or gpos.x > GAME_W - MARGIN - ANCHOR_SIZE:
 			continue
 		if gpos.y < MARGIN + ANCHOR_SIZE or gpos.y > GAME_H - MARGIN - ANCHOR_SIZE:
 			continue
-		## Rough area from geom bbox for sorting
+		## Rough area for sorting (largest / most prominent building first)
 		var lats: Array = []; var lons: Array = []
 		for g in geom:
 			lats.append(float(g.get("lat", 0.0)))
@@ -154,93 +140,53 @@ func _extract_anchors(room_id: int, data: Dictionary) -> Array:
 
 ## ── layout application ───────────────────────────────────────────────────────
 
-func _apply_layout(room_id: int, anchors: Array) -> void:
+## Places OSM anchor buildings in the room, skipping any that would overlap
+## with existing StaticBody2D nodes (room walls, blocks, Keep, towers).
+func _apply_anchors(room_id: int, anchors: Array) -> void:
 	var room: Node = _game.get_node_or_null("Room%d" % room_id)
 	if room == null:
 		return
 
-	## 1. Corridor-divider walls — the main structural feature
-	var dividers: Array = ROOM_DIVIDERS.get(room_id, [])
-	for div in dividers:
-		_add_divider(room, div)
+	## Collect existing obstacle centres so we can avoid them.
+	var existing_centres: Array = []
+	for child in room.get_children():
+		if child is StaticBody2D:
+			existing_centres.append(child.position)
 
-	## 2. Landmark anchor obstacles (named buildings as reference points)
 	var spawn_node: Node = room.get_node_or_null("EnemySpawnPoints")
-	var si: int = 0
-	for i in range(anchors.size()):
-		var anchor: Dictionary = anchors[i]
-		_add_anchor(room, anchor["pos"], anchor["name"], i)
-		## Spawn point offset from anchor toward room centre
+	var placed: int = 0
+	for anchor in anchors:
+		var pos: Vector2 = anchor["pos"] as Vector2
+		## Skip if too close to any existing obstacle.
+		var blocked := false
+		for ec in existing_centres:
+			if pos.distance_to(ec as Vector2) < MIN_CLEAR:
+				blocked = true
+				break
+		if blocked:
+			continue
+		_add_anchor(room, pos, anchor["name"], placed)
+		existing_centres.append(pos)   ## future anchors also avoid this one
+		## Extra spawn point near each placed building
 		if spawn_node != null:
-			var to_centre: Vector2 = (Vector2(GAME_W, GAME_H) * 0.5 - anchor["pos"] as Vector2).normalized()
-			var sp_pos: Vector2 = (anchor["pos"] as Vector2 + to_centre * (ANCHOR_SIZE * 0.8 + 24.0)).clamp(
+			var to_centre: Vector2 = (Vector2(GAME_W, GAME_H) * 0.5 - pos).normalized()
+			var sp_pos: Vector2 = (pos + to_centre * (ANCHOR_SIZE * 0.8 + 24.0)).clamp(
 				Vector2(55, 55), Vector2(GAME_W - 55, GAME_H - 55))
 			var m := Marker2D.new()
-			m.name = "OsmSpawn%d" % si
+			m.name = "OsmSpawn%d" % placed
 			m.position = sp_pos
 			spawn_node.add_child(m)
-			si += 1
+		placed += 1
 
-	## 3. Rebake navmesh if anything was added
-	if not anchors.is_empty() or not dividers.is_empty():
+	if placed > 0:
 		var nav: NavigationRegion2D = room.get_node_or_null("NavigationRegion2D")
 		if nav:
 			nav.bake_navigation_polygon(false)
 
-## ── wall helpers ─────────────────────────────────────────────────────────────
-
-## Adds a wall with a corridor gap.  axis="x" → vertical wall, axis="y" → horizontal.
-func _add_divider(room: Node, div: Dictionary) -> void:
-	var axis: String = div["axis"]
-	var pos_frac: float = div["pos"]
-	var gap_t: float = div["gap_t"]   ## fraction where gap starts
-	var gap_b: float = div["gap_b"]   ## fraction where gap ends
-
-	if axis == "x":
-		var wx: float = MARGIN + pos_frac * (GAME_W - MARGIN * 2.0)
-		var seg_top_h: float = (gap_t * (GAME_H - MARGIN * 2.0))
-		var seg_bot_h: float = ((1.0 - gap_b) * (GAME_H - MARGIN * 2.0))
-		if seg_top_h > 4.0:
-			_add_wall_rect(room, "DivV_Top",
-				Vector2(wx, MARGIN + seg_top_h * 0.5),
-				Vector2(WALL_W, seg_top_h))
-		if seg_bot_h > 4.0:
-			_add_wall_rect(room, "DivV_Bot",
-				Vector2(wx, GAME_H - MARGIN - seg_bot_h * 0.5),
-				Vector2(WALL_W, seg_bot_h))
-	else:  ## axis == "y"
-		var wy: float = MARGIN + pos_frac * (GAME_H - MARGIN * 2.0)
-		var seg_l_w: float = (gap_t * (GAME_W - MARGIN * 2.0))
-		var seg_r_w: float = ((1.0 - gap_b) * (GAME_W - MARGIN * 2.0))
-		if seg_l_w > 4.0:
-			_add_wall_rect(room, "DivH_L",
-				Vector2(MARGIN + seg_l_w * 0.5, wy),
-				Vector2(seg_l_w, WALL_W))
-		if seg_r_w > 4.0:
-			_add_wall_rect(room, "DivH_R",
-				Vector2(GAME_W - MARGIN - seg_r_w * 0.5, wy),
-				Vector2(seg_r_w, WALL_W))
-
-func _add_wall_rect(room: Node, node_name: String, center: Vector2, size: Vector2) -> void:
-	var body := StaticBody2D.new()
-	body.name = node_name
-	body.position = center
-	body.collision_mask = 0
-	var cs := CollisionShape2D.new()
-	var rect := RectangleShape2D.new()
-	rect.size = size
-	cs.shape = rect
-	body.add_child(cs)
-	var vis := Polygon2D.new()
-	vis.color = WALL_COLOR
-	var hw := size.x * 0.5; var hh := size.y * 0.5
-	vis.polygon = PackedVector2Array([
-		Vector2(-hw, -hh), Vector2(hw, -hh), Vector2(hw, hh), Vector2(-hw, hh)
-	])
-	body.add_child(vis)
-	room.add_child(body)
+## ── building helper ──────────────────────────────────────────────────────────
 
 ## Landmark obstacle: square block at the OSM-derived position, labelled by name.
+## Colour (BLD_COLOR) is visually distinct from room walls (grey) and blocks.
 func _add_anchor(room: Node, pos: Vector2, label: String, idx: int) -> void:
 	var body := StaticBody2D.new()
 	body.name = "Anchor%d_%s" % [idx, label.left(12).replace(" ", "_")]
@@ -258,7 +204,6 @@ func _add_anchor(room: Node, pos: Vector2, label: String, idx: int) -> void:
 		Vector2(-h, -h), Vector2(h, -h), Vector2(h, h), Vector2(-h, h)
 	])
 	body.add_child(vis)
-	## Small name label above the block so it's identifiable in-game
 	var lbl := Label.new()
 	lbl.text = label
 	lbl.add_theme_font_size_override("font_size", 7)
