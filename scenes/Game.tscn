@@ -36,6 +36,37 @@ size = Vector2(40, 40)
 [sub_resource type="RectangleShape2D" id="RectShp_hwall"]
 size = Vector2(120, 28)
 
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_2"]
+outlines = Array[PackedVector2Array]([PackedVector2Array(35, 562, 762, 564, 764, 34, 35, 34)])
+parsed_geometry_type = 1
+agent_radius = 12.0
+
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_3"]
+outlines = Array[PackedVector2Array]([PackedVector2Array(120, 60, 680, 60, 750, 150, 760, 450, 680, 560, 120, 560, 50, 450, 40, 150)])
+parsed_geometry_type = 1
+agent_radius = 12.0
+
+[sub_resource type="RectangleShape2D" id="RectShp_r2_tl"]
+size = Vector2(115, 200)
+
+[sub_resource type="RectangleShape2D" id="RectShp_r2_tc"]
+size = Vector2(130, 180)
+
+[sub_resource type="RectangleShape2D" id="RectShp_r2_tr"]
+size = Vector2(130, 200)
+
+[sub_resource type="RectangleShape2D" id="RectShp_r2_bl"]
+size = Vector2(115, 150)
+
+[sub_resource type="RectangleShape2D" id="RectShp_r2_bc"]
+size = Vector2(130, 180)
+
+[sub_resource type="RectangleShape2D" id="RectShp_r2_br"]
+size = Vector2(130, 150)
+
+[sub_resource type="RectangleShape2D" id="RectShp_r3_keep"]
+size = Vector2(80, 80)
+
 [node name="Game" type="Node2D" unique_id=1590491663]
 script = ExtResource("1_game")
 
@@ -288,6 +319,157 @@ position = Vector2(530, 130)
 
 [node name="ESpawn8" type="Marker2D" parent="Room1/EnemySpawnPoints" unique_id=2000000033]
 position = Vector2(530, 470)
+
+[node name="Room2" type="Node2D" parent="."]
+visible = false
+
+[node name="Floor" type="Polygon2D" parent="Room2"]
+color = Color(0.10, 0.10, 0.14, 1)
+polygon = PackedVector2Array(0, 0, 800, 0, 800, 600, 0, 600)
+
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="Room2"]
+navigation_polygon = SubResource("NavigationPolygon_2")
+
+[node name="SpawnPoints" type="Node2D" parent="Room2"]
+
+[node name="Spawn1" type="Marker2D" parent="Room2/SpawnPoints"]
+position = Vector2(90, 300)
+
+[node name="Spawn2" type="Marker2D" parent="Room2/SpawnPoints"]
+position = Vector2(110, 260)
+
+[node name="Spawn3" type="Marker2D" parent="Room2/SpawnPoints"]
+position = Vector2(110, 340)
+
+[node name="WallTop" type="StaticBody2D" parent="Room2"]
+position = Vector2(400, 16)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room2/WallTop"]
+shape = SubResource("RectangleShape2D_h")
+
+[node name="Visual" type="Polygon2D" parent="Room2/WallTop"]
+color = Color(0.3, 0.3, 0.3, 1)
+polygon = PackedVector2Array(-400, -16, 400, -16, 400, 16, -400, 16)
+
+[node name="WallBottom" type="StaticBody2D" parent="Room2"]
+position = Vector2(400, 584)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room2/WallBottom"]
+shape = SubResource("RectangleShape2D_h")
+
+[node name="Visual" type="Polygon2D" parent="Room2/WallBottom"]
+color = Color(0.3, 0.3, 0.3, 1)
+polygon = PackedVector2Array(-400, -16, 400, -16, 400, 16, -400, 16)
+
+[node name="WallLeft" type="StaticBody2D" parent="Room2"]
+position = Vector2(16, 300)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room2/WallLeft"]
+shape = SubResource("RectangleShape2D_v")
+
+[node name="Visual" type="Polygon2D" parent="Room2/WallLeft"]
+color = Color(0.3, 0.3, 0.3, 1)
+polygon = PackedVector2Array(-16, -300, 16, -300, 16, 300, -16, 300)
+
+[node name="WallRight" type="StaticBody2D" parent="Room2"]
+position = Vector2(784, 300)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room2/WallRight"]
+shape = SubResource("RectangleShape2D_v")
+
+[node name="Visual" type="Polygon2D" parent="Room2/WallRight"]
+color = Color(0.3, 0.3, 0.3, 1)
+polygon = PackedVector2Array(-16, -300, 16, -300, 16, 300, -16, 300)
+
+[node name="BlockTL" type="StaticBody2D" parent="Room2"]
+position = Vector2(242, 200)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room2/BlockTL"]
+shape = SubResource("RectShp_r2_tl")
+
+[node name="Visual" type="Polygon2D" parent="Room2/BlockTL"]
+color = Color(0.28, 0.26, 0.30, 1)
+polygon = PackedVector2Array(-57, -100, 57, -100, 57, 100, -57, 100)
+
+[node name="BlockTC" type="StaticBody2D" parent="Room2"]
+position = Vector2(235, 140)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room2/BlockTC"]
+shape = SubResource("RectShp_r2_tc")
+
+[node name="Visual" type="Polygon2D" parent="Room2/BlockTC"]
+color = Color(0.28, 0.26, 0.30, 1)
+polygon = PackedVector2Array(-65, -90, 65, -90, 65, 90, -65, 90)
+
+[node name="BlockTR" type="StaticBody2D" parent="Room2"]
+position = Vector2(565, 200)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room2/BlockTR"]
+shape = SubResource("RectShp_r2_tr")
+
+[node name="Visual" type="Polygon2D" parent="Room2/BlockTR"]
+color = Color(0.28, 0.26, 0.30, 1)
+polygon = PackedVector2Array(-65, -100, 65, -100, 65, 100, -65, 100)
+
+[node name="BlockBL" type="StaticBody2D" parent="Room2"]
+position = Vector2(242, 475)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room2/BlockBL"]
+shape = SubResource("RectShp_r2_bl")
+
+[node name="Visual" type="Polygon2D" parent="Room2/BlockBL"]
+color = Color(0.28, 0.26, 0.30, 1)
+polygon = PackedVector2Array(-57, -75, 57, -75, 57, 75, -57, 75)
+
+[node name="BlockBC" type="StaticBody2D" parent="Room2"]
+position = Vector2(235, 460)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room2/BlockBC"]
+shape = SubResource("RectShp_r2_bc")
+
+[node name="Visual" type="Polygon2D" parent="Room2/BlockBC"]
+color = Color(0.28, 0.26, 0.30, 1)
+polygon = PackedVector2Array(-65, -90, 65, -90, 65, 90, -65, 90)
+
+[node name="BlockBR" type="StaticBody2D" parent="Room2"]
+position = Vector2(565, 475)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Room2/BlockBR"]
+shape = SubResource("RectShp_r2_br")
+
+[node name="Visual" type="Polygon2D" parent="Room2/BlockBR"]
+color = Color(0.28, 0.26, 0.30, 1)
+polygon = PackedVector2Array(-65, -75, 65, -75, 65, 75, -65, 75)
+
+[node name="EnemySpawnPoints" type="Node2D" parent="Room2"]
+
+[node name="ESpawn1" type="Marker2D" parent="Room2/EnemySpawnPoints"]
+position = Vector2(110, 120)
+
+[node name="ESpawn2" type="Marker2D" parent="Room2/EnemySpawnPoints"]
+position = Vector2(110, 480)
+
+[node name="ESpawn3" type="Marker2D" parent="Room2/EnemySpawnPoints"]
+position = Vector2(400, 300)
+
+[node name="ESpawn4" type="Marker2D" parent="Room2/EnemySpawnPoints"]
+position = Vector2(690, 120)
+
+[node name="ESpawn5" type="Marker2D" parent="Room2/EnemySpawnPoints"]
+position = Vector2(690, 480)
+
+[node name="ESpawn6" type="Marker2D" parent="Room2/EnemySpawnPoints"]
+position = Vector2(400, 80)
 
 [node name="HUD" type="CanvasLayer" parent="." unique_id=1971261314]
 
