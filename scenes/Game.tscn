@@ -298,20 +298,22 @@ offset_right = 300.0
 offset_bottom = 40.0
 text = "Player"
 
+[node name="Entities" type="Node2D" parent="."]
+
 [node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="." unique_id=1487741617]
-spawn_path = NodePath("../Room1/Entities")
+spawn_path = NodePath("../Entities")
 
 [node name="EnemySpawner" type="MultiplayerSpawner" parent="."]
-spawn_path = NodePath("../Room1/Entities")
+spawn_path = NodePath("../Entities")
 
 [node name="BulletSpawner" type="MultiplayerSpawner" parent="."]
-spawn_path = NodePath("../Room1/Entities")
+spawn_path = NodePath("../Entities")
 
 [node name="PickupSpawner" type="MultiplayerSpawner" parent="."]
-spawn_path = NodePath("../Room1/Entities")
+spawn_path = NodePath("../Entities")
 
 [node name="DroneSpawner" type="MultiplayerSpawner" parent="."]
-spawn_path = NodePath("../Room1/Entities")
+spawn_path = NodePath("../Entities")
 
 [node name="IceTrailSpawner" type="MultiplayerSpawner" parent="."]
-spawn_path = NodePath("../Room1/Entities")
+spawn_path = NodePath("../Entities")
