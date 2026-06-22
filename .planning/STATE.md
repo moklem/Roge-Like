@@ -4,12 +4,12 @@ milestone: v1.0
 milestone_name: milestone
 status: Ready to plan
 stopped_at: Phase 8 context gathered
-last_updated: "2026-06-22T07:46:00.397Z"
+last_updated: "2026-06-22T07:51:37.280Z"
 progress:
   total_phases: 8
   completed_phases: 7
   total_plans: 29
-  completed_plans: 27
+  completed_plans: 28
   percent: 88
 ---
 
@@ -444,7 +444,7 @@ Wave 4 *(blocked on Wave 3 — needs stage3_damage_mult var wired)*
 
 ## Session
 
-**Last session:** 2026-06-22T07:46:00.385Z
+**Last session:** 2026-06-22T07:51:27.411Z
 **Stopped at:** Completed 08-01-PLAN.md: Room2+Room3 geometry + shared Entities refactor
 **Resume file:** None
 
@@ -454,3 +454,9 @@ Wave 4 *(blocked on Wave 3 — needs stage3_damage_mult var wired)*
 |-------|------|----------|-------|
 | Phase 07 P03 | 5m | 3 tasks | 3 files |
 | Phase 08 P01 | 12m | 3 tasks | 1 file |
+| Phase 08 P02 | 15m | 2 tasks | 2 files |
+
+## Decisions
+
+- [Phase ?]: Boss bullets reuse Bullet.tscn with owner_id=-1 (no BossProjectile.tscn needed)
+- [Phase ?]: Boss overrides take_damage matching Bullet.gd line 55 call pattern

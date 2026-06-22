@@ -15,7 +15,7 @@
 | 5 | Roles & Elements | 5/5 | Complete   | 2026-06-15 |
 | 6 | XP, Level-Up Cards & Evolution | Per-player progression loop — kill enemies to earn XP, level up triggers card pick, stage transforms appearance and unlocks ability | XP-01–09, EVOL-01–06 | yes |
 | 7 | CarHUD, Loop Timer & Difficulty Scaling | 3/3 | Complete    | 2026-06-19 |
-| 8 | Rooms 2 & 3, Boss | 1/3 | In Progress|  |
+| 8 | Rooms 2 & 3, Boss | 2/3 | In Progress|  |
 
 ---
 
@@ -441,13 +441,13 @@ Wave 3 *(blocked on Waves 1 and 2 — wires the new scenes into the running game
 - Design pass required — boss phase thresholds, HP values per loop, mob wave counts and composition need a design document before planning this phase
 - ROOM-01 note — ERBA room geometry established in Phase 3; Phase 8 finalises density tuning and confirms it fits the full run flow
 
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 **Wave 1**
 
 - [x] 08-01-PLAN.md — Room 2 (Bamberg Altstadt corridors) + Room 3 (Burg Altenburg arena) geometry in Game.tscn + shared Entities node refactor (spawners repointed off Room1)
-- [ ] 08-02-PLAN.md — Boss.tscn + Boss.gd 3-phase HP-threshold state machine (melee → +ranged volley → enrage), phase color RPC, mob-swarm trigger
+- [x] 08-02-PLAN.md — Boss.tscn + Boss.gd 3-phase HP-threshold state machine (melee → +ranged volley → enrage), phase color RPC, mob-swarm trigger
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
