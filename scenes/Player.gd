@@ -643,7 +643,7 @@ func _enter_downed() -> void:
 
 ## Called by Game.gd when host confirms revive complete (via receive_revive RPC — see Plan 05)
 func revive() -> void:
-	health = MAX_HP / 2.0  # revive with 50% HP
+	health = MAX_HP >> 1  # revive with 50% HP (bit-shift avoids int-division warning)
 	is_downed = false
 
 ## HLTH-06: Update ReviveBar on this player node (called by Game.gd revive accumulator via RPC)
