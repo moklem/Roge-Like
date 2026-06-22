@@ -450,7 +450,7 @@ func receive_damage(amount: int, attacker_path: String = "", from_elite: bool = 
 	if health - amount <= 0 and has_node("WeaponManager") and $WeaponManager.airbag_count > 0:
 		var airbag_level: int = $WeaponManager.weapon_level.get("airbag_shield", 1)
 		if airbag_level >= 2:
-			health = maxi(1, MAX_HP / 4)  # D-11 L2: heal to 25% HP instead of 1
+			health = maxi(1, MAX_HP >> 2)  # D-11 L2: heal to 25% HP instead of 1
 		else:
 			health = 1                     # D-11 L1: survive at 1 HP
 		$WeaponManager.consume_airbag()
