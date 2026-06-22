@@ -146,13 +146,13 @@
 
 ### Rooms
 
-- [ ] **ROOM-01**: Room 1 (ERBA) — open, wide space; tutorial-level enemy density; teaches movement + combat
+- [x] **ROOM-01**: Room 1 (ERBA) — open, wide space; tutorial-level enemy density; teaches movement + combat
 - [x] **ROOM-02**: Room 2 (Bamberg Altstadt) — narrow corridors; higher enemy density; punishes clustering
 - [x] **ROOM-03**: Room 3 (Burg Altenburg) — large arena; boss fight
 - [x] **ROOM-04**: Boss has at least 2 distinct attack phases with different behavior per phase
 - [x] **ROOM-05**: Random mob swarms spawn between boss attack phases (harder each loop)
-- [ ] **ROOM-06**: Enemy or mob spawns during boss fight trigger LIDAR HUD indicator
-- [ ] **ROOM-07**: All room transitions are simultaneous across all clients
+- [x] **ROOM-06**: Enemy or mob spawns during boss fight trigger LIDAR HUD indicator
+- [x] **ROOM-07**: All room transitions are simultaneous across all clients
 
 ---
 
@@ -301,13 +301,13 @@
 | ELEM-05 | Phase 7 | Pending |
 | ELEM-06 | Phase 7 | Pending |
 | ELEM-07 | Phase 7 | Pending |
-| ROOM-01 | Phase 8 | Pending |
+| ROOM-01 | Phase 8 | Complete |
 | ROOM-02 | Phase 8 | Complete |
 | ROOM-03 | Phase 8 | Complete |
 | ROOM-04 | Phase 8 | Complete |
 | ROOM-05 | Phase 8 | Complete |
-| ROOM-06 | Phase 8 | Pending |
-| ROOM-07 | Phase 8 | Pending |
+| ROOM-06 | Phase 8 | Complete |
+| ROOM-07 | Phase 8 | Complete |
 
 **Coverage:**
 

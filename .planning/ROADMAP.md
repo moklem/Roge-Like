@@ -15,7 +15,7 @@
 | 5 | Roles & Elements | 5/5 | Complete   | 2026-06-15 |
 | 6 | XP, Level-Up Cards & Evolution | Per-player progression loop — kill enemies to earn XP, level up triggers card pick, stage transforms appearance and unlocks ability | XP-01–09, EVOL-01–06 | yes |
 | 7 | CarHUD, Loop Timer & Difficulty Scaling | 3/3 | Complete    | 2026-06-19 |
-| 8 | Rooms 2 & 3, Boss | 2/3 | In Progress|  |
+| 8 | Rooms 2 & 3, Boss | 3/3 | Complete   | 2026-06-22 |
 
 ---
 
@@ -441,7 +441,7 @@ Wave 3 *(blocked on Waves 1 and 2 — wires the new scenes into the running game
 - Design pass required — boss phase thresholds, HP values per loop, mob wave counts and composition need a design document before planning this phase
 - ROOM-01 note — ERBA room geometry established in Phase 3; Phase 8 finalises density tuning and confirms it fits the full run flow
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 **Wave 1**
@@ -451,7 +451,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 08-03-PLAN.md — Game.gd integration: current_room tracking, _transition_to_room call_local RPC, auto room-clear, boss spawn, mob swarm + LIDAR, boss-death loop advance, Boss pre-registration
+- [x] 08-03-PLAN.md — Game.gd integration: current_room tracking, _transition_to_room call_local RPC, auto room-clear, boss spawn, mob swarm + LIDAR, boss-death loop advance, Boss pre-registration
 
 Wave 1 *(autonomous — parallel, no file overlap)*
 
