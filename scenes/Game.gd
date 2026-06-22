@@ -29,9 +29,16 @@ const INITIAL_ENEMY_COUNT: int = 8
 const INITIAL_ENEMY_COUNT_R2: int = 12
 ## Proximity range for revive validation on host
 const REVIVE_PROXIMITY: float = 80.0
+## Wave system: 3 waves per room before advancing (Room 3/boss excluded)
+const WAVES_PER_ROOM: int = 3
 
 ## Phase 8 Plan 03 (D-04): Active room tracker — 1=Room1, 2=Room2, 3=Room3 (boss arena)
 var current_room: int = 1
+
+## Wave tracker — host-authoritative. Reset to 1 on each room entry via _spawn_enemies().
+var _current_wave: int = 1
+## Display wave — synced to all peers via _announce_wave RPC.
+var _display_wave: int = 1
 
 ## Revive accumulator — keyed by target player peer_id → seconds accumulated
 var _revive_progress: Dictionary = {}
@@ -39,6 +46,7 @@ var _revive_progress: Dictionary = {}
 ## HUD labels for local player status (built programmatically in _ready)
 var _hud_hp_label: Label = null
 var _hud_ability_label: Label = null
+var _hud_wave_label: Label = null
 # WR-05: _hud_event_label removed — CarHUD (Phase 7) is now the sole HUD-event consumer.
 
 ## Phase 5 Plan 03 (D-13, ROLE-07): Engineer passive heal accumulator (host-only)
@@ -78,6 +86,14 @@ func _ready() -> void:
 	# Phase 7 Plan 03 (D-13): Initialize elite spawn interval; host timer uses randf_range(45, 90)
 	_elite_spawn_interval = randf_range(45.0, 90.0)
 
+	# OSM room generator — runs on all peers; injects real building footprints from Overpass API.
+	# Falls back silently when offline. Pre-fetches Room 1 immediately.
+	var _osm: Node = load("res://scenes/OSMRoomGenerator.gd").new()
+	_osm.name = "OSMRoomGenerator"
+	add_child(_osm)
+	_osm.room_osm_ready.connect(_on_osm_room_ready)
+	_osm.fetch_for_room.call_deferred(current_room)
+
 	# Phase 8: Disable StaticBody2D collision on hidden rooms at startup.
 	# Room2 and Room3 start visible=false but Godot does NOT disable collision with visibility.
 	# Without this, players immediately collide with invisible walls/blocks from all 3 rooms.
@@ -112,6 +128,8 @@ func _bake_navigation() -> void:
 @rpc("authority", "call_local", "reliable")
 func _transition_to_room(next_room: int) -> void:
 	# --- All peers: hide old room, show new room, teleport players ---
+	# Reset wave display on all peers when entering a new room
+	_display_wave = 1
 	var old_room_id: int = current_room
 	var old_room := get_node_or_null("Room%d" % old_room_id)
 	if old_room:
@@ -137,6 +155,11 @@ func _transition_to_room(next_room: int) -> void:
 			players[idx].global_position = spawn_pts[idx].global_position
 		else:
 			players[idx].global_position = arena_center
+
+	# Trigger OSM building fetch for the new room on all peers (fires async, safe to call_deferred)
+	var _osm_gen := get_node_or_null("OSMRoomGenerator")
+	if _osm_gen:
+		_osm_gen.fetch_for_room.call_deferred(next_room)
 
 	# --- Host-only block: purge, bake, spawn ---
 	if not multiplayer.is_server():
@@ -179,12 +202,18 @@ func _check_room_clear() -> void:
 	for e in get_tree().get_nodes_in_group("enemies"):
 		if not is_instance_valid(e) or e.is_queued_for_deletion():
 			continue
-		# Treat missing room_id as belonging to current_room for safety (RESEARCH option A)
 		var e_room: int = e.get_meta("room_id", current_room) if e.has_meta("room_id") else current_room
 		if e_room == current_room:
 			alive_count += 1
-	if alive_count == 0:
-		# All enemies in this room dead — transition all clients to next room simultaneously
+	if alive_count > 0:
+		return
+	# Wave system: advance wave or transition when all waves complete
+	if _current_wave < WAVES_PER_ROOM:
+		_current_wave += 1
+		_announce_wave.rpc(_current_wave)
+		_spawn_wave.call_deferred()
+	else:
+		_current_wave = 1
 		_transition_to_room.rpc(current_room + 1)
 
 # ==============================================================================
@@ -283,6 +312,9 @@ func _setup_player_hud() -> void:
 	vbox.add_child(_hud_hp_label)
 	_hud_ability_label = Label.new()
 	vbox.add_child(_hud_ability_label)
+	_hud_wave_label = Label.new()
+	_hud_wave_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.25))
+	vbox.add_child(_hud_wave_label)
 	# Phase 7 Plan 03 (HUD-10, RESEARCH "Deprecated"): _hud_event_label removed — CarHUD
 	# is now the sole HUD-event consumer. The old hud_event signal connection to _on_hud_event
 	# has been removed; CarHUD.gd connects directly in its own _ready().
@@ -310,6 +342,12 @@ func _update_player_hud() -> void:
 	else:
 		_hud_ability_label.text = "[SPACE]  CD: %.1fs" % cd
 		_hud_ability_label.add_theme_color_override("font_color", Color(0.9, 0.7, 0.2))
+	if _hud_wave_label != null:
+		if current_room < 3:
+			_hud_wave_label.text = "Welle  %d / %d" % [_display_wave, WAVES_PER_ROOM]
+			_hud_wave_label.visible = true
+		else:
+			_hud_wave_label.visible = false
 
 # ==============================================================================
 # PLAYER SPAWNING (existing — unchanged)
@@ -345,21 +383,78 @@ func _do_spawn(data: Dictionary) -> Node:
 # ENEMY SPAWNING (CMBT-03, D-15, D-19)
 # ==============================================================================
 
-## Phase 8 Plan 03 (D-07): Generalized — reads active room's EnemySpawnPoints.
-## Room 2 uses INITIAL_ENEMY_COUNT_R2 as base (D-07: 1.5× Room 1 baseline).
-## Room 3 skips normal wave entirely (boss-only, D-09) — caller must not invoke for Room 3.
+## Resets wave counter to 1, announces it to all peers, then spawns Wave 1.
+## Called on game start (Room 1) and on each room entry that needs a normal wave.
+## Room 3 skips wave entirely (boss-only, D-09) — caller must not invoke for Room 3.
 func _spawn_enemies() -> void:
-	# D-04: Generalized — reads from current room's EnemySpawnPoints
-	var points := get_node("Room%d/EnemySpawnPoints" % current_room).get_children()
-	# D-07: Room 2 uses higher base count; Room 1 uses original baseline
+	_current_wave = 1
+	_announce_wave.rpc(1)
+	_spawn_wave()
+
+## Spawns a wave of enemies scaled by the current wave number.
+## Wave 1 = 50% of base, Wave 2 = 100%, Wave 3 = 150% + 1 elite (harder finish).
+## Spawn points are shuffled each wave so enemies come from different directions.
+func _spawn_wave() -> void:
+	if not multiplayer.is_server():
+		return
+	if current_room == 3:
+		return
+	var pts: Array = Array(get_node("Room%d/EnemySpawnPoints" % current_room).get_children())
+	if pts.is_empty():
+		return
 	var base_count: int = INITIAL_ENEMY_COUNT_R2 if current_room == 2 else INITIAL_ENEMY_COUNT
-	# Phase 7 Plan 03 (LOOP-04, D-19): Scale initial spawn count by loop_number.
-	# Formula: base × 1.5^(loop_number-1), rounded, capped by spawn point count.
-	# Loop 1=8/12 (unchanged), Loop 2≈12/18, Loop 3≈18/27 (capped by available spawn points).
-	var spawn_count: int = roundi(base_count * pow(1.5, GameState.loop_number - 1))
-	for i in range(min(spawn_count, points.size())):
-		# Phase 8 Plan 03: tag each spawned enemy with current_room for room-clear filtering
-		$EnemySpawner.spawn({"pos": points[i].global_position, "room_id": current_room})
+	var scaled_base: int = roundi(base_count * pow(1.5, GameState.loop_number - 1))
+	# Wave 1=50%, Wave 2=100%, Wave 3=150% — linear ramp across three waves
+	var wave_mult: float = 0.5 + (_current_wave - 1) * 0.5
+	var spawn_count: int = maxi(2, roundi(scaled_base * wave_mult))
+	pts.shuffle()
+	for i in range(mini(spawn_count, pts.size())):
+		$EnemySpawner.spawn({"pos": pts[i].global_position, "room_id": current_room})
+	# Wave 3 always adds one elite to signal the final push
+	if _current_wave == WAVES_PER_ROOM:
+		var ep: Vector2 = pts[randi() % pts.size()].global_position
+		$EnemySpawner.spawn({"type": "elite", "pos": ep, "room_id": current_room})
+		GameEvents.emit_hud.rpc("lidar")
+
+## Syncs the wave display counter to all peers and shows a brief centre banner.
+@rpc("authority", "call_local", "reliable")
+func _announce_wave(wave: int) -> void:
+	_display_wave = wave
+	_show_wave_banner(wave)
+
+## Spawns a centred, auto-fading wave banner on the local peer's HUD.
+func _show_wave_banner(wave: int) -> void:
+	var hud := get_node_or_null("HUD")
+	if hud == null:
+		return
+	# Remove any previous banner still fading
+	var old := hud.get_node_or_null("WaveBanner")
+	if old:
+		old.queue_free()
+	var lbl := Label.new()
+	lbl.name = "WaveBanner"
+	if wave == WAVES_PER_ROOM:
+		lbl.text = "LETZTE WELLE!"
+		lbl.add_theme_color_override("font_color", Color(1.0, 0.35, 0.2))
+	else:
+		lbl.text = "Welle  %d / %d" % [wave, WAVES_PER_ROOM]
+		lbl.add_theme_color_override("font_color", Color(0.9, 0.85, 0.2))
+	lbl.add_theme_font_size_override("font_size", 32)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.anchor_left   = 0.0;  lbl.anchor_right  = 1.0
+	lbl.anchor_top    = 0.42; lbl.anchor_bottom = 0.58
+	lbl.offset_left   = 0;    lbl.offset_right  = 0
+	lbl.offset_top    = 0;    lbl.offset_bottom = 0
+	hud.add_child(lbl)
+	var tw := lbl.create_tween()
+	tw.tween_interval(1.6)
+	tw.tween_property(lbl, "modulate:a", 0.0, 0.6)
+	tw.tween_callback(lbl.queue_free)
+
+## Called when OSMRoomGenerator finishes injecting buildings (all peers).
+## Nothing to do here — buildings auto-appear in the room node; navmesh was rebaked inside generator.
+func _on_osm_room_ready(_room_id: int) -> void:
+	pass
 
 func _do_spawn_enemy(data: Dictionary) -> Node:
 	# Phase 7 Plan 03 (D-19, D-20): dispatch on type; elite uses ELITE_ENEMY_SCENE
