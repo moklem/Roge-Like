@@ -406,14 +406,7 @@ func _on_enemy_died(pos: Vector2) -> void:
 	if randf() < 0.25:
 		var part_id: String = CAR_PART_IDS[randi() % CAR_PART_IDS.size()]
 		$PickupSpawner.spawn.call_deferred({"type": "car_part", "pos": pos + Vector2(10, 0), "weapon_id": part_id})
-	# D-03 (design): respawn one enemy immediately on death to keep pressure constant.
-	# Phase 8 Plan 03 (D-09): Room 3 is boss-only — no enemy respawn in boss arena.
-	# Phase 8 Plan 03 (D-04): Generalized — reads active room's EnemySpawnPoints.
-	if current_room != 3:
-		var points := get_node("Room%d/EnemySpawnPoints" % current_room).get_children()
-		if points.size() > 0:
-			var spawn_pos: Vector2 = points[randi() % points.size()].global_position
-			$EnemySpawner.spawn.call_deferred({"pos": spawn_pos, "room_id": current_room})
+	# Immediate respawn removed: conflicted with _check_room_clear (count never reached 0).
 	# Phase 8 Plan 03 (D-02): After each enemy death, check if the room is cleared.
 	# call_deferred so queue_free finishes before we count living enemies.
 	_check_room_clear.call_deferred()
