@@ -14,6 +14,7 @@ const BULLET_DAMAGE: int = 20
 ## Set by Game.gd _do_spawn_bullet(data) — all peers get these values via spawn_function
 @export var direction: Vector2 = Vector2.RIGHT
 @export var owner_peer_id: int = 0
+@export var damage_mult: float = 1.0
 ## D-17: Fire Burst projectiles bypass the 25% proc gate and always apply burn (ELEM-02).
 @export var force_burn: bool = false
 
@@ -52,7 +53,7 @@ func _on_area_entered(area: Node) -> void:
 		return
 	# CMBT-06: apply damage to enemy (host-authoritative — take_damage guards itself too)
 	if enemy.has_method("take_damage"):
-		enemy.take_damage(BULLET_DAMAGE)
+		enemy.take_damage(int(float(BULLET_DAMAGE) * damage_mult))
 	# Phase 5 ELEM-01/03/07: Element proc — must stay inside the authority guard above (Pitfall 5).
 	# force_burn=true bypasses 25% gate (D-17: Fire Burst projectiles always burn — ELEM-02).
 	if force_burn:

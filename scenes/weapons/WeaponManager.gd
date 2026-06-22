@@ -6,7 +6,7 @@ extends Node
 ## D-15: Max 6 weapons; add_weapon returns false if full (silent cap, no UI in Phase 4).
 ## D-16: reset() called from game-over path; clears all weapons and airbag charge.
 
-const MAX_WEAPONS: int = 3
+const MAX_WEAPONS: int = 6
 const WEAPON_IDS: Array[String] = [
 	"screws_and_bolts", "exhaust_flames", "spinning_tires",
 	"antenna_beam", "horn_shockwave", "airbag_shield"
@@ -67,7 +67,8 @@ func _fire_screws() -> void:
 				game.get_node("BulletSpawner").spawn({
 					"pos": player.global_position,
 					"dir": d,
-					"owner_id": player.peer_id
+					"owner_id": player.peer_id,
+					"damage_mult": player.stage3_damage_mult
 				})
 		else:
 			if game.has_method("request_fire"):

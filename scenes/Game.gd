@@ -78,6 +78,15 @@ func _ready() -> void:
 	# Phase 7 Plan 03 (D-13): Initialize elite spawn interval; host timer uses randf_range(45, 90)
 	_elite_spawn_interval = randf_range(45.0, 90.0)
 
+	# Phase 8: Disable StaticBody2D collision on hidden rooms at startup.
+	# Room2 and Room3 start visible=false but Godot does NOT disable collision with visibility.
+	# Without this, players immediately collide with invisible walls/blocks from all 3 rooms.
+	for _rid in [2, 3]:
+		var _hidden_room := get_node_or_null("Room%d" % _rid)
+		if _hidden_room:
+			for _body in _hidden_room.find_children("*", "StaticBody2D", true, false):
+				_body.set_collision_layer_value(1, false)
+
 	# Bake navigation polygon at runtime so new obstacles are properly carved out
 	call_deferred("_bake_navigation")
 	_setup_player_hud()
@@ -356,7 +365,7 @@ func _do_spawn_enemy(data: Dictionary) -> Node:
 	# Phase 7 Plan 03 (D-19, D-20): dispatch on type; elite uses ELITE_ENEMY_SCENE
 	# Phase 8 Plan 03: boss type uses BOSS_SCENE (D-09, P7)
 	var enemy_type: String = data.get("type", "")
-	var scene
+	var scene: PackedScene
 	match enemy_type:
 		"elite": scene = ELITE_ENEMY_SCENE
 		"boss":  scene = BOSS_SCENE
@@ -452,7 +461,8 @@ func request_fire(_client_pos: Vector2, dir: Vector2, requester_peer_id: int, fo
 		"pos": player_node.global_position,
 		"dir": dir.normalized(),
 		"owner_id": requester_peer_id,
-		"fire_burst": force_burn
+		"fire_burst": force_burn,
+		"damage_mult": player_node.stage3_damage_mult
 	})
 
 func _do_spawn_bullet(data: Dictionary) -> Node:
@@ -464,6 +474,7 @@ func _do_spawn_bullet(data: Dictionary) -> Node:
 	# Phase 5 Plan 05 (D-17, ELEM-07, T-05-19): Wire force_burn for Fire Burst projectiles.
 	# force_burn=true bypasses the 25% proc gate in Bullet.gd (100% guaranteed burn).
 	# T-05-19: force_burn defaults false; only Fire Burst spawn path sets fire_burst=true.
+	b.damage_mult = data.get("damage_mult", 1.0)
 	b.force_burn = data.get("fire_burst", false)
 	if b.force_burn:
 		b.modulate = Color(1.0, 0.5, 0.0)  # orange modulate (D-17, D-ELEM-07 visual)
