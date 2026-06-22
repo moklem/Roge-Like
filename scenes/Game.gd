@@ -179,6 +179,68 @@ func _check_room_clear() -> void:
 		_transition_to_room.rpc(current_room + 1)
 
 # ==============================================================================
+# BOSS SPAWN / MOB SWARM / LOOP ADVANCE (D-09, D-14–D-17, ROOM-05, ROOM-06, LOOP-03)
+# Phase 8 Plan 03
+# ==============================================================================
+
+## D-09: Spawn the boss at Room 3 arena center. Host-only.
+## Boss.tscn is pre-registered in EnemySpawner._ready (P7).
+## Boss's died signal is connected to _on_boss_died in _do_spawn_enemy (Pitfall 5).
+## T-08-02: host-only guard — clients cannot trigger boss spawns.
+func _spawn_boss() -> void:
+	if not multiplayer.is_server():
+		return
+	# Room 3 arena center — derived from the Burg Altenburg floor polygon centroid (~400,300)
+	# Keep obstacle is at (400,220); spawn boss below it in the open courtyard area
+	var boss_center := Vector2(400, 380)
+	$EnemySpawner.spawn({"type": "boss", "pos": boss_center, "room_id": 3})
+
+## D-14, D-15, D-16, ROOM-05, ROOM-06: Spawn a mob swarm at a boss phase transition.
+## Called from Boss._enter_phase via call_deferred (physics-safe per RESEARCH pattern).
+## Normal count: 5 + (loop_number × 3); elites: 1 normally, 2 in Phase 3 (D-15).
+## Each elite spawn fires GameEvents.emit_hud.rpc("lidar") (ROOM-06).
+## T-08-02: host-only guard — only host spawns enemies.
+func _spawn_mob_swarm(boss_phase: int) -> void:
+	if not multiplayer.is_server():
+		return
+	var swarm_points_node := get_node_or_null("Room3/EnemySpawnPoints")
+	if swarm_points_node == null:
+		return
+	var swarm_pts: Array = swarm_points_node.get_children()
+	if swarm_pts.is_empty():
+		return
+	# D-16: normal count scales with loop_number
+	var normal_count: int = 5 + (GameState.loop_number * 3)
+	# D-15: 1 elite normally; 2 elites in Phase 3 swarm
+	var elite_count: int = 2 if boss_phase == 3 else 1
+	# Spawn normal enemies at random swarm points
+	for _i in range(normal_count):
+		var pt: Vector2 = swarm_pts[randi() % swarm_pts.size()].global_position
+		$EnemySpawner.spawn.call_deferred({"pos": pt, "room_id": 3})
+	# Spawn elites — each fires LIDAR (D-15, ROOM-06)
+	for _j in range(elite_count):
+		var pt: Vector2 = swarm_pts[randi() % swarm_pts.size()].global_position
+		$EnemySpawner.spawn.call_deferred({"type": "elite", "pos": pt, "room_id": 3})
+		# D-15, ROOM-06: one LIDAR indicator per elite spawned (mirrors _spawn_elite_enemy at line ~593)
+		GameEvents.emit_hud.rpc("lidar")
+
+## D-17, LOOP-03: Boss defeated — advance the loop and return all clients to Room 1.
+## Called from _do_spawn_enemy's boss died signal connection (Pitfall 5 compliance).
+## Host-only — boss is host-authoritative and emits died only on host.
+func _on_boss_died(_pos: Vector2) -> void:
+	if not multiplayer.is_server():
+		return
+	# D-17: increment loop_number, reset revives_used (GameState.start_next_loop handles both)
+	GameState.start_next_loop()
+	# Transition all clients back to Room 1 for the new harder loop
+	# _transition_to_room's Room-1 branch has no auto-spawn (only Room 2 and Room 3 do)
+	# so we explicitly spawn Room 1 enemies for the new loop after transition
+	_transition_to_room.rpc(1)
+	# Spawn Room 1 enemies for the new loop (current_room will be 1 after the RPC)
+	# call_deferred ensures the transition RPC (which runs call_local) sets current_room first
+	_spawn_enemies.call_deferred()
+
+# ==============================================================================
 # PLAYER HUD (top-right: HP + Ability status for local peer)
 # ==============================================================================
 
