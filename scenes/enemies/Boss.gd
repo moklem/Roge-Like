@@ -147,7 +147,7 @@ func _physics_process(delta: float) -> void:
 	_tick_status_effects(delta)
 
 ## Chase logic extracted to a helper (reuses Enemy.gd NavigationAgent2D pattern).
-func _chase_player(delta: float) -> void:
+func _chase_player(_delta: float) -> void:
 	var base_speed := PHASE3_SPEED if phase == 3 else (PHASE2_SPEED if phase == 2 else PHASE1_SPEED)
 	var target := _find_nearest_player()
 	if target == null or global_position.distance_to(target.global_position) > DETECT_RADIUS:

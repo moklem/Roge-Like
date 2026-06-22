@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://carhud_phase7"]
 
-[ext_resource type="Script" uid="uid://carhud_gd_phase7" path="res://scenes/ui/CarHUD.gd" id="1_carhud"]
+[ext_resource type="Script" uid="uid://c322t7y5c3w5r" path="res://scenes/ui/CarHUD.gd" id="1_carhud"]
 
 [node name="CarHUD" type="CanvasLayer"]
 layer = 3

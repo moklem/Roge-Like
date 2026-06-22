@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://eliteenemy_phase7"]
 
-[ext_resource type="Script" uid="uid://eliteenemy_gd_phase7" path="res://scenes/enemies/EliteEnemy.gd" id="1_elite"]
+[ext_resource type="Script" uid="uid://n7yjfrfx7ja4" path="res://scenes/enemies/EliteEnemy.gd" id="1_elite"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_elite"]
 radius = 18.0
