@@ -18,13 +18,20 @@ const ICE_TRAIL_SCENE := preload("res://scenes/elements/IceTrailZone.tscn")
 const ELITE_ENEMY_SCENE := preload("res://scenes/enemies/EliteEnemy.tscn")
 ## Phase 7 Plan 03 (D-01, HUD-01): CarHUD global dashboard scene
 const CAR_HUD_SCENE := preload("res://scenes/ui/CarHUD.tscn")
+## Phase 8 Plan 03 (P7, D-09): Boss scene pre-registered in EnemySpawner before boss fight
+const BOSS_SCENE := preload("res://scenes/enemies/Boss.tscn")
 
 ## D-13: Revive duration 3-4 seconds (mirrors Player.REVIVE_DURATION)
 const REVIVE_DURATION: float = 3.5
-## D-19: Max enemies to spawn at game start
+## D-19: Max enemies to spawn at game start (Room 1 baseline)
 const INITIAL_ENEMY_COUNT: int = 8
+## Phase 8 Plan 03 (D-07): Room 2 baseline enemy count — 1.5× Room 1 baseline (8 × 1.5 = 12)
+const INITIAL_ENEMY_COUNT_R2: int = 12
 ## Proximity range for revive validation on host
 const REVIVE_PROXIMITY: float = 80.0
+
+## Phase 8 Plan 03 (D-04): Active room tracker — 1=Room1, 2=Room2, 3=Room3 (boss arena)
+var current_room: int = 1
 
 ## Revive accumulator — keyed by target player peer_id → seconds accumulated
 var _revive_progress: Dictionary = {}
@@ -62,6 +69,8 @@ func _ready() -> void:
 	$IceTrailSpawner.add_spawnable_scene("res://scenes/elements/IceTrailZone.tscn")
 	# Phase 7 Plan 03 (Pitfall 5, D-13): Pre-register EliteEnemy BEFORE any elite spawns occur
 	$EnemySpawner.add_spawnable_scene("res://scenes/enemies/EliteEnemy.tscn")
+	# Phase 8 Plan 03 (P7): Pre-register Boss BEFORE any boss fight (must precede boss spawn)
+	$EnemySpawner.add_spawnable_scene("res://scenes/enemies/Boss.tscn")
 	# Phase 7 Plan 03 (D-01, HUD-01, Pitfall 3): CarHUD as separate CanvasLayer on Game root
 	# NOT inside $HUD — CarHUD is layer=3, must not conflict with existing HUD CanvasLayer
 	var _car_hud := CAR_HUD_SCENE.instantiate()
@@ -76,8 +85,10 @@ func _ready() -> void:
 		_spawn_all_players()   # existing
 		_spawn_enemies()       # CMBT-03: D-19 fixed spawn points, 3-5 enemies
 
+## Phase 8 Plan 03 (D-04): Generalized — bakes the active room's NavigationRegion2D.
+## At loop start current_room == 1 so this resolves to Room1/NavigationRegion2D as before.
 func _bake_navigation() -> void:
-	var nav := get_node_or_null("Room1/NavigationRegion2D")
+	var nav := get_node_or_null("Room%d/NavigationRegion2D" % current_room)
 	if nav:
 		nav.bake_navigation_polygon(false)
 
@@ -147,8 +158,10 @@ func _update_player_hud() -> void:
 # PLAYER SPAWNING (existing — unchanged)
 # ==============================================================================
 
+## Phase 8 Plan 03 (D-04): Generalized — reads active room's SpawnPoints.
+## At loop start current_room == 1; after transition current_room is updated before this runs.
 func _spawn_all_players() -> void:
-	var spawn_points := $Room1/SpawnPoints.get_children()
+	var spawn_points := get_node("Room%d/SpawnPoints" % current_room).get_children()
 	var idx := 0
 	for id in Lobby.players:
 		var spawn_pos := Vector2(400, 300)
@@ -175,35 +188,55 @@ func _do_spawn(data: Dictionary) -> Node:
 # ENEMY SPAWNING (CMBT-03, D-15, D-19)
 # ==============================================================================
 
+## Phase 8 Plan 03 (D-07): Generalized — reads active room's EnemySpawnPoints.
+## Room 2 uses INITIAL_ENEMY_COUNT_R2 as base (D-07: 1.5× Room 1 baseline).
+## Room 3 skips normal wave entirely (boss-only, D-09) — caller must not invoke for Room 3.
 func _spawn_enemies() -> void:
-	# D-19: Fixed spawn points at room edges (added in Plan 01)
-	var points := $Room1/EnemySpawnPoints.get_children()
+	# D-04: Generalized — reads from current room's EnemySpawnPoints
+	var points := get_node("Room%d/EnemySpawnPoints" % current_room).get_children()
+	# D-07: Room 2 uses higher base count; Room 1 uses original baseline
+	var base_count: int = INITIAL_ENEMY_COUNT_R2 if current_room == 2 else INITIAL_ENEMY_COUNT
 	# Phase 7 Plan 03 (LOOP-04, D-19): Scale initial spawn count by loop_number.
-	# Formula: INITIAL_ENEMY_COUNT × 1.5^(loop_number-1), rounded, capped by spawn point count.
-	# Loop 1=8 (unchanged), Loop 2≈12, Loop 3≈18 (capped by available spawn points).
-	var spawn_count: int = roundi(INITIAL_ENEMY_COUNT * pow(1.5, GameState.loop_number - 1))
+	# Formula: base × 1.5^(loop_number-1), rounded, capped by spawn point count.
+	# Loop 1=8/12 (unchanged), Loop 2≈12/18, Loop 3≈18/27 (capped by available spawn points).
+	var spawn_count: int = roundi(base_count * pow(1.5, GameState.loop_number - 1))
 	for i in range(min(spawn_count, points.size())):
-		$EnemySpawner.spawn({"pos": points[i].global_position})
+		# Phase 8 Plan 03: tag each spawned enemy with current_room for room-clear filtering
+		$EnemySpawner.spawn({"pos": points[i].global_position, "room_id": current_room})
 
 func _do_spawn_enemy(data: Dictionary) -> Node:
 	# Phase 7 Plan 03 (D-19, D-20): dispatch on type; elite uses ELITE_ENEMY_SCENE
-	var scene = ELITE_ENEMY_SCENE if data.get("type", "") == "elite" else ENEMY_SCENE
+	# Phase 8 Plan 03: boss type uses BOSS_SCENE (D-09, P7)
+	var enemy_type: String = data.get("type", "")
+	var scene
+	match enemy_type:
+		"elite": scene = ELITE_ENEMY_SCENE
+		"boss":  scene = BOSS_SCENE
+		_:       scene = ENEMY_SCENE
 	var e := scene.instantiate()
 	e.position = data["pos"]
 	e.name = "Enemy_%d" % (randi() % 9999)
+	# Phase 8 Plan 03 (D-04): Tag with room_id for room-clear filtering in _check_room_clear.
+	# room_id passed in data dict; defaults to current_room if not specified.
+	e.set_meta("room_id", data.get("room_id", current_room))
 	# Phase 7 Plan 03 (D-19, D-20, D-21): Apply difficulty scaling at spawn time.
 	# For normal enemies: scaling applied here before add_to_tree (Enemy._ready() does not reset stats).
 	# For elite enemies: EliteEnemy._ready() applies its own scaling after calling super._ready()
 	#   (see EliteEnemy.gd _ready). Setting mult here would be overwritten by EliteEnemy._ready()
 	#   so only normal enemies receive the scaling multiplication in this function.
+	# Phase 8 Plan 03 (D-11): Boss applies its own loop scaling in _ready() — exclude boss too.
 	# At loop_number=1: mult=1.0 → no change (baseline preserved, Pitfall 6).
-	if data.get("type", "") != "elite":
+	if enemy_type != "elite" and enemy_type != "boss":
 		var mult: float = 1.0 + (GameState.loop_number - 1) * 0.25
 		e.MAX_HP = int(e.MAX_HP * mult)
 		e.CONTACT_DAMAGE = int(e.CONTACT_DAMAGE * mult)
 		e.current_hp = e.MAX_HP
-	# CMBT-08: Connect died signal to spawn XP orb at death position
-	e.died.connect(_on_enemy_died)
+	# CMBT-08: Connect died signal appropriately
+	# Phase 8 Plan 03 (Pitfall 5): boss death takes boss-specific path, NOT generic respawn path
+	if enemy_type == "boss":
+		e.died.connect(_on_boss_died)
+	else:
+		e.died.connect(_on_enemy_died)
 	return e
 
 ## CMBT-08 / WEAP-01: XP orb always drops; 25% chance to also drop a car-part pickup.
@@ -217,10 +250,16 @@ func _on_enemy_died(pos: Vector2) -> void:
 		var part_id: String = CAR_PART_IDS[randi() % CAR_PART_IDS.size()]
 		$PickupSpawner.spawn.call_deferred({"type": "car_part", "pos": pos + Vector2(10, 0), "weapon_id": part_id})
 	# D-03 (design): respawn one enemy immediately on death to keep pressure constant.
-	var points := $Room1/EnemySpawnPoints.get_children()
-	if points.size() > 0:
-		var spawn_pos: Vector2 = points[randi() % points.size()].global_position
-		$EnemySpawner.spawn.call_deferred({"pos": spawn_pos})
+	# Phase 8 Plan 03 (D-09): Room 3 is boss-only — no enemy respawn in boss arena.
+	# Phase 8 Plan 03 (D-04): Generalized — reads active room's EnemySpawnPoints.
+	if current_room != 3:
+		var points := get_node("Room%d/EnemySpawnPoints" % current_room).get_children()
+		if points.size() > 0:
+			var spawn_pos: Vector2 = points[randi() % points.size()].global_position
+			$EnemySpawner.spawn.call_deferred({"pos": spawn_pos, "room_id": current_room})
+	# Phase 8 Plan 03 (D-02): After each enemy death, check if the room is cleared.
+	# call_deferred so queue_free finishes before we count living enemies.
+	_check_room_clear.call_deferred()
 
 func _do_spawn_pickup(data: Dictionary) -> Node:
 	match data.get("type", "xp_orb"):
@@ -544,12 +583,15 @@ func _tick_elite_spawn(delta: float) -> void:
 ## Uses call_deferred to avoid "Can't change state while flushing queries" (Pitfall, Game.gd lines 196-205).
 ## Fires LIDAR on all peers via emit_hud.rpc (D-10, HUD-07; host is authority so RPC is valid).
 func _spawn_elite_enemy() -> void:
-	var points := $Room1/EnemySpawnPoints.get_children()
+	# Phase 8 Plan 03 (D-04): Use current room's EnemySpawnPoints; skip in Room 3 (boss-only, D-09)
+	if current_room == 3:
+		return
+	var points := get_node("Room%d/EnemySpawnPoints" % current_room).get_children()
 	if points.is_empty():
 		return
 	var pos: Vector2 = points[randi() % points.size()].global_position
 	# call_deferred — physics-safe spawn (mirrors _on_enemy_died call_deferred pattern)
-	$EnemySpawner.spawn.call_deferred({"type": "elite", "pos": pos})
+	$EnemySpawner.spawn.call_deferred({"type": "elite", "pos": pos, "room_id": current_room})
 	# LIDAR fires only on elite spawn (D-10, D-13) — host-only emit, valid as authority RPC
 	GameEvents.emit_hud.rpc("lidar")
 
@@ -560,7 +602,8 @@ func request_deploy_drone(requester_peer_id: int) -> void:
 	if not multiplayer.is_server():
 		return
 	# Count drones currently owned by this engineer
-	var entities := get_node_or_null("Room1/Entities")
+	# Phase 8 Plan 01: DroneSpawner spawn_path now points to shared Game-root Entities node
+	var entities := get_node_or_null("Entities")
 	var active_count := 0
 	if entities:
 		for child in entities.get_children():
