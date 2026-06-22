@@ -441,6 +441,23 @@ Wave 3 *(blocked on Waves 1 and 2 — wires the new scenes into the running game
 - Design pass required — boss phase thresholds, HP values per loop, mob wave counts and composition need a design document before planning this phase
 - ROOM-01 note — ERBA room geometry established in Phase 3; Phase 8 finalises density tuning and confirms it fits the full run flow
 
+**Plans:** 3 plans
+
+Plans:
+
+- [ ] 08-01-PLAN.md — Room 2 (Bamberg Altstadt corridors) + Room 3 (Burg Altenburg arena) geometry in Game.tscn + shared Entities node refactor (spawners repointed off Room1)
+- [ ] 08-02-PLAN.md — Boss.tscn + Boss.gd 3-phase HP-threshold state machine (melee → +ranged volley → enrage), phase color RPC, mob-swarm trigger
+- [ ] 08-03-PLAN.md — Game.gd integration: current_room tracking, _transition_to_room call_local RPC, auto room-clear, boss spawn, mob swarm + LIDAR, boss-death loop advance, Boss pre-registration
+
+Wave 1 *(autonomous — parallel, no file overlap)*
+
+- 08-01: scenes/Game.tscn (Room2 + Room3 geometry, shared Entities, spawner spawn_path)
+- 08-02: scenes/enemies/Boss.{tscn,gd} (self-contained boss state machine)
+
+Wave 2 *(blocked on Waves 1 — needs Room2/Room3 + shared Entities + Boss.tscn to exist)*
+
+- 08-03: scenes/Game.gd (transition RPC, room-clear, boss/mob spawn, loop advance, pre-registration)
+
 ---
 
 ## Progress
@@ -454,4 +471,4 @@ Wave 3 *(blocked on Waves 1 and 2 — wires the new scenes into the running game
 | 5. Roles & Elements | 5/5 | Complete | 2026-06-15 |
 | 6. XP, Level-Up Cards & Evolution | 0/4 | Not started | — |
 | 7. CarHUD, Loop Timer & Difficulty Scaling | 0/3 | Not started | — |
-| 8. Rooms 2 & 3, Boss | 0/? | Not started | — |
+| 8. Rooms 2 & 3, Boss | 0/3 | Not started | — |
