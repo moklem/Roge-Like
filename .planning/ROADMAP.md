@@ -444,9 +444,13 @@ Wave 3 *(blocked on Waves 1 and 2 — wires the new scenes into the running game
 **Plans:** 3 plans
 
 Plans:
+**Wave 1**
 
 - [ ] 08-01-PLAN.md — Room 2 (Bamberg Altstadt corridors) + Room 3 (Burg Altenburg arena) geometry in Game.tscn + shared Entities node refactor (spawners repointed off Room1)
 - [ ] 08-02-PLAN.md — Boss.tscn + Boss.gd 3-phase HP-threshold state machine (melee → +ranged volley → enrage), phase color RPC, mob-swarm trigger
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 08-03-PLAN.md — Game.gd integration: current_room tracking, _transition_to_room call_local RPC, auto room-clear, boss spawn, mob swarm + LIDAR, boss-death loop advance, Boss pre-registration
 
 Wave 1 *(autonomous — parallel, no file overlap)*
