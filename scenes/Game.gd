@@ -93,6 +93,92 @@ func _bake_navigation() -> void:
 		nav.bake_navigation_polygon(false)
 
 # ==============================================================================
+# ROOM TRANSITION (D-02, D-03, ROOM-07, P10 — Phase 8 Plan 03)
+# ==============================================================================
+
+## D-03, ROOM-07, P10: Simultaneous room transition on ALL peers (call_local reliable).
+## Hides old room + disables collision; shows new room + enables collision; teleports players.
+## Host-only block: purges leftover pickups/orbs, bakes new navmesh, triggers room-specific spawns.
+## T-08-01: @rpc("authority") so only host can invoke this on peers — clients cannot trigger transitions.
+@rpc("authority", "call_local", "reliable")
+func _transition_to_room(next_room: int) -> void:
+	# --- All peers: hide old room, show new room, teleport players ---
+	var old_room_id: int = current_room
+	var old_room := get_node_or_null("Room%d" % old_room_id)
+	if old_room:
+		old_room.visible = false
+		for body in old_room.find_children("*", "StaticBody2D", true, false):
+			body.set_collision_layer_value(1, false)
+
+	var new_room := get_node_or_null("Room%d" % next_room)
+	if new_room:
+		new_room.visible = true
+		for body in new_room.find_children("*", "StaticBody2D", true, false):
+			body.set_collision_layer_value(1, true)
+
+	current_room = next_room
+
+	# Teleport players to the new room's SpawnPoints
+	var sp_node := new_room.get_node_or_null("SpawnPoints") if new_room else null
+	var spawn_pts: Array = sp_node.get_children() if sp_node else []
+	var arena_center := Vector2(400, 300)  # fallback when fewer points than players
+	var players := get_tree().get_nodes_in_group("players")
+	for idx in range(players.size()):
+		if idx < spawn_pts.size():
+			players[idx].global_position = spawn_pts[idx].global_position
+		else:
+			players[idx].global_position = arena_center
+
+	# --- Host-only block: purge, bake, spawn ---
+	if not multiplayer.is_server():
+		return
+
+	# Purge leftover XP orbs and car-part pickups from shared Entities node
+	var entities := get_node_or_null("Entities")
+	if entities:
+		for child in entities.get_children():
+			if child.is_in_group("xp_orbs") or child.is_in_group("car_parts"):
+				child.queue_free()
+		# Purge surviving enemies tagged to the room we just left
+		for child in entities.get_children():
+			if child.is_in_group("enemies"):
+				if child.get_meta("room_id", old_room_id) == old_room_id:
+					child.queue_free()
+
+	# Bake the new room's navmesh (current_room is now next_room)
+	_bake_navigation.call_deferred()
+
+	# Room-specific post-transition spawns (deferred to stay physics-safe)
+	if next_room == 3:
+		# D-09: Boss spawns on Room 3 entry; no normal enemy wave
+		_spawn_boss.call_deferred()
+	elif next_room == 2:
+		# D-07: Room 2 enemy wave using INITIAL_ENEMY_COUNT_R2 density
+		_spawn_enemies.call_deferred()
+
+## D-02, ROOM-07: Check if the active room's enemies are all dead; if so, fire transition.
+## Host-only. Skips Room 3 — that room clears on boss death, not enemy count (Pitfall 5).
+## Called deferred from _on_enemy_died so queue_free finishes before we count (RESEARCH P4).
+func _check_room_clear() -> void:
+	if not multiplayer.is_server():
+		return
+	# Room 3 clears when boss dies — boss death routes through _on_boss_died, not here
+	if current_room == 3:
+		return
+	# Count alive enemies tagged to the current room
+	var alive_count: int = 0
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if not is_instance_valid(e) or e.is_queued_for_deletion():
+			continue
+		# Treat missing room_id as belonging to current_room for safety (RESEARCH option A)
+		var e_room: int = e.get_meta("room_id", current_room) if e.has_meta("room_id") else current_room
+		if e_room == current_room:
+			alive_count += 1
+	if alive_count == 0:
+		# All enemies in this room dead — transition all clients to next room simultaneously
+		_transition_to_room.rpc(current_room + 1)
+
+# ==============================================================================
 # PLAYER HUD (top-right: HP + Ability status for local peer)
 # ==============================================================================
 
