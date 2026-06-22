@@ -9,9 +9,9 @@ signal room_osm_ready(room_id: int)
 
 ## Bounding boxes (south_lat, west_lon, north_lat, east_lon) — Bamberg, Germany.
 const BBOXES: Dictionary = {
-	1: [49.895, 10.893, 49.901, 10.905],  ## Bamberg Dom-Insel
-	2: [49.882, 10.872, 49.890, 10.888],  ## Bamberg Berggebiet
-	3: [49.877, 10.865, 49.884, 10.875],  ## Burg Altenburg
+	1: [49.9020, 10.8860, 49.9070, 10.9000],  ## ERBA (Erba-Insel, ehem. Baumwollspinnerei)
+	2: [49.8930, 10.8870, 49.9020, 10.9050],  ## Bamberg Altstadt (UNESCO-Kernzone)
+	3: [49.8760, 10.8590, 49.8820, 10.8690],  ## Burg Altenburg
 }
 
 ## Max named landmark buildings to place per room.
