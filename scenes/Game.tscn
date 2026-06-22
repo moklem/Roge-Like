@@ -46,26 +46,6 @@ outlines = Array[PackedVector2Array]([PackedVector2Array(120, 60, 680, 60, 750, 
 parsed_geometry_type = 1
 agent_radius = 12.0
 
-[sub_resource type="RectangleShape2D" id="RectShp_r2_tl"]
-size = Vector2(115, 200)
-
-[sub_resource type="RectangleShape2D" id="RectShp_r2_tc"]
-size = Vector2(130, 180)
-
-[sub_resource type="RectangleShape2D" id="RectShp_r2_tr"]
-size = Vector2(130, 200)
-
-[sub_resource type="RectangleShape2D" id="RectShp_r2_bl"]
-size = Vector2(115, 150)
-
-[sub_resource type="RectangleShape2D" id="RectShp_r2_bc"]
-size = Vector2(130, 180)
-
-[sub_resource type="RectangleShape2D" id="RectShp_r2_br"]
-size = Vector2(130, 150)
-
-[sub_resource type="RectangleShape2D" id="RectShp_r3_keep"]
-size = Vector2(80, 80)
 
 [node name="Game" type="Node2D" unique_id=1590491663]
 script = ExtResource("1_game")
@@ -385,71 +365,6 @@ shape = SubResource("RectangleShape2D_v")
 color = Color(0.3, 0.3, 0.3, 1)
 polygon = PackedVector2Array(-16, -300, 16, -300, 16, 300, -16, 300)
 
-[node name="BlockTL" type="StaticBody2D" parent="Room2"]
-position = Vector2(242, 200)
-collision_mask = 0
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Room2/BlockTL"]
-shape = SubResource("RectShp_r2_tl")
-
-[node name="Visual" type="Polygon2D" parent="Room2/BlockTL"]
-color = Color(0.28, 0.26, 0.30, 1)
-polygon = PackedVector2Array(-57, -100, 57, -100, 57, 100, -57, 100)
-
-[node name="BlockTC" type="StaticBody2D" parent="Room2"]
-position = Vector2(235, 140)
-collision_mask = 0
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Room2/BlockTC"]
-shape = SubResource("RectShp_r2_tc")
-
-[node name="Visual" type="Polygon2D" parent="Room2/BlockTC"]
-color = Color(0.28, 0.26, 0.30, 1)
-polygon = PackedVector2Array(-65, -90, 65, -90, 65, 90, -65, 90)
-
-[node name="BlockTR" type="StaticBody2D" parent="Room2"]
-position = Vector2(565, 200)
-collision_mask = 0
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Room2/BlockTR"]
-shape = SubResource("RectShp_r2_tr")
-
-[node name="Visual" type="Polygon2D" parent="Room2/BlockTR"]
-color = Color(0.28, 0.26, 0.30, 1)
-polygon = PackedVector2Array(-65, -100, 65, -100, 65, 100, -65, 100)
-
-[node name="BlockBL" type="StaticBody2D" parent="Room2"]
-position = Vector2(242, 475)
-collision_mask = 0
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Room2/BlockBL"]
-shape = SubResource("RectShp_r2_bl")
-
-[node name="Visual" type="Polygon2D" parent="Room2/BlockBL"]
-color = Color(0.28, 0.26, 0.30, 1)
-polygon = PackedVector2Array(-57, -75, 57, -75, 57, 75, -57, 75)
-
-[node name="BlockBC" type="StaticBody2D" parent="Room2"]
-position = Vector2(235, 460)
-collision_mask = 0
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Room2/BlockBC"]
-shape = SubResource("RectShp_r2_bc")
-
-[node name="Visual" type="Polygon2D" parent="Room2/BlockBC"]
-color = Color(0.28, 0.26, 0.30, 1)
-polygon = PackedVector2Array(-65, -90, 65, -90, 65, 90, -65, 90)
-
-[node name="BlockBR" type="StaticBody2D" parent="Room2"]
-position = Vector2(565, 475)
-collision_mask = 0
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Room2/BlockBR"]
-shape = SubResource("RectShp_r2_br")
-
-[node name="Visual" type="Polygon2D" parent="Room2/BlockBR"]
-color = Color(0.28, 0.26, 0.30, 1)
-polygon = PackedVector2Array(-65, -75, 65, -75, 65, 75, -65, 75)
 
 [node name="EnemySpawnPoints" type="Node2D" parent="Room2"]
 
@@ -536,38 +451,6 @@ shape = SubResource("RectangleShape2D_v")
 color = Color(0.3, 0.3, 0.3, 1)
 polygon = PackedVector2Array(-16, -300, 16, -300, 16, 300, -16, 300)
 
-[node name="Keep" type="StaticBody2D" parent="Room3"]
-position = Vector2(400, 220)
-collision_mask = 0
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Room3/Keep"]
-shape = SubResource("RectShp_r3_keep")
-
-[node name="Visual" type="Polygon2D" parent="Room3/Keep"]
-color = Color(0.22, 0.20, 0.18, 1)
-polygon = PackedVector2Array(-40, -40, 40, -40, 40, 40, -40, 40)
-
-[node name="TowerNW" type="StaticBody2D" parent="Room3"]
-position = Vector2(120, 120)
-collision_mask = 0
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Room3/TowerNW"]
-shape = SubResource("RectShp_60")
-
-[node name="Visual" type="Polygon2D" parent="Room3/TowerNW"]
-color = Color(0.25, 0.23, 0.21, 1)
-polygon = PackedVector2Array(-30, -30, 30, -30, 30, 30, -30, 30)
-
-[node name="TowerNE" type="StaticBody2D" parent="Room3"]
-position = Vector2(660, 120)
-collision_mask = 0
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Room3/TowerNE"]
-shape = SubResource("RectShp_60")
-
-[node name="Visual" type="Polygon2D" parent="Room3/TowerNE"]
-color = Color(0.25, 0.23, 0.21, 1)
-polygon = PackedVector2Array(-30, -30, 30, -30, 30, 30, -30, 30)
 
 [node name="EnemySpawnPoints" type="Node2D" parent="Room3"]
 

@@ -1,32 +1,42 @@
 extends Node
-## OSM-driven room decoration: fetches named buildings and places them as
-## landmark obstacles inside the active room.  Room structure (boundary walls,
-## corridor blocks, Keep, towers) is defined in Game.tscn — this script only
-## adds OSM-sourced buildings on top, with a clearly distinct colour.
-## Falls back silently when offline.
+## Builds interior room obstacles from real OSM building/historic polygon data.
+## Room boundary walls stay in Game.tscn; all interior structure comes from here.
+## Offline fallback: places simple rectangles that recreate the original layout.
 
 signal room_osm_ready(room_id: int)
 
-## Bounding boxes (south_lat, west_lon, north_lat, east_lon) — Bamberg, Germany.
 const BBOXES: Dictionary = {
-	1: [49.9020, 10.8860, 49.9070, 10.9000],  ## ERBA (Erba-Insel, ehem. Baumwollspinnerei)
-	2: [49.8930, 10.8870, 49.9020, 10.9050],  ## Bamberg Altstadt (UNESCO-Kernzone)
+	1: [49.9020, 10.8860, 49.9070, 10.9000],  ## ERBA (Erba-Insel)
+	2: [49.8930, 10.8870, 49.9020, 10.9050],  ## Bamberg Altstadt
 	3: [49.8760, 10.8590, 49.8820, 10.8690],  ## Burg Altenburg
 }
 
-## Max named landmark buildings to place per room.
-const MAX_ANCHORS: int = 5
-## Size of each OSM building obstacle in game pixels.
-const ANCHOR_SIZE: float  = 48.0
-## Minimum distance between an OSM anchor centre and any existing StaticBody2D centre.
-const MIN_CLEAR: float    = 72.0
+## Offline fallback geometry per room — used when API is unreachable.
+## Matches the original Game.tscn block layout so rooms stay playable offline.
+const FALLBACK: Dictionary = {
+	2: [
+		{"pos": Vector2(242, 200), "w": 115, "h": 200},
+		{"pos": Vector2(235, 140), "w": 130, "h": 180},
+		{"pos": Vector2(565, 200), "w": 130, "h": 200},
+		{"pos": Vector2(242, 475), "w": 115, "h": 150},
+		{"pos": Vector2(235, 460), "w": 130, "h": 180},
+		{"pos": Vector2(565, 475), "w": 130, "h": 150},
+	],
+	3: [
+		{"pos": Vector2(400, 220), "w": 80,  "h": 80},
+		{"pos": Vector2(120, 120), "w": 60,  "h": 60},
+		{"pos": Vector2(660, 120), "w": 60,  "h": 60},
+	],
+}
 
-const GAME_W      := 800.0
-const GAME_H      := 600.0
-const MARGIN      := 60.0   ## keep anchors away from boundary walls
-## Distinct purplish tint — clearly different from room walls (grey 0.3) and blocks.
-const BLD_COLOR   := Color(0.30, 0.27, 0.33, 1.0)
-const OSM_TIMEOUT := 12.0
+const MAX_BUILDINGS  := 18    ## cap to keep navmesh bake fast
+const TARGET_BLDG_PX := 62.0  ## normalise each building's largest extent to this
+const MIN_BLDG_PX    := 36.0  ## floor on building size
+const MARGIN         := 50.0  ## keep buildings away from boundary walls
+const GAME_W         := 800.0
+const GAME_H         := 600.0
+const BLD_COLOR      := Color(0.30, 0.27, 0.33, 1.0)  ## purplish — distinct from grey walls
+const OSM_TIMEOUT    := 12.0
 
 var _http: HTTPRequest
 var _pending_room: int = 0
@@ -45,7 +55,6 @@ func fetch_for_room(room_id: int) -> void:
 	_pending_room = room_id
 	var b: Array = BBOXES[room_id]
 	var bbox: String = "%.6f,%.6f,%.6f,%.6f" % [b[0], b[1], b[2], b[3]]
-	## Room 3: also grab named historic features (castle keep, towers).
 	var q: String
 	if room_id == 3:
 		q = (
@@ -63,22 +72,32 @@ func fetch_for_room(room_id: int) -> void:
 		"data=" + q
 	)
 	if err != OK:
-		push_warning("OSMRoomGenerator: HTTP request error %d" % err)
-		emit_signal("room_osm_ready", _pending_room)
+		push_warning("OSMRoomGenerator: request error %d (room %d) — using fallback" % [err, room_id])
+		_place_fallback(room_id)
+		emit_signal("room_osm_ready", room_id)
 
 func _on_http_done(_res: int, code: int, _hdrs: PackedStringArray, body: PackedByteArray) -> void:
-	var anchors: Array = []
+	var buildings: Array = []
 	if code == 200:
 		var parsed = JSON.parse_string(body.get_string_from_utf8())
 		if parsed is Dictionary:
-			anchors = _extract_anchors(_pending_room, parsed)
+			buildings = _extract_buildings(_pending_room, parsed)
 	else:
-		push_warning("OSMRoomGenerator: HTTP %d for room %d" % [code, _pending_room])
-	if not anchors.is_empty():
-		_apply_anchors(_pending_room, anchors)
+		push_warning("OSMRoomGenerator: HTTP %d (room %d) — using fallback" % [code, _pending_room])
+	if buildings.is_empty():
+		_place_fallback(_pending_room)
+	else:
+		_place_buildings(_pending_room, buildings)
 	emit_signal("room_osm_ready", _pending_room)
 
-## ── coordinate conversion ────────────────────────────────────────────────────
+# ── coordinate helpers ────────────────────────────────────────────────────────
+
+func _bbox_scale(room_id: int) -> float:
+	var b: Array = BBOXES[room_id]
+	var lat_cos := cos(deg_to_rad((float(b[0]) + float(b[2])) * 0.5))
+	var sx := (GAME_W - MARGIN * 2.0) / ((float(b[3]) - float(b[1])) * lat_cos)
+	var sy := (GAME_H - MARGIN * 2.0) / (float(b[2]) - float(b[0]))
+	return minf(sx, sy)
 
 func _to_game_pos(lat: float, lon: float, south: float, west: float,
 		lat_cos: float, scale: float) -> Vector2:
@@ -88,93 +107,96 @@ func _to_game_pos(lat: float, lon: float, south: float, west: float,
 		MARGIN + (north - lat) * scale
 	)
 
-func _bbox_scale(room_id: int) -> float:
-	var b: Array = BBOXES[room_id]
-	var lat_cos := cos(deg_to_rad((float(b[0]) + float(b[2])) * 0.5))
-	var sx := (GAME_W - MARGIN * 2.0) / ((float(b[3]) - float(b[1])) * lat_cos)
-	var sy := (GAME_H - MARGIN * 2.0) / (float(b[2]) - float(b[0]))
-	return minf(sx, sy)
+# ── building extraction ───────────────────────────────────────────────────────
 
-## ── anchor extraction ─────────────────────────────────────────────────────────
-
-func _extract_anchors(room_id: int, data: Dictionary) -> Array:
+func _extract_buildings(room_id: int, data: Dictionary) -> Array:
 	var b: Array = BBOXES[room_id]
 	var south := float(b[0]); var west := float(b[1]); var north := float(b[2])
 	var lat_cos := cos(deg_to_rad((south + north) * 0.5))
 	var scale := _bbox_scale(room_id)
 
-	var candidates: Array = []
+	var results: Array = []
 	for elem in data.get("elements", []):
 		if elem.get("type") != "way":
 			continue
 		var tags: Dictionary = elem.get("tags", {})
+		if not (tags.has("building") or tags.has("historic")):
+			continue
 		var name: String = tags.get("name", "")
-		if name.is_empty():
-			continue
 		var geom: Array = elem.get("geometry", [])
-		if geom.size() < 2:
+		if geom.size() < 3:
 			continue
-		## Centroid in game space
-		var sum_lat := 0.0; var sum_lon := 0.0
+
+		## Project vertices to game space
+		var raw: Array = []
 		for g in geom:
-			sum_lat += float(g.get("lat", 0.0))
-			sum_lon += float(g.get("lon", 0.0))
-		var clat := sum_lat / geom.size()
-		var clon := sum_lon / geom.size()
-		var gpos := _to_game_pos(clat, clon, south, west, lat_cos, scale)
-		## Discard anchors inside the margin border
-		if gpos.x < MARGIN + ANCHOR_SIZE or gpos.x > GAME_W - MARGIN - ANCHOR_SIZE:
+			raw.append(_to_game_pos(float(g.get("lat", 0.0)), float(g.get("lon", 0.0)),
+				south, west, lat_cos, scale))
+
+		## Centroid
+		var centroid := Vector2.ZERO
+		for pt in raw:
+			centroid += pt as Vector2
+		centroid /= raw.size()
+
+		## Skip if centroid outside playable margin
+		if centroid.x < MARGIN or centroid.x > GAME_W - MARGIN:
 			continue
-		if gpos.y < MARGIN + ANCHOR_SIZE or gpos.y > GAME_H - MARGIN - ANCHOR_SIZE:
+		if centroid.y < MARGIN or centroid.y > GAME_H - MARGIN:
 			continue
-		## Rough area for sorting (largest / most prominent building first)
-		var lats: Array = []; var lons: Array = []
-		for g in geom:
-			lats.append(float(g.get("lat", 0.0)))
-			lons.append(float(g.get("lon", 0.0)))
-		var area: float = (lats.max() - lats.min()) * (lons.max() - lons.min())
-		candidates.append({"pos": gpos, "name": name, "area": area})
 
-	candidates.sort_custom(func(a, c): return a["area"] > c["area"])
-	return candidates.slice(0, MAX_ANCHORS)
+		## Shape relative to centroid, compute max extent
+		var local: Array = []
+		var max_ext := 0.0
+		for pt in raw:
+			var lp: Vector2 = (pt as Vector2) - centroid
+			local.append(lp)
+			max_ext = maxf(max_ext, lp.length())
 
-## ── layout application ───────────────────────────────────────────────────────
+		## Normalise to TARGET_BLDG_PX (floor at MIN_BLDG_PX)
+		var half := maxf(TARGET_BLDG_PX, MIN_BLDG_PX) * 0.5
+		var sf: float = half / maxf(max_ext, 1.0)
+		var poly := PackedVector2Array()
+		for lp in local:
+			poly.append((lp as Vector2) * sf + centroid)
 
-## Places OSM anchor buildings in the room, skipping any that would overlap
-## with existing StaticBody2D nodes (room walls, blocks, Keep, towers).
-func _apply_anchors(room_id: int, anchors: Array) -> void:
+		results.append({"polygon": poly, "centroid": centroid, "name": name, "area": max_ext * max_ext})
+
+	results.sort_custom(func(a, c): return a["area"] > c["area"])
+	return results.slice(0, MAX_BUILDINGS)
+
+# ── placement ─────────────────────────────────────────────────────────────────
+
+func _place_buildings(room_id: int, buildings: Array) -> void:
 	var room: Node = _game.get_node_or_null("Room%d" % room_id)
 	if room == null:
 		return
-
-	## Collect existing obstacle centres so we can avoid them.
-	var existing_centres: Array = []
+	## Existing static body centres (boundary walls) — avoid placing on top of them
+	var taken: Array = []
 	for child in room.get_children():
 		if child is StaticBody2D:
-			existing_centres.append(child.position)
+			taken.append(child.position as Vector2)
 
 	var spawn_node: Node = room.get_node_or_null("EnemySpawnPoints")
-	var placed: int = 0
-	for anchor in anchors:
-		var pos: Vector2 = anchor["pos"] as Vector2
-		## Skip if too close to any existing obstacle.
+	var placed := 0
+	for bld in buildings:
+		var c: Vector2 = bld["centroid"] as Vector2
 		var blocked := false
-		for ec in existing_centres:
-			if pos.distance_to(ec as Vector2) < MIN_CLEAR:
+		for tc in taken:
+			if c.distance_to(tc as Vector2) < TARGET_BLDG_PX:
 				blocked = true
 				break
 		if blocked:
 			continue
-		_add_anchor(room, pos, anchor["name"], placed)
-		existing_centres.append(pos)   ## future anchors also avoid this one
-		## Extra spawn point near each placed building
+		_add_building(room, bld["polygon"] as PackedVector2Array, bld["name"], placed, room.visible)
+		taken.append(c)
 		if spawn_node != null:
-			var to_centre: Vector2 = (Vector2(GAME_W, GAME_H) * 0.5 - pos).normalized()
-			var sp_pos: Vector2 = (pos + to_centre * (ANCHOR_SIZE * 0.8 + 24.0)).clamp(
+			var to_c: Vector2 = (Vector2(GAME_W, GAME_H) * 0.5 - c).normalized()
+			var sp: Vector2 = (c + to_c * (TARGET_BLDG_PX + 20.0)).clamp(
 				Vector2(55, 55), Vector2(GAME_W - 55, GAME_H - 55))
 			var m := Marker2D.new()
 			m.name = "OsmSpawn%d" % placed
-			m.position = sp_pos
+			m.position = sp
 			spawn_node.add_child(m)
 		placed += 1
 
@@ -183,31 +205,55 @@ func _apply_anchors(room_id: int, anchors: Array) -> void:
 		if nav:
 			nav.bake_navigation_polygon(false)
 
-## ── building helper ──────────────────────────────────────────────────────────
+func _place_fallback(room_id: int) -> void:
+	if not FALLBACK.has(room_id):
+		return
+	var room: Node = _game.get_node_or_null("Room%d" % room_id)
+	if room == null:
+		return
+	var defs: Array = FALLBACK[room_id]
+	for i in range(defs.size()):
+		var d: Dictionary = defs[i]
+		var pos: Vector2 = d["pos"] as Vector2
+		var hw: float = float(d["w"]) * 0.5
+		var hh: float = float(d["h"]) * 0.5
+		var poly := PackedVector2Array([
+			Vector2(pos.x - hw, pos.y - hh), Vector2(pos.x + hw, pos.y - hh),
+			Vector2(pos.x + hw, pos.y + hh), Vector2(pos.x - hw, pos.y + hh),
+		])
+		_add_building(room, poly, "", i, room.visible)
+	var nav: NavigationRegion2D = room.get_node_or_null("NavigationRegion2D")
+	if nav:
+		nav.bake_navigation_polygon(false)
 
-## Landmark obstacle: square block at the OSM-derived position, labelled by name.
-## Colour (BLD_COLOR) is visually distinct from room walls (grey) and blocks.
-func _add_anchor(room: Node, pos: Vector2, label: String, idx: int) -> void:
+# ── node builder ──────────────────────────────────────────────────────────────
+
+func _add_building(room: Node, polygon: PackedVector2Array, label: String,
+		idx: int, room_active: bool) -> void:
 	var body := StaticBody2D.new()
-	body.name = "Anchor%d_%s" % [idx, label.left(12).replace(" ", "_")]
-	body.position = pos
+	body.name = "OSMBld%d" % idx if label.is_empty() else \
+		"OSMBld%d_%s" % [idx, label.left(10).replace(" ", "_")]
+	body.position = Vector2.ZERO  ## polygon coords are already in scene/room space
+	body.collision_layer = 1
 	body.collision_mask = 0
-	var cs := CollisionShape2D.new()
-	var rect := RectangleShape2D.new()
-	rect.size = Vector2(ANCHOR_SIZE, ANCHOR_SIZE)
-	cs.shape = rect
-	body.add_child(cs)
+	## If the room is currently hidden, disable collision to prevent invisible walls.
+	if not room_active:
+		body.set_collision_layer_value(1, false)
+	var cp := CollisionPolygon2D.new()
+	cp.polygon = polygon
+	body.add_child(cp)
 	var vis := Polygon2D.new()
 	vis.color = BLD_COLOR
-	var h := ANCHOR_SIZE * 0.5
-	vis.polygon = PackedVector2Array([
-		Vector2(-h, -h), Vector2(h, -h), Vector2(h, h), Vector2(-h, h)
-	])
+	vis.polygon = polygon
 	body.add_child(vis)
-	var lbl := Label.new()
-	lbl.text = label
-	lbl.add_theme_font_size_override("font_size", 7)
-	lbl.add_theme_color_override("font_color", Color(0.75, 0.72, 0.68))
-	lbl.position = Vector2(-ANCHOR_SIZE * 0.5, -ANCHOR_SIZE * 0.5 - 10)
-	body.add_child(lbl)
+	if not label.is_empty():
+		var cx := 0.0; var cy := 0.0
+		for pt in polygon:
+			cx += pt.x; cy += pt.y
+		var lbl := Label.new()
+		lbl.text = label
+		lbl.add_theme_font_size_override("font_size", 7)
+		lbl.add_theme_color_override("font_color", Color(0.75, 0.72, 0.68))
+		lbl.position = Vector2(cx / polygon.size() - 20.0, cy / polygon.size() - 10.0)
+		body.add_child(lbl)
 	room.add_child(body)
