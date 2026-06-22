@@ -1,0 +1,56 @@
+[gd_scene format=3 uid="uid://boss_scene_001"]
+
+[ext_resource type="Script" uid="uid://boss_script_001" path="res://scenes/enemies/Boss.gd" id="1_boss"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
+size = Vector2(80, 80)
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_1"]
+radius = 48.0
+
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_1"]
+properties/0/path = NodePath(".:position")
+properties/0/spawn = true
+properties/0/replication_mode = 2
+properties/1/path = NodePath(".:current_hp")
+properties/1/spawn = true
+properties/1/replication_mode = 2
+properties/2/path = NodePath(".:phase")
+properties/2/spawn = true
+properties/2/replication_mode = 2
+
+[node name="Boss" type="CharacterBody2D" unique_id=100000001]
+collision_layer = 4
+collision_mask = 3
+script = ExtResource("1_boss")
+
+[node name="Sprite" type="ColorRect" parent="." unique_id=100000002]
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+color = Color(0.15, 0.05, 0.05, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=100000003]
+shape = SubResource("RectangleShape2D_1")
+
+[node name="NavigationAgent2D" type="NavigationAgent2D" parent="." unique_id=100000004]
+
+[node name="HurtboxArea" type="Area2D" parent="." unique_id=100000005]
+collision_layer = 16
+collision_mask = 34
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HurtboxArea" unique_id=100000006]
+shape = SubResource("CircleShape2D_1")
+
+[node name="HealthBar" type="ProgressBar" parent="." unique_id=100000007]
+offset_left = -40.0
+offset_top = -64.0
+offset_right = 40.0
+offset_bottom = -56.0
+value = 100.0
+show_percentage = false
+
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=100000008]
+replication_interval = 0.05
+replication_config = SubResource("SceneReplicationConfig_1")
