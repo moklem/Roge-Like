@@ -21,6 +21,10 @@ const CAR_HUD_SCENE := preload("res://scenes/ui/CarHUD.tscn")
 ## Phase 8 Plan 03 (P7, D-09): Boss scene pre-registered in EnemySpawner before boss fight
 const BOSS_SCENE := preload("res://scenes/enemies/Boss.tscn")
 
+## Phase 9 (D-04, MAP-08): RoomBuilder populates TileMap sub-rooms from hardcoded layout data.
+## Instantiated in _ready() as _room_builder.
+const ROOM_BUILDER_SCRIPT := preload("res://scenes/RoomBuilder.gd")
+
 ## D-13: Revive duration 3-4 seconds (mirrors Player.REVIVE_DURATION)
 const REVIVE_DURATION: float = 3.5
 ## D-19: Max enemies to spawn at game start (Room 1 baseline)
@@ -34,6 +38,21 @@ const WAVES_PER_ROOM: int = 3
 
 ## Phase 8 Plan 03 (D-04): Active room tracker — 1=Room1, 2=Room2, 3=Room3 (boss arena)
 var current_room: int = 1
+
+## Phase 9 (D-10, MAP-01): Sub-room tracker within each location. 1–5. Reset to 1 on room transition.
+var current_sub_room: int = 1
+
+## Phase 9 (D-08): Exit tile coords set by RoomBuilder; read by _open_exit_passage() RPC.
+var _exit_tile_coords: Array[Vector2i] = []
+
+## Phase 9: RoomBuilder instance. Created in _ready().
+var _room_builder: RoomBuilder = null
+
+## Phase 9 (D-03): Current sub-room pixel bounds for camera limit update.
+var _current_sub_room_rect_px: Rect2 = Rect2(0, 0, 960, 640)
+
+## Phase 9 (D-12): Connector exit trigger guard — prevents double-triggering room transition.
+var _connector_triggered: bool = false
 
 ## Wave tracker — host-authoritative. Reset to 1 on each room entry via _spawn_enemies().
 var _current_wave: int = 1
@@ -86,13 +105,12 @@ func _ready() -> void:
 	# Phase 7 Plan 03 (D-13): Initialize elite spawn interval; host timer uses randf_range(45, 90)
 	_elite_spawn_interval = randf_range(45.0, 90.0)
 
-	# OSM room generator — runs on all peers; injects real building footprints from Overpass API.
-	# Falls back silently when offline. Pre-fetches Room 1 immediately.
-	var _osm: Node = load("res://scenes/OSMRoomGenerator.gd").new()
-	_osm.name = "OSMRoomGenerator"
-	add_child(_osm)
-	_osm.room_osm_ready.connect(_on_osm_room_ready)
-	_osm.fetch_for_room.call_deferred(current_room)
+	## Phase 9 (D-07, MAP-09): RoomBuilder replaces the old network-based room generator.
+	## Hardcoded sub-room data is used instead of real-time Overpass API fetches.
+	_room_builder = RoomBuilder.new()
+	## Build sub-room 1 of Room 1 immediately on all peers (deterministic from static data; no RPC needed for first load).
+	var _first_rect: Rect2 = _room_builder.build_sub_room(1, 1, self)
+	_current_sub_room_rect_px = _first_rect
 
 	# Phase 8: Disable StaticBody2D collision on hidden rooms at startup.
 	# Room2 and Room3 start visible=false but Godot does NOT disable collision with visibility.
@@ -112,7 +130,10 @@ func _ready() -> void:
 
 ## Phase 8 Plan 03 (D-04): Generalized — bakes the active room's NavigationRegion2D.
 ## At loop start current_room == 1 so this resolves to Room1/NavigationRegion2D as before.
+## Phase 9: await process_frame ensures all set_cell() calls from build_sub_room are reflected
+## in physics/collision before the navmesh bake runs.
 func _bake_navigation() -> void:
+	await get_tree().process_frame  ## Phase 9: wait for TileMap set_cell() to register in physics
 	var nav := get_node_or_null("Room%d/NavigationRegion2D" % current_room)
 	if nav:
 		nav.bake_navigation_polygon(false)
@@ -136,30 +157,32 @@ func _transition_to_room(next_room: int) -> void:
 		old_room.visible = false
 		for body in old_room.find_children("*", "StaticBody2D", true, false):
 			body.set_collision_layer_value(1, false)
+		## Phase 9 (Pitfall 4): Disable TileMap collision on the hidden room
+		if _room_builder != null:
+			_room_builder.set_tilemap_collision(old_room_id, false, self)
 
 	var new_room := get_node_or_null("Room%d" % next_room)
 	if new_room:
 		new_room.visible = true
 		for body in new_room.find_children("*", "StaticBody2D", true, false):
 			body.set_collision_layer_value(1, true)
+		## Phase 9 (Pitfall 4): Enable TileMap collision on the newly active room
+		if _room_builder != null:
+			_room_builder.set_tilemap_collision(next_room, true, self)
 
 	current_room = next_room
+	## Phase 9 (D-10, MAP-01): Reset sub-room counter on location transition
+	current_sub_room = 1
+	## Phase 9 (D-12): Reset connector exit trigger guard
+	_connector_triggered = false
 
-	# Teleport players to the new room's SpawnPoints
-	var sp_node := new_room.get_node_or_null("SpawnPoints") if new_room else null
-	var spawn_pts: Array = sp_node.get_children() if sp_node else []
-	var arena_center := Vector2(400, 300)  # fallback when fewer points than players
-	var players := get_tree().get_nodes_in_group("players")
-	for idx in range(players.size()):
-		if idx < spawn_pts.size():
-			players[idx].global_position = spawn_pts[idx].global_position
-		else:
-			players[idx].global_position = arena_center
+	## Phase 9: Build sub-room 1 of the new location on all peers (call_local context).
+	if _room_builder != null:
+		var _trans_rect: Rect2 = _room_builder.build_sub_room(current_room, 1, self)
+		_current_sub_room_rect_px = _trans_rect
 
-	# Trigger OSM building fetch for the new room on all peers (fires async, safe to call_deferred)
-	var _osm_gen := get_node_or_null("OSMRoomGenerator")
-	if _osm_gen:
-		_osm_gen.fetch_for_room.call_deferred(next_room)
+	# Teleport players to the new room's first sub-room spawn points (just updated by build_sub_room)
+	_teleport_players_to_spawn()
 
 	# --- Host-only block: purge, bake, spawn ---
 	if not multiplayer.is_server():
@@ -215,6 +238,97 @@ func _check_room_clear() -> void:
 	else:
 		_current_wave = 1
 		_transition_to_room.rpc(current_room + 1)
+
+# ==============================================================================
+# SUB-ROOM PROGRESSION (Phase 9 — MAP-01, MAP-02, MAP-03, D-08, D-10, D-11, D-12)
+# ==============================================================================
+
+## Phase 9 (D-08, D-10, MAP-01, MAP-02): Advance to the next sub-room within the current location.
+## Called by host when _check_sub_room_clear() detects all enemies dead.
+## If next == 6: build connector. If connector end reached: call _transition_to_room.rpc(next_room).
+## T-09-03: @rpc("authority") — clients cannot trigger sub-room transitions.
+@rpc("authority", "call_local", "reliable")
+func _transition_to_sub_room(next: int) -> void:
+	current_sub_room = next
+	_connector_triggered = false
+	var rect: Rect2
+	if next == 6:
+		## Phase 9 (D-11, D-13): Connector sub-room — no enemies, pure walking corridor.
+		rect = _room_builder.build_connector(current_room, self)
+	elif current_room == 3 and next == 5:
+		## Phase 9 (D-09, MAP-03): Sub-room 5 of Room 3 is boss arena. Build tiles, then spawn boss.
+		rect = _room_builder.build_sub_room(current_room, next, self)
+	else:
+		rect = _room_builder.build_sub_room(current_room, next, self)
+	_current_sub_room_rect_px = rect
+	## Teleport players to this sub-room's spawn points (already updated by build_sub_room)
+	_teleport_players_to_spawn()
+	## Bake navmesh for new sub-room geometry (host + all peers; bake is local)
+	_bake_navigation.call_deferred()
+	## Host-only post-transition: spawn enemies or boss
+	if not multiplayer.is_server():
+		return
+	if current_room == 3 and next == 5:
+		## Phase 9 (MAP-03): Boss arena — spawn boss, no normal enemies
+		_spawn_boss.call_deferred()
+	elif next < 6:
+		## Normal sub-room: spawn enemy wave
+		_spawn_enemies.call_deferred()
+	## If next == 6 (connector): no enemies; host waits for player to reach corridor end via _process
+
+## Phase 9 (D-08, MAP-02): Host checks if all enemies in current sub-room are dead.
+## On clear: opens exit passage. Distinct from _check_room_clear which handles room transitions.
+func _check_sub_room_clear() -> void:
+	if not multiplayer.is_server():
+		return
+	if current_room == 3 and current_sub_room == 5:
+		## Boss arena — handled by _on_boss_died; skip
+		return
+	if current_room == 3 and current_sub_room == 6:
+		return
+	var alive: int = 0
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if not is_instance_valid(e) or e.is_queued_for_deletion():
+			continue
+		var e_room: int = e.get_meta("room_id", current_room) if e.has_meta("room_id") else current_room
+		if e_room == current_room:
+			alive += 1
+	if alive > 0:
+		return
+	## All enemies dead — open the exit passage
+	## After sub-rooms 1–5 (including sub-room 5 for rooms 1 and 2), open exit passage
+	_open_exit_passage.rpc()
+
+## Phase 9 (D-08, MAP-02): Host-authoritative exit passage opening on all peers simultaneously.
+## Removes the exit wall tiles from the TileMap and replaces them with floor tiles.
+## T-09-04: @rpc("authority", "call_local") — clients cannot open passages unilaterally.
+@rpc("authority", "call_local", "reliable")
+func _open_exit_passage() -> void:
+	var tm: TileMap = get_node_or_null("Room%d/TileMap" % current_room)
+	if tm == null:
+		return
+	if _exit_tile_coords.is_empty():
+		return
+	var layout: Dictionary = RoomLayouts.SUB_ROOM_DATA[current_room][current_sub_room]
+	var floor_tile: Vector2i = layout.get("floor_tile", Vector2i(0, 3))
+	var src_id: int = layout.get("tileset_src", 0)
+	for coord in _exit_tile_coords:
+		tm.set_cell(0, coord, src_id, floor_tile)
+
+## Phase 9: Teleports all players to the current sub-room's spawn points.
+## Called on all peers by _transition_to_sub_room() and _transition_to_room() (call_local context).
+func _teleport_players_to_spawn() -> void:
+	var sp_node := get_node_or_null("Room%d/SpawnPoints" % current_room)
+	if sp_node == null:
+		return
+	var spawn_pts: Array = sp_node.get_children()
+	var players := get_tree().get_nodes_in_group("players")
+	var fallback := Vector2(80, 80)  ## safe default if spawn data missing
+	for idx in range(players.size()):
+		if idx < spawn_pts.size():
+			players[idx].global_position = spawn_pts[idx].global_position
+		else:
+			players[idx].global_position = fallback
 
 # ==============================================================================
 # BOSS SPAWN / MOB SWARM / LOOP ADVANCE (D-09, D-14–D-17, ROOM-05, ROOM-06, LOOP-03)
@@ -451,11 +565,6 @@ func _show_wave_banner(wave: int) -> void:
 	tw.tween_property(lbl, "modulate:a", 0.0, 0.6)
 	tw.tween_callback(lbl.queue_free)
 
-## Called when OSMRoomGenerator finishes injecting buildings (all peers).
-## Nothing to do here — buildings auto-appear in the room node; navmesh was rebaked inside generator.
-func _on_osm_room_ready(_room_id: int) -> void:
-	pass
-
 func _do_spawn_enemy(data: Dictionary) -> Node:
 	# Phase 7 Plan 03 (D-19, D-20): dispatch on type; elite uses ELITE_ENEMY_SCENE
 	# Phase 8 Plan 03: boss type uses BOSS_SCENE (D-09, P7)
@@ -505,6 +614,8 @@ func _on_enemy_died(pos: Vector2) -> void:
 	# Phase 8 Plan 03 (D-02): After each enemy death, check if the room is cleared.
 	# call_deferred so queue_free finishes before we count living enemies.
 	_check_room_clear.call_deferred()
+	## Phase 9 (D-08, MAP-02): Also check if current sub-room is cleared.
+	_check_sub_room_clear.call_deferred()
 
 func _do_spawn_pickup(data: Dictionary) -> Node:
 	match data.get("type", "xp_orb"):
@@ -781,12 +892,21 @@ func _card_pick_complete() -> void:
 # ==============================================================================
 
 ## P8: host runs Engineer passive + Earth effects + elite spawn; all peers update local HUD.
+## Phase 9: host also checks connector exit detection.
 func _process(delta: float) -> void:
 	if multiplayer.is_server():
 		_tick_engineer_passive(delta)
 		_tick_earth_effects(delta)
 		# Phase 7 Plan 03 (D-13, HUD-07): Elite enemy spawn timer tick (host-only)
 		_tick_elite_spawn(delta)
+		## Phase 9 (D-12): Connector corridor exit detection — when player reaches right edge,
+		## transition to the next location. Guard with _connector_triggered to prevent double-trigger.
+		if current_sub_room == 6 and not _connector_triggered:
+			for p in get_tree().get_nodes_in_group("players"):
+				if is_instance_valid(p) and p.global_position.x >= _current_sub_room_rect_px.end.x - RoomLayouts.TILE_SIZE * 4:
+					_connector_triggered = true
+					_transition_to_room.rpc(current_room + 1)
+					break
 	_update_player_hud()
 
 ## D-13 (ROLE-07): Engineer passive — every 5s, +10 HP to all OTHER players within 200px.
