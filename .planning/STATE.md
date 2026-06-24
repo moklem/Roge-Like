@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: UAT in progress
-stopped_at: Phase 9 context gathered
-last_updated: "2026-06-24T10:06:06.678Z"
+stopped_at: Phase 9 UI-SPEC approved
+last_updated: "2026-06-24T10:52:25.952Z"
 progress:
   total_phases: 9
   completed_phases: 8
@@ -444,9 +444,9 @@ Wave 4 *(blocked on Wave 3 — needs stage3_damage_mult var wired)*
 
 ## Session
 
-**Last session:** 2026-06-24T10:06:06.662Z
-**Stopped at:** Phase 9 context gathered
-**Resume file:** .planning/phases/09-map-overhaul-tilemap-sub-rooms/09-CONTEXT.md
+**Last session:** 2026-06-24T10:52:25.937Z
+**Stopped at:** Phase 9 UI-SPEC approved
+**Resume file:** .planning/phases/09-map-overhaul-tilemap-sub-rooms/09-UI-SPEC.md
 
 ## Performance Metrics
 

@@ -498,6 +498,28 @@ Wave 2 *(blocked on Waves 1 — needs Room2/Room3 + shared Entities + Boss.tscn 
 - Sub-room transition — opening the passage must be host-authoritative; clients receive RPC to unlock the door, never open it locally
 - OSMRoomGenerator removal — all existing room geometry in Game.tscn must be migrated; nothing should reference the old generator
 
+**Plans:** 4 plans
+
+Plans:
+
+- [ ] 09-01-PLAN.md — TileMap infrastructure: Game.tscn restructure (3 TileMap nodes, old geometry removed) + RoomLayouts.gd with all 17 hardcoded sub-room dictionaries
+- [ ] 09-02-PLAN.md — Camera2D: Player.tscn Camera2D node + Player.gd authority enable + update_camera_limits method (parallel to Plan 01)
+- [ ] 09-03-PLAN.md — Core logic: RoomBuilder.gd TileMap population engine + Game.gd sub-room state machine + OSMRoomGenerator deletion
+- [ ] 09-04-PLAN.md — Integration: camera limit wiring into all sub-room transitions + full human verification checkpoint
+
+Wave 1 *(autonomous — parallel, no file overlap)*
+
+- 09-01: scenes/Game.tscn + scenes/RoomLayouts.gd
+- 09-02: scenes/Player.tscn + scenes/Player.gd
+
+Wave 2 *(blocked on Wave 1 — RoomBuilder needs RoomLayouts data; Game.gd needs TileMap nodes in Game.tscn)*
+
+- 09-03: scenes/RoomBuilder.gd + scenes/Game.gd + delete scenes/OSMRoomGenerator.gd
+
+Wave 3 *(blocked on Waves 1 and 2 — camera wiring needs update_camera_limits from Plan 02 and _transition_to_sub_room from Plan 03)*
+
+- 09-04: scenes/Game.gd + scenes/Player.gd (camera limit wiring) + human checkpoint
+
 ---
 
 ## Progress
@@ -512,4 +534,4 @@ Wave 2 *(blocked on Waves 1 — needs Room2/Room3 + shared Entities + Boss.tscn 
 | 6. XP, Level-Up Cards & Evolution | 4/4 | Complete | 2026-06-18 |
 | 7. CarHUD, Loop Timer & Difficulty Scaling | 3/3 | Complete | 2026-06-19 |
 | 8. Rooms 2 & 3, Boss | 3/3 | Complete | 2026-06-22 |
-| 9. Map Overhaul — TileMap Sub-Rooms | 0/? | Not started | — |
+| 9. Map Overhaul — TileMap Sub-Rooms | 0/4 | Not started | — |
