@@ -3,15 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: UAT in progress
-stopped_at: context exhaustion at 78% (2026-06-22)
-resumed_at: 2026-06-22 (session 2)
-last_updated: "2026-06-22T10:00:00.000Z"
+stopped_at: Phase 9 context gathered
+last_updated: "2026-06-24T10:06:06.678Z"
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 8
   total_plans: 29
   completed_plans: 29
-  percent: 100
+  percent: 89
 ---
 
 # Roadmap: Roge-Like
@@ -445,10 +444,9 @@ Wave 4 *(blocked on Wave 3 — needs stage3_damage_mult var wired)*
 
 ## Session
 
-**Last session:** 2026-06-22 (session 2)
-**Current state:** Phase 8 all 3 plans implemented + committed. Wave system (3 waves per room) and OSMRoomGenerator also committed. 7 UAT tests pending — manual testing required.
-**Next step:** Run the game, work through UAT-08 tests 1–7 (Room1→Room2→Room3/Boss→loop advance).
-**Resume file:** None
+**Last session:** 2026-06-24T10:06:06.662Z
+**Stopped at:** Phase 9 context gathered
+**Resume file:** .planning/phases/09-map-overhaul-tilemap-sub-rooms/09-CONTEXT.md
 
 ## Performance Metrics
 
