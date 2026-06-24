@@ -16,7 +16,7 @@
 | 6 | XP, Level-Up Cards & Evolution | Per-player progression loop — kill enemies to earn XP, level up triggers card pick, stage transforms appearance and unlocks ability | XP-01–09, EVOL-01–06 | yes |
 | 7 | CarHUD, Loop Timer & Difficulty Scaling | 3/3 | Complete    | 2026-06-19 |
 | 8 | Rooms 2 & 3, Boss | 3/3 | Complete   | 2026-06-22 |
-| 9 | Map Overhaul — TileMap Sub-Rooms | 2/4 | In Progress|  |
+| 9 | Map Overhaul — TileMap Sub-Rooms | 3/4 | In Progress|  |
 
 ---
 
@@ -498,13 +498,13 @@ Wave 2 *(blocked on Waves 1 — needs Room2/Room3 + shared Entities + Boss.tscn 
 - Sub-room transition — opening the passage must be host-authoritative; clients receive RPC to unlock the door, never open it locally
 - OSMRoomGenerator removal — all existing room geometry in Game.tscn must be migrated; nothing should reference the old generator
 
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 
 - [x] 09-01-PLAN.md — TileMap infrastructure: Game.tscn restructure (3 TileMap nodes, old geometry removed) + RoomLayouts.gd with all 17 hardcoded sub-room dictionaries
 - [x] 09-02-PLAN.md — Camera2D: Player.tscn Camera2D node + Player.gd authority enable + update_camera_limits method (parallel to Plan 01)
-- [ ] 09-03-PLAN.md — Core logic: RoomBuilder.gd TileMap population engine + Game.gd sub-room state machine + OSMRoomGenerator deletion
+- [x] 09-03-PLAN.md — Core logic: RoomBuilder.gd TileMap population engine + Game.gd sub-room state machine + OSMRoomGenerator deletion
 - [ ] 09-04-PLAN.md — Integration: camera limit wiring into all sub-room transitions + full human verification checkpoint
 
 Wave 1 *(autonomous — parallel, no file overlap)*
