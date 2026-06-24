@@ -32,6 +32,31 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 	## Step 4: Determine source_id from layout["tileset_src"]
 	var source_id: int = layout["tileset_src"]  # SRC_MODERN=0 or SRC_DUNGEON=1
 
+	## Step 4b: Register all atlas tiles this sub-room will use.
+	## Godot 4 requires tiles to be registered on TileSetAtlasSource before set_cell() renders them.
+	var _src := tilemap.tile_set.get_source(source_id) as TileSetAtlasSource
+	if _src:
+		## Floor / decorative tiles — no collision.
+		for _ac: Vector2i in [
+			layout["floor_tile"],
+			RoomLayouts.MC_FLOOR_CRACK, RoomLayouts.MC_FLOOR_GRASS_ALT, RoomLayouts.MC_FLOOR_GRASS,
+		]:
+			if not _src.has_tile(_ac):
+				_src.create_tile(_ac)
+		## Solid tiles (walls + obstacles) — full-cell collision polygon on physics layer 0
+		## so the player and bullets actually collide with them.
+		for _ac: Vector2i in [layout["wall_tile"], layout["obstacle_tile"]]:
+			if not _src.has_tile(_ac):
+				_src.create_tile(_ac)
+			var _td := _src.get_tile_data(_ac, 0)
+			if _td.get_collision_polygons_count(0) == 0:
+				var _half := RoomLayouts.TILE_SIZE / 2.0
+				_td.add_collision_polygon(0)
+				_td.set_collision_polygon_points(0, 0, PackedVector2Array([
+					Vector2(-_half, -_half), Vector2(_half, -_half),
+					Vector2(_half, _half), Vector2(-_half, _half),
+				]))
+
 	## Step 5: Place floor tiles with optional mix rules per room
 	## Room 1 (ERBA): every 3rd tile (mix_idx % 3 == 0) → crack, % 3 == 1 → grass alt
 	## Room 2 (Altstadt): every 10th tile (mix_idx % 10 == 0) → grass
@@ -100,7 +125,7 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 		esp_idx += 1
 
 	## Step 10: Store exit tile coords on game_node for _open_exit_passage() RPC
-	game_node._exit_tile_coords = layout["exit_tile_coords"]
+	game_node._exit_tile_coords = Array(layout["exit_tile_coords"], TYPE_VECTOR2I, "", null)
 
 	## Step 11: Calculate and return pixel bounds for camera limit update
 	return Rect2(0, 0,
@@ -131,5 +156,4 @@ func set_tilemap_collision(room_id: int, enabled: bool, game_node: Node) -> void
 	var tilemap: TileMap = game_node.get_node_or_null("Room%d/TileMap" % room_id)
 	if tilemap == null:
 		return
-	tilemap.collision_layer = 1 if enabled else 0
-	tilemap.collision_mask  = 1 if enabled else 0
+	tilemap.collision_enabled = enabled

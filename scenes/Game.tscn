@@ -7,11 +7,11 @@
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_modern"]
 texture = ExtResource("2_tex_modern")
-texture_region_size = Vector2i(17, 17)
+texture_region_size = Vector2i(16, 16)
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_dungeon"]
 texture = ExtResource("3_tex_dungeon")
-texture_region_size = Vector2i(17, 17)
+texture_region_size = Vector2i(16, 16)
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_1bit"]
 texture = ExtResource("4_tex_1bit")
@@ -53,7 +53,7 @@ script = ExtResource("1_game")
 
 [node name="TileMap" type="TileMap" parent="Room1" unique_id=1527982491]
 tile_set = SubResource("TileSetModern")
-collision_layer = 1
+collision_enabled = true
 format = 2
 
 [node name="NavigationRegion2D" type="NavigationRegion2D" parent="Room1" unique_id=824513027]
@@ -101,7 +101,7 @@ visible = false
 
 [node name="TileMap" type="TileMap" parent="Room2"]
 tile_set = SubResource("TileSetModern")
-collision_layer = 0
+collision_enabled = false
 format = 2
 
 [node name="NavigationRegion2D" type="NavigationRegion2D" parent="Room2"]
@@ -143,7 +143,7 @@ visible = false
 
 [node name="TileMap" type="TileMap" parent="Room3"]
 tile_set = SubResource("TileSetDungeon")
-collision_layer = 0
+collision_enabled = false
 format = 2
 
 [node name="NavigationRegion2D" type="NavigationRegion2D" parent="Room3"]
