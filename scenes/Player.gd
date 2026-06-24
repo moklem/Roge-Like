@@ -79,6 +79,23 @@ func _ready() -> void:
 	element = Lobby.players.get(peer_id, {}).get("element", "")
 	# Phase 5: Initialise element/ability timers so they don't fire immediately
 	_fire_burst_timer = 4.0
+	## Phase 9 (D-01, MAP-07): Camera2D enabled only for the local authority player.
+	## Non-authority peers keep the camera disabled — never sync camera position over network.
+	if has_node("Camera2D"):
+		$Camera2D.enabled = is_multiplayer_authority()
+
+## Phase 9 (D-03, MAP-07): Called by Game.gd after each sub-room is built.
+## Sets Camera2D limit bounds to the sub-room's pixel bounding box.
+## sub_room_rect_px: Rect2 = Rect2(origin_x_px, origin_y_px, width_px, height_px)
+## Called on all peers locally (camera is not networked — each peer sets its own limits).
+func update_camera_limits(sub_room_rect_px: Rect2) -> void:
+	if not has_node("Camera2D"):
+		return
+	var cam: Camera2D = $Camera2D
+	cam.limit_left   = int(sub_room_rect_px.position.x)
+	cam.limit_top    = int(sub_room_rect_px.position.y)
+	cam.limit_right  = int(sub_room_rect_px.end.x)
+	cam.limit_bottom = int(sub_room_rect_px.end.y)
 
 func _process(_delta: float) -> void:
 	# D-12: downed visual tint runs on ALL peers from synced is_downed value
