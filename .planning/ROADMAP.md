@@ -1,6 +1,6 @@
 # Roadmap: Roge-Like
 
-**8 phases** | **84 v1 requirements** | **Granularity:** Coarse
+**9 phases** | **84 v1 requirements** | **Granularity:** Coarse
 
 ---
 
@@ -16,6 +16,7 @@
 | 6 | XP, Level-Up Cards & Evolution | Per-player progression loop — kill enemies to earn XP, level up triggers card pick, stage transforms appearance and unlocks ability | XP-01–09, EVOL-01–06 | yes |
 | 7 | CarHUD, Loop Timer & Difficulty Scaling | 3/3 | Complete    | 2026-06-19 |
 | 8 | Rooms 2 & 3, Boss | 3/3 | Complete   | 2026-06-22 |
+| 9 | Map Overhaul — TileMap Sub-Rooms | Full 3-room run with 5 sub-rooms each, TileMap-based layouts using Kenney assets, hardcoded OSM-derived geometry, scrolling camera | — | yes |
 
 ---
 
@@ -464,6 +465,41 @@ Wave 2 *(blocked on Waves 1 — needs Room2/Room3 + shared Entities + Boss.tscn 
 
 ---
 
+### Phase 9: Map Overhaul — TileMap Sub-Rooms
+
+**Goal:** Replace current polygon-based single rooms with TileMap-based sub-room system — each of the 3 locations has 5 sub-rooms (last sub-room of Room 3 is boss arena), layouts derived from real OSM geometry but fully hardcoded, Kenney Roguelike Modern City + Tiny Dungeon + 1-Bit Pack assets, scrolling camera following players
+**UI hint:** yes
+
+**Requirements:**
+
+- MAP-01: Each of the 3 rooms contains 5 sub-rooms connected by open doorways (no loading screen within a room)
+- MAP-02: Sub-rooms are cleared sequentially — clearing one opens the passage to the next
+- MAP-03: Sub-room 5 of Room 3 (Burg Altenburg) is the boss arena
+- MAP-04: Room 1 (ERBA) feel — open grass/park with overgrown dystopian city elements
+- MAP-05: Room 2 (Bamberg Altstadt) feel — urban street grid, tighter corridors between building blocks
+- MAP-06: Room 3 (Burg Altenburg) feel — stone castle, multiple courtyards, fortress walls
+- MAP-07: Camera scrolls to follow players within a sub-room (no fixed 800×600 viewport)
+- MAP-08: All layout geometry hardcoded — no OSM API calls at runtime
+- MAP-09: OSMRoomGenerator.gd replaced entirely — boundary walls and obstacles unified in one system
+- MAP-10: TileMap uses Kenney assets (Roguelike Modern City for rooms 1+2, Tiny Dungeon for room 3)
+- MAP-11: Kenney tiles are placeholders — asset paths swappable for ChatGPT-generated custom tiles
+
+**Success Criteria:**
+
+1. Full run traverses Room 1 (5 sub-rooms) → Room 2 (5 sub-rooms) → Room 3 (4 sub-rooms + boss) without API calls
+2. ERBA feels open/grassy, Altstadt feels like city streets, Burg feels like stone fortress
+3. Camera follows players smoothly within each sub-room
+
+**Pitfall watch:**
+
+- Camera + multiplayer — scrolling camera must use one viewport per client; never sync camera position over network
+- NavMesh rebake — NavigationRegion2D must be rebaked for each sub-room's TileMap geometry before enemies spawn
+- TileMap collision — ensure TileSet physics layers are set so enemies and players collide with wall tiles correctly
+- Sub-room transition — opening the passage must be host-authoritative; clients receive RPC to unlock the door, never open it locally
+- OSMRoomGenerator removal — all existing room geometry in Game.tscn must be migrated; nothing should reference the old generator
+
+---
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -473,6 +509,7 @@ Wave 2 *(blocked on Waves 1 — needs Room2/Room3 + shared Entities + Boss.tscn 
 | 3. Room 1, Enemy AI, Combat Core | 5/5 | Complete | 2026-05-09 |
 | 4. Weapons & Item Pickups | 5/5 | Complete | 2026-05-31 |
 | 5. Roles & Elements | 5/5 | Complete | 2026-06-15 |
-| 6. XP, Level-Up Cards & Evolution | 0/4 | Not started | — |
-| 7. CarHUD, Loop Timer & Difficulty Scaling | 0/3 | Not started | — |
-| 8. Rooms 2 & 3, Boss | 0/3 | Not started | — |
+| 6. XP, Level-Up Cards & Evolution | 4/4 | Complete | 2026-06-18 |
+| 7. CarHUD, Loop Timer & Difficulty Scaling | 3/3 | Complete | 2026-06-19 |
+| 8. Rooms 2 & 3, Boss | 3/3 | Complete | 2026-06-22 |
+| 9. Map Overhaul — TileMap Sub-Rooms | 0/? | Not started | — |
