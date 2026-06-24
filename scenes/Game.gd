@@ -111,6 +111,9 @@ func _ready() -> void:
 	## Build sub-room 1 of Room 1 immediately on all peers (deterministic from static data; no RPC needed for first load).
 	var _first_rect: Rect2 = _room_builder.build_sub_room(1, 1, self)
 	_current_sub_room_rect_px = _first_rect
+	## Phase 9 (D-03, MAP-07): Deferred so players are spawned before camera limits are applied.
+	## _spawn_all_players() is called after _ready() completes; call_deferred ensures ordering.
+	call_deferred("_update_all_camera_limits")
 
 	# Phase 8: Disable StaticBody2D collision on hidden rooms at startup.
 	# Room2 and Room3 start visible=false but Godot does NOT disable collision with visibility.
@@ -180,6 +183,8 @@ func _transition_to_room(next_room: int) -> void:
 	if _room_builder != null:
 		var _trans_rect: Rect2 = _room_builder.build_sub_room(current_room, 1, self)
 		_current_sub_room_rect_px = _trans_rect
+		## Phase 9 (D-03, MAP-07): Update camera limits for all players after room transition.
+		_update_all_camera_limits()
 
 	# Teleport players to the new room's first sub-room spawn points (just updated by build_sub_room)
 	_teleport_players_to_spawn()
@@ -243,6 +248,14 @@ func _check_room_clear() -> void:
 # SUB-ROOM PROGRESSION (Phase 9 — MAP-01, MAP-02, MAP-03, D-08, D-10, D-11, D-12)
 # ==============================================================================
 
+## Phase 9 (D-03, MAP-07): Updates Camera2D.limit_* on all players to match the current sub-room bounds.
+## Called on all peers after every sub-room build (call_local context — no RPC needed).
+## Must be called AFTER _current_sub_room_rect_px is set.
+func _update_all_camera_limits() -> void:
+	for p in get_tree().get_nodes_in_group("players"):
+		if is_instance_valid(p) and p.has_method("update_camera_limits"):
+			p.update_camera_limits(_current_sub_room_rect_px)
+
 ## Phase 9 (D-08, D-10, MAP-01, MAP-02): Advance to the next sub-room within the current location.
 ## Called by host when _check_sub_room_clear() detects all enemies dead.
 ## If next == 6: build connector. If connector end reached: call _transition_to_room.rpc(next_room).
@@ -261,6 +274,8 @@ func _transition_to_sub_room(next: int) -> void:
 	else:
 		rect = _room_builder.build_sub_room(current_room, next, self)
 	_current_sub_room_rect_px = rect
+	## Phase 9 (D-03, MAP-07): Update camera limits for all players after sub-room transition.
+	_update_all_camera_limits()
 	## Teleport players to this sub-room's spawn points (already updated by build_sub_room)
 	_teleport_players_to_spawn()
 	## Bake navmesh for new sub-room geometry (host + all peers; bake is local)
