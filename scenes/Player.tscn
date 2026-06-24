@@ -171,3 +171,13 @@ visible = false
 [node name="PlayerHUD" parent="." instance=ExtResource("3_player_hud")]
 
 [node name="CardOverlay" parent="." instance=ExtResource("4_card_overlay")]
+
+[node name="Camera2D" type="Camera2D" parent="."]
+enabled = false
+zoom = Vector2(1.5, 1.5)
+position_smoothing_enabled = true
+position_smoothing_speed = 5.0
+limit_left = 0
+limit_top = 0
+limit_right = 1040
+limit_bottom = 704
