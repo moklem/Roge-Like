@@ -62,125 +62,117 @@ const BIT_FLOOR_FILL := Vector2i(0, 4)  ## floor tile variety [ASSUMED]
 ## SUB_ROOM_DATA — keyed by room_id (1, 2, 3) then sub_room_id (1–6 or 1–5)
 ##
 ## Each sub-room dictionary shape (D-06 extended):
-##   "floor"            : Array[Rect2i]   — floor tile fill rectangles
-##   "walls"            : Array[Rect2i]   — wall tile fill rectangles (2-tile perimeter)
-##   "obstacles"        : Array[Rect2i]   — solid obstacle rectangles
-##   "exit_dir"         : Vector2i        — exit direction (Vector2i(1,0) = right; Vector2i(0,0) = no exit)
-##   "exit_tile_coords" : Array[Vector2i] — the 3 wall tile coords forming the blocked exit passage
-##   "spawn_points"     : Array[Vector2]  — player teleport positions in pixels (tile * TILE_SIZE)
-##   "enemy_spawns"     : Array[Vector2]  — enemy spawn positions in pixels
 ##   "width_tiles"      : int             — sub-room width in tiles
 ##   "height_tiles"     : int             — sub-room height in tiles
 ##   "tileset_src"      : int             — which TileSet source ID to use
 ##   "floor_tile"       : Vector2i        — primary floor atlas coord
 ##   "wall_tile"        : Vector2i        — wall atlas coord
 ##   "obstacle_tile"    : Vector2i        — obstacle atlas coord
+##   "exit_dir"         : Vector2i        — exit direction (Vector2i(1,0) = right; Vector2i(0,0) = no exit)
+##   "exit_tile_coords" : Array[Vector2i] — the 6 wall tile coords forming the blocked exit passage
+##   "walls"            : Array[Rect2i]   — wall tile fill rectangles (2-tile perimeter)
+##   "floor"            : Array[Rect2i]   — floor tile fill rectangles
+##   "obstacles"        : Array[Rect2i]   — solid obstacle rectangles
+##   "spawn_points"     : Array[Vector2]  — player teleport positions in pixels (tile * TILE_SIZE)
+##   "enemy_spawns"     : Array[Vector2]  — enemy spawn positions in pixels
 ## ─────────────────────────────────────────────────────────────────────────────
 static var SUB_ROOM_DATA: Dictionary = {
 
-	## ═══════════════════════════════════════════════════════════════════════
-	## ROOM 1: ERBA (Roguelike Modern City tileset, grass-dominant, open feel)
-	## ═══════════════════════════════════════════════════════════════════════
+	## =======================================================================
+	## ROOM 1: ERBA-INSEL BAMBERG (Modern City, grass, organic tapered island)
+	## =======================================================================
 	1: {
-		## ── ERBA SR-1: Open island intro — lightest density ────────────────
-		## 50×35 tiles. Perimeter wall 2 tiles. Inner floor 46×31.
-		## 2 small obstacle blocks. Exit right wall at row 17.
 		1: {
-			"width_tiles":  50,
-			"height_tiles": 35,
-			"tileset_src":  0,  # SRC_MODERN
-			"floor_tile":   Vector2i(0, 16),  # MC_FLOOR_GRASS
-			"wall_tile":    Vector2i(0, 0),   # MC_WALL_BRICK
-			"obstacle_tile": Vector2i(3, 0),  # MC_OBSTACLE_ROOF
-			"exit_dir": Vector2i(1, 0),
-			# exit_tile_coords: right wall (x=48,49) at rows 16,17,18 — 3-tile gap
-			"exit_tile_coords": [
-				Vector2i(48, 16), Vector2i(48, 17), Vector2i(48, 18),
-				Vector2i(49, 16), Vector2i(49, 17), Vector2i(49, 18),
-			],
-			# Perimeter walls (2-tile thick): top, bottom, left, right
-			"walls": [
-				Rect2i(0, 0, 50, 2),       # top wall
-				Rect2i(0, 33, 50, 2),      # bottom wall
-				Rect2i(0, 0, 2, 35),       # left wall
-				Rect2i(48, 0, 2, 35),      # right wall
-			],
-			# Floor: inner area 46×31 tiles
-			"floor": [
-				Rect2i(2, 2, 46, 31),      # main floor
-			],
-			# Obstacles: 2 small blocks (3×3 and 4×4)
-			"obstacles": [
-				Rect2i(8, 8,  4, 4),   # NW building block
-				Rect2i(34, 22, 3, 3),  # SE small block
-			],
-			# Player spawn points (pixels): left quarter, 3 vertical positions
-			"spawn_points": [
-				Vector2(5 * 16, 9 * 16),
-				Vector2(5 * 16, 17 * 16),
-				Vector2(5 * 16, 25 * 16),
-			],
-			# Enemy spawn points (pixels): corners and right side
-			"enemy_spawns": [
-				Vector2(38 * 16, 5 * 16),
-				Vector2(38 * 16, 29 * 16),
-				Vector2(20 * 16, 5 * 16),
-				Vector2(20 * 16, 29 * 16),
-				Vector2(44 * 16, 12 * 16),
-				Vector2(44 * 16, 22 * 16),
-			],
-		},
-
-		## ── ERBA SR-2: Open park + first building blocks ────────────────────
-		## 55×38 tiles. 2–3 obstacle blocks. Exit right wall at row 19.
-		2: {
-			"width_tiles":  55,
-			"height_tiles": 38,
+			"width_tiles":  52,
+			"height_tiles": 36,
 			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 16),  # MC_FLOOR_GRASS
+			"floor_tile":   Vector2i(0, 16),
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(3, 0),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
-				Vector2i(53, 18), Vector2i(53, 19), Vector2i(53, 20),
-				Vector2i(54, 18), Vector2i(54, 19), Vector2i(54, 20),
+				Vector2i(50, 17), Vector2i(50, 18), Vector2i(50, 19),
+				Vector2i(51, 17), Vector2i(51, 18), Vector2i(51, 19),
 			],
 			"walls": [
-				Rect2i(0, 0, 55, 2),
-				Rect2i(0, 36, 55, 2),
-				Rect2i(0, 0, 2, 38),
-				Rect2i(53, 0, 2, 38),
+				Rect2i(0, 0, 52, 2),
+				Rect2i(0, 34, 52, 2),
+				Rect2i(0, 0, 2, 36),
+				Rect2i(50, 0, 2, 36),
+				Rect2i(2, 2, 11, 6),
+				Rect2i(39, 2, 11, 6),
+				Rect2i(2, 28, 11, 6),
+				Rect2i(39, 28, 11, 6),
 			],
 			"floor": [
-				Rect2i(2, 2, 51, 34),
+				Rect2i(2, 2, 48, 32),
 			],
 			"obstacles": [
-				Rect2i(8, 8, 5, 5),    # NW block
-				Rect2i(30, 20, 4, 4),  # center block
-				Rect2i(40, 8, 4, 4),   # NE block
+				Rect2i(22, 15, 9, 7),
 			],
 			"spawn_points": [
-				Vector2(5 * 16, 10 * 16),
-				Vector2(5 * 16, 19 * 16),
-				Vector2(5 * 16, 28 * 16),
+				Vector2(6 * 16, 12 * 16),
+				Vector2(6 * 16, 18 * 16),
+				Vector2(6 * 16, 24 * 16),
 			],
 			"enemy_spawns": [
-				Vector2(42 * 16, 5 * 16),
-				Vector2(42 * 16, 32 * 16),
-				Vector2(20 * 16, 5 * 16),
-				Vector2(20 * 16, 32 * 16),
-				Vector2(48 * 16, 12 * 16),
-				Vector2(48 * 16, 26 * 16),
+				Vector2(40 * 16, 15 * 16),
+				Vector2(40 * 16, 21 * 16),
+				Vector2(44 * 16, 18 * 16),
+				Vector2(24 * 16, 24 * 16),
+				Vector2(36 * 16, 24 * 16),
+				Vector2(16 * 16, 9 * 16),
 			],
 		},
-
-		## ── ERBA SR-3: Mixed asphalt/grass, 3–4 obstacles ──────────────────
-		## 60×40 tiles. Exit right wall at row 20.
+		2: {
+			"width_tiles":  56,
+			"height_tiles": 38,
+			"tileset_src":  0,
+			"floor_tile":   Vector2i(0, 16),
+			"wall_tile":    Vector2i(0, 0),
+			"obstacle_tile": Vector2i(3, 0),
+			"exit_dir": Vector2i(1, 0),
+			"exit_tile_coords": [
+				Vector2i(54, 18), Vector2i(54, 19), Vector2i(54, 20),
+				Vector2i(55, 18), Vector2i(55, 19), Vector2i(55, 20),
+			],
+			"walls": [
+				Rect2i(0, 0, 56, 2),
+				Rect2i(0, 36, 56, 2),
+				Rect2i(0, 0, 2, 38),
+				Rect2i(54, 0, 2, 38),
+				Rect2i(2, 2, 12, 7),
+				Rect2i(42, 2, 12, 7),
+				Rect2i(2, 29, 12, 7),
+				Rect2i(42, 29, 12, 7),
+				Rect2i(24, 2, 8, 5),
+			],
+			"floor": [
+				Rect2i(2, 2, 52, 34),
+			],
+			"obstacles": [
+				Rect2i(20, 16, 8, 7),
+				Rect2i(34, 18, 8, 7),
+			],
+			"spawn_points": [
+				Vector2(6 * 16, 13 * 16),
+				Vector2(6 * 16, 19 * 16),
+				Vector2(6 * 16, 25 * 16),
+			],
+			"enemy_spawns": [
+				Vector2(46 * 16, 18 * 16),
+				Vector2(46 * 16, 24 * 16),
+				Vector2(30 * 16, 13 * 16),
+				Vector2(16 * 16, 24 * 16),
+				Vector2(30 * 16, 24 * 16),
+				Vector2(48 * 16, 12 * 16),
+			],
+		},
 		3: {
 			"width_tiles":  60,
 			"height_tiles": 40,
 			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 16),  # MC_FLOOR_GRASS
+			"floor_tile":   Vector2i(0, 16),
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(3, 0),
 			"exit_dir": Vector2i(1, 0),
@@ -193,86 +185,88 @@ static var SUB_ROOM_DATA: Dictionary = {
 				Rect2i(0, 38, 60, 2),
 				Rect2i(0, 0, 2, 40),
 				Rect2i(58, 0, 2, 40),
+				Rect2i(2, 2, 13, 7),
+				Rect2i(45, 2, 13, 7),
+				Rect2i(2, 30, 13, 8),
+				Rect2i(45, 30, 13, 8),
+				Rect2i(26, 2, 9, 5),
+				Rect2i(26, 33, 9, 5),
 			],
 			"floor": [
 				Rect2i(2, 2, 56, 36),
 			],
 			"obstacles": [
-				Rect2i(8, 8, 5, 5),    # NW
-				Rect2i(8, 26, 5, 5),   # SW
-				Rect2i(30, 14, 6, 6),  # center
-				Rect2i(42, 27, 4, 5),  # SE quadrant
+				Rect2i(20, 16, 7, 8),
+				Rect2i(33, 16, 7, 8),
+				Rect2i(46, 17, 5, 6),
 			],
 			"spawn_points": [
-				Vector2(5 * 16, 10 * 16),
-				Vector2(5 * 16, 20 * 16),
-				Vector2(5 * 16, 30 * 16),
+				Vector2(6 * 16, 14 * 16),
+				Vector2(6 * 16, 20 * 16),
+				Vector2(6 * 16, 26 * 16),
 			],
 			"enemy_spawns": [
-				Vector2(46 * 16, 5 * 16),
-				Vector2(46 * 16, 34 * 16),
-				Vector2(22 * 16, 5 * 16),
-				Vector2(22 * 16, 34 * 16),
-				Vector2(52 * 16, 14 * 16),
+				Vector2(40 * 16, 12 * 16),
+				Vector2(54 * 16, 20 * 16),
+				Vector2(40 * 16, 27 * 16),
+				Vector2(20 * 16, 27 * 16),
 				Vector2(52 * 16, 26 * 16),
-				Vector2(34 * 16, 5 * 16),
+				Vector2(30 * 16, 12 * 16),
+				Vector2(46 * 16, 27 * 16),
 			],
 		},
-
-		## ── ERBA SR-4: Denser buildings, narrowing paths ───────────────────
-		## 60×42 tiles. 4–5 obstacle blocks. Exit right wall at row 21.
 		4: {
-			"width_tiles":  60,
+			"width_tiles":  62,
 			"height_tiles": 42,
 			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 16),  # MC_FLOOR_GRASS
+			"floor_tile":   Vector2i(0, 16),
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(3, 0),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
-				Vector2i(58, 20), Vector2i(58, 21), Vector2i(58, 22),
-				Vector2i(59, 20), Vector2i(59, 21), Vector2i(59, 22),
+				Vector2i(60, 20), Vector2i(60, 21), Vector2i(60, 22),
+				Vector2i(61, 20), Vector2i(61, 21), Vector2i(61, 22),
 			],
 			"walls": [
-				Rect2i(0, 0, 60, 2),
-				Rect2i(0, 40, 60, 2),
+				Rect2i(0, 0, 62, 2),
+				Rect2i(0, 40, 62, 2),
 				Rect2i(0, 0, 2, 42),
-				Rect2i(58, 0, 2, 42),
+				Rect2i(60, 0, 2, 42),
+				Rect2i(2, 2, 14, 8),
+				Rect2i(46, 2, 14, 8),
+				Rect2i(2, 31, 14, 9),
+				Rect2i(46, 31, 14, 9),
+				Rect2i(28, 2, 10, 6),
+				Rect2i(20, 34, 10, 6),
 			],
 			"floor": [
-				Rect2i(2, 2, 56, 38),
+				Rect2i(2, 2, 58, 38),
 			],
 			"obstacles": [
-				Rect2i(8, 8, 6, 6),    # NW
-				Rect2i(8, 27, 6, 6),   # SW
-				Rect2i(28, 10, 6, 7),  # upper center
-				Rect2i(28, 25, 6, 7),  # lower center
-				Rect2i(44, 16, 5, 5),  # mid-right
+				Rect2i(20, 17, 7, 8),
+				Rect2i(34, 17, 7, 8),
+				Rect2i(46, 18, 6, 7),
 			],
 			"spawn_points": [
-				Vector2(5 * 16, 10 * 16),
-				Vector2(5 * 16, 21 * 16),
-				Vector2(5 * 16, 32 * 16),
+				Vector2(6 * 16, 15 * 16),
+				Vector2(6 * 16, 21 * 16),
+				Vector2(6 * 16, 27 * 16),
 			],
 			"enemy_spawns": [
-				Vector2(46 * 16, 5 * 16),
-				Vector2(46 * 16, 36 * 16),
-				Vector2(22 * 16, 5 * 16),
-				Vector2(22 * 16, 36 * 16),
-				Vector2(52 * 16, 14 * 16),
-				Vector2(52 * 16, 28 * 16),
-				Vector2(36 * 16, 5 * 16),
-				Vector2(36 * 16, 36 * 16),
+				Vector2(43 * 16, 13 * 16),
+				Vector2(54 * 16, 21 * 16),
+				Vector2(43 * 16, 28 * 16),
+				Vector2(22 * 16, 28 * 16),
+				Vector2(54 * 16, 27 * 16),
+				Vector2(31 * 16, 13 * 16),
+				Vector2(46 * 16, 28 * 16),
 			],
 		},
-
-		## ── ERBA SR-5: Pre-corridor — most obstacles, heaviest density ─────
-		## 65×44 tiles. 5–6 obstacle blocks. Exit right wall at row 22.
 		5: {
 			"width_tiles":  65,
 			"height_tiles": 44,
 			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 16),  # MC_FLOOR_GRASS
+			"floor_tile":   Vector2i(0, 16),
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(3, 0),
 			"exit_dir": Vector2i(1, 0),
@@ -285,78 +279,75 @@ static var SUB_ROOM_DATA: Dictionary = {
 				Rect2i(0, 42, 65, 2),
 				Rect2i(0, 0, 2, 44),
 				Rect2i(63, 0, 2, 44),
+				Rect2i(2, 2, 15, 9),
+				Rect2i(48, 2, 15, 9),
+				Rect2i(2, 32, 15, 10),
+				Rect2i(48, 32, 15, 10),
+				Rect2i(30, 2, 11, 6),
+				Rect2i(24, 36, 11, 6),
+				Rect2i(46, 35, 8, 7),
 			],
 			"floor": [
 				Rect2i(2, 2, 61, 40),
 			],
 			"obstacles": [
-				Rect2i(8, 7, 7, 7),    # NW
-				Rect2i(8, 29, 7, 7),   # SW
-				Rect2i(25, 10, 7, 8),  # upper left-center
-				Rect2i(25, 25, 7, 8),  # lower left-center
-				Rect2i(44, 10, 6, 7),  # upper right-center
-				Rect2i(44, 26, 6, 6),  # lower right-center
+				Rect2i(21, 18, 7, 8),
+				Rect2i(35, 18, 7, 8),
+				Rect2i(49, 19, 6, 7),
 			],
 			"spawn_points": [
-				Vector2(5 * 16, 11 * 16),
-				Vector2(5 * 16, 22 * 16),
-				Vector2(5 * 16, 33 * 16),
+				Vector2(6 * 16, 16 * 16),
+				Vector2(6 * 16, 22 * 16),
+				Vector2(6 * 16, 28 * 16),
 			],
 			"enemy_spawns": [
-				Vector2(50 * 16, 5 * 16),
-				Vector2(50 * 16, 38 * 16),
-				Vector2(22 * 16, 5 * 16),
-				Vector2(22 * 16, 38 * 16),
-				Vector2(57 * 16, 14 * 16),
-				Vector2(57 * 16, 30 * 16),
-				Vector2(36 * 16, 5 * 16),
-				Vector2(36 * 16, 38 * 16),
+				Vector2(45 * 16, 14 * 16),
+				Vector2(57 * 16, 22 * 16),
+				Vector2(45 * 16, 29 * 16),
+				Vector2(20 * 16, 29 * 16),
+				Vector2(57 * 16, 28 * 16),
+				Vector2(33 * 16, 14 * 16),
+				Vector2(46 * 16, 29 * 16),
+				Vector2(30 * 16, 22 * 16),
 			],
 		},
-
-		## ── ERBA SR-6 (Connector): Straight horizontal road corridor ───────
-		## 80×10 tiles. Minimal walls (1-tile top/bottom). Road floor. No obstacles.
-		## Full-width exit — connector ends at right edge.
 		6: {
 			"width_tiles":  80,
-			"height_tiles": 10,
+			"height_tiles": 9,
 			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 15),   # MC_CONNECTOR_ROAD
-			"wall_tile":    Vector2i(0, 0),    # MC_WALL_BRICK
-			"obstacle_tile": Vector2i(3, 0),   # unused in connector
+			"floor_tile":   Vector2i(0, 15),
+			"wall_tile":    Vector2i(0, 0),
+			"obstacle_tile": Vector2i(3, 0),
 			"exit_dir": Vector2i(1, 0),
-			# Connector exit: full right edge (no blocked-wall exit passage needed)
 			"exit_tile_coords": [],
 			"walls": [
-				Rect2i(0, 0, 80, 1),   # top wall (1 tile)
-				Rect2i(0, 9, 80, 1),   # bottom wall (1 tile)
+				Rect2i(0, 0, 80, 1),
+				Rect2i(0, 8, 80, 1),
 			],
 			"floor": [
-				Rect2i(0, 1, 80, 8),   # full corridor floor
+				Rect2i(0, 1, 80, 7),
 			],
 			"obstacles": [],
 			"spawn_points": [
 				Vector2(4 * 16, 3 * 16),
+				Vector2(4 * 16, 4 * 16),
 				Vector2(4 * 16, 5 * 16),
-				Vector2(4 * 16, 7 * 16),
 			],
 			"enemy_spawns": [],
 		},
 	},
 
-	## ═══════════════════════════════════════════════════════════════════════
-	## ROOM 2: BAMBERG ALTSTADT (Roguelike Modern City, asphalt-dominant, tighter)
-	## ═══════════════════════════════════════════════════════════════════════
+	## =======================================================================
+	## ROOM 2: BAMBERG ALTSTADT (Modern City, asphalt, angular street network)
+	## =======================================================================
 	2: {
-		## ── ALTSTADT SR-1: Entry square — slightly open ─────────────────────
-		## 55×38 tiles. More obstacles than ERBA SR-1. Exit right wall at row 19.
 		1: {
 			"width_tiles":  55,
 			"height_tiles": 38,
 			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 13),   # MC_FLOOR_ASPHALT
-			"wall_tile":    Vector2i(0, 0),    # MC_WALL_BRICK
-			"obstacle_tile": Vector2i(3, 0),   # MC_OBSTACLE_ROOF
+			"floor_tile":   Vector2i(0, 13),
+			"wall_tile":    Vector2i(0, 0),
+			"obstacle_tile": Vector2i(3, 0),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
 				Vector2i(53, 18), Vector2i(53, 19), Vector2i(53, 20),
@@ -367,86 +358,80 @@ static var SUB_ROOM_DATA: Dictionary = {
 				Rect2i(0, 36, 55, 2),
 				Rect2i(0, 0, 2, 38),
 				Rect2i(53, 0, 2, 38),
+				Rect2i(2, 2, 12, 9),
+				Rect2i(41, 2, 12, 9),
+				Rect2i(2, 27, 12, 9),
+				Rect2i(41, 27, 12, 9),
 			],
 			"floor": [
 				Rect2i(2, 2, 51, 34),
 			],
 			"obstacles": [
-				Rect2i(8, 6, 6, 7),    # NW building
-				Rect2i(8, 24, 6, 7),   # SW building
-				Rect2i(24, 12, 5, 5),  # center-left block
-				Rect2i(38, 6, 5, 5),   # NE block
-				Rect2i(38, 26, 5, 5),  # SE block
+				Rect2i(24, 16, 7, 6),
 			],
 			"spawn_points": [
-				Vector2(5 * 16, 9 * 16),
-				Vector2(5 * 16, 19 * 16),
-				Vector2(5 * 16, 29 * 16),
+				Vector2(6 * 16, 14 * 16),
+				Vector2(6 * 16, 19 * 16),
+				Vector2(6 * 16, 24 * 16),
 			],
 			"enemy_spawns": [
-				Vector2(44 * 16, 5 * 16),
-				Vector2(44 * 16, 32 * 16),
-				Vector2(20 * 16, 5 * 16),
-				Vector2(20 * 16, 32 * 16),
-				Vector2(50 * 16, 14 * 16),
-				Vector2(50 * 16, 24 * 16),
+				Vector2(46 * 16, 19 * 16),
+				Vector2(38 * 16, 9 * 16),
+				Vector2(38 * 16, 29 * 16),
+				Vector2(24 * 16, 9 * 16),
+				Vector2(24 * 16, 29 * 16),
+				Vector2(50 * 16, 19 * 16),
 			],
 		},
-
-		## ── ALTSTADT SR-2: First narrow street corridors ────────────────────
-		## 55×40 tiles. Obstacle rows creating 2 main corridors, each 5–6 tiles wide.
 		2: {
-			"width_tiles":  55,
+			"width_tiles":  56,
 			"height_tiles": 40,
 			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 13),  # MC_FLOOR_ASPHALT
+			"floor_tile":   Vector2i(0, 13),
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(3, 0),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
-				Vector2i(53, 19), Vector2i(53, 20), Vector2i(53, 21),
 				Vector2i(54, 19), Vector2i(54, 20), Vector2i(54, 21),
+				Vector2i(55, 19), Vector2i(55, 20), Vector2i(55, 21),
 			],
 			"walls": [
-				Rect2i(0, 0, 55, 2),
-				Rect2i(0, 38, 55, 2),
+				Rect2i(0, 0, 56, 2),
+				Rect2i(0, 38, 56, 2),
 				Rect2i(0, 0, 2, 40),
-				Rect2i(53, 0, 2, 40),
+				Rect2i(54, 0, 2, 40),
+				Rect2i(2, 2, 10, 8),
+				Rect2i(44, 2, 10, 8),
+				Rect2i(2, 30, 10, 8),
+				Rect2i(44, 30, 10, 8),
+				Rect2i(20, 2, 16, 7),
+				Rect2i(20, 31, 16, 7),
 			],
 			"floor": [
-				Rect2i(2, 2, 51, 36),
+				Rect2i(2, 2, 52, 36),
 			],
-			# Two building rows creating corridors (each block leaves 5-tile gaps)
 			"obstacles": [
-				Rect2i(8, 5, 8, 12),   # north row, left block
-				Rect2i(22, 5, 8, 12),  # north row, right block
-				Rect2i(36, 5, 8, 12),  # north row, far right
-				Rect2i(8, 22, 8, 12),  # south row, left block
-				Rect2i(22, 22, 8, 12), # south row, center
-				Rect2i(36, 22, 8, 12), # south row, far right
+				Rect2i(24, 17, 8, 6),
 			],
 			"spawn_points": [
-				Vector2(5 * 16, 8 * 16),
-				Vector2(5 * 16, 20 * 16),
-				Vector2(5 * 16, 32 * 16),
+				Vector2(6 * 16, 15 * 16),
+				Vector2(6 * 16, 20 * 16),
+				Vector2(6 * 16, 25 * 16),
 			],
 			"enemy_spawns": [
-				Vector2(44 * 16, 5 * 16),
-				Vector2(44 * 16, 33 * 16),
-				Vector2(18 * 16, 3 * 16),
-				Vector2(18 * 16, 35 * 16),
-				Vector2(50 * 16, 18 * 16),
-				Vector2(50 * 16, 30 * 16),
+				Vector2(48 * 16, 20 * 16),
+				Vector2(40 * 16, 13 * 16),
+				Vector2(40 * 16, 28 * 16),
+				Vector2(16 * 16, 20 * 16),
+				Vector2(28 * 16, 28 * 16),
+				Vector2(50 * 16, 13 * 16),
 			],
 		},
-
-		## ── ALTSTADT SR-3: Dense block grid, multiple choke points ──────────
-		## 60×42 tiles. 3 corridor paths, 2 of them 4 tiles wide. Exit right row 21.
 		3: {
 			"width_tiles":  60,
 			"height_tiles": 42,
 			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 13),  # MC_FLOOR_ASPHALT
+			"floor_tile":   Vector2i(0, 13),
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(3, 0),
 			"exit_dir": Vector2i(1, 0),
@@ -459,213 +444,158 @@ static var SUB_ROOM_DATA: Dictionary = {
 				Rect2i(0, 40, 60, 2),
 				Rect2i(0, 0, 2, 42),
 				Rect2i(58, 0, 2, 42),
+				Rect2i(2, 2, 11, 9),
+				Rect2i(47, 2, 11, 9),
+				Rect2i(2, 31, 11, 9),
+				Rect2i(47, 31, 11, 9),
+				Rect2i(24, 2, 12, 8),
+				Rect2i(24, 32, 12, 8),
 			],
 			"floor": [
 				Rect2i(2, 2, 56, 38),
 			],
-			# Dense grid: building blocks with 4-tile corridors between them
 			"obstacles": [
-				Rect2i(8, 5, 9, 14),   # NW large block
-				Rect2i(23, 5, 9, 14),  # N center block
-				Rect2i(38, 5, 9, 14),  # NE block
-				Rect2i(8, 23, 9, 14),  # SW large block
-				Rect2i(23, 23, 9, 14), # S center block
-				Rect2i(38, 23, 9, 14), # SE block
+				Rect2i(26, 17, 8, 8),
+				Rect2i(42, 18, 6, 7),
 			],
 			"spawn_points": [
-				Vector2(5 * 16, 10 * 16),
-				Vector2(5 * 16, 21 * 16),
-				Vector2(5 * 16, 32 * 16),
+				Vector2(6 * 16, 16 * 16),
+				Vector2(6 * 16, 21 * 16),
+				Vector2(6 * 16, 26 * 16),
 			],
 			"enemy_spawns": [
-				Vector2(48 * 16, 4 * 16),
-				Vector2(48 * 16, 36 * 16),
-				Vector2(20 * 16, 3 * 16),
-				Vector2(20 * 16, 37 * 16),
-				Vector2(54 * 16, 16 * 16),
-				Vector2(54 * 16, 30 * 16),
-				Vector2(34 * 16, 3 * 16),
+				Vector2(52 * 16, 21 * 16),
+				Vector2(40 * 16, 12 * 16),
+				Vector2(40 * 16, 28 * 16),
+				Vector2(18 * 16, 21 * 16),
+				Vector2(20 * 16, 28 * 16),
+				Vector2(52 * 16, 27 * 16),
+				Vector2(44 * 16, 12 * 16),
 			],
 		},
-
-		## ── ALTSTADT SR-4: Tightest layout, punishes clustering ─────────────
-		## 60×44 tiles. Most building mass. 4-tile corridors. Exit right row 22.
 		4: {
-			"width_tiles":  60,
+			"width_tiles":  62,
 			"height_tiles": 44,
 			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 13),  # MC_FLOOR_ASPHALT
+			"floor_tile":   Vector2i(0, 13),
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(3, 0),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
-				Vector2i(58, 21), Vector2i(58, 22), Vector2i(58, 23),
-				Vector2i(59, 21), Vector2i(59, 22), Vector2i(59, 23),
+				Vector2i(60, 21), Vector2i(60, 22), Vector2i(60, 23),
+				Vector2i(61, 21), Vector2i(61, 22), Vector2i(61, 23),
 			],
 			"walls": [
-				Rect2i(0, 0, 60, 2),
-				Rect2i(0, 42, 60, 2),
+				Rect2i(0, 0, 62, 2),
+				Rect2i(0, 42, 62, 2),
 				Rect2i(0, 0, 2, 44),
-				Rect2i(58, 0, 2, 44),
+				Rect2i(60, 0, 2, 44),
+				Rect2i(2, 2, 13, 10),
+				Rect2i(47, 2, 13, 10),
+				Rect2i(2, 32, 13, 10),
+				Rect2i(47, 32, 13, 10),
+				Rect2i(20, 2, 12, 9),
+				Rect2i(34, 33, 12, 9),
 			],
 			"floor": [
-				Rect2i(2, 2, 56, 40),
+				Rect2i(2, 2, 58, 40),
 			],
-			# Tightest layout: L-shaped building arrangement, 4-tile gaps
 			"obstacles": [
-				Rect2i(8, 5, 10, 16),  # NW mega block
-				Rect2i(8, 23, 10, 16), # SW mega block
-				Rect2i(24, 9, 10, 9),  # center-top block
-				Rect2i(24, 26, 10, 9), # center-bottom block
-				Rect2i(40, 5, 8, 10),  # NE upper
-				Rect2i(40, 19, 8, 6),  # NE lower
-				Rect2i(40, 29, 8, 10), # SE block
+				Rect2i(24, 18, 7, 8),
+				Rect2i(40, 19, 7, 8),
 			],
 			"spawn_points": [
-				Vector2(5 * 16, 10 * 16),
-				Vector2(5 * 16, 22 * 16),
-				Vector2(5 * 16, 34 * 16),
+				Vector2(6 * 16, 14 * 16),
+				Vector2(6 * 16, 21 * 16),
+				Vector2(6 * 16, 28 * 16),
 			],
 			"enemy_spawns": [
-				Vector2(50 * 16, 4 * 16),
-				Vector2(50 * 16, 38 * 16),
-				Vector2(20 * 16, 3 * 16),
-				Vector2(20 * 16, 39 * 16),
-				Vector2(56 * 16, 16 * 16),
-				Vector2(56 * 16, 30 * 16),
-				Vector2(36 * 16, 3 * 16),
-				Vector2(36 * 16, 39 * 16),
+				Vector2(54 * 16, 22 * 16),
+				Vector2(40 * 16, 13 * 16),
+				Vector2(36 * 16, 30 * 16),
+				Vector2(18 * 16, 22 * 16),
+				Vector2(20 * 16, 30 * 16),
+				Vector2(54 * 16, 28 * 16),
+				Vector2(50 * 16, 14 * 16),
 			],
 		},
-
-		## ── ALTSTADT SR-5: Large central courtyard + building mass ──────────
-		## 65×45 tiles. Large building block in center. Exit right row 22.
 		5: {
 			"width_tiles":  65,
-			"height_tiles": 45,
+			"height_tiles": 46,
 			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 13),  # MC_FLOOR_ASPHALT
+			"floor_tile":   Vector2i(0, 13),
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(3, 0),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
-				Vector2i(63, 21), Vector2i(63, 22), Vector2i(63, 23),
-				Vector2i(64, 21), Vector2i(64, 22), Vector2i(64, 23),
+				Vector2i(63, 22), Vector2i(63, 23), Vector2i(63, 24),
+				Vector2i(64, 22), Vector2i(64, 23), Vector2i(64, 24),
 			],
 			"walls": [
 				Rect2i(0, 0, 65, 2),
-				Rect2i(0, 43, 65, 2),
-				Rect2i(0, 0, 2, 45),
-				Rect2i(63, 0, 2, 45),
+				Rect2i(0, 44, 65, 2),
+				Rect2i(0, 0, 2, 46),
+				Rect2i(63, 0, 2, 46),
+				Rect2i(2, 2, 16, 12),
+				Rect2i(47, 2, 16, 12),
+				Rect2i(2, 32, 16, 12),
+				Rect2i(47, 32, 16, 12),
+				Rect2i(28, 2, 12, 7),
+				Rect2i(28, 37, 12, 7),
 			],
 			"floor": [
-				Rect2i(2, 2, 61, 41),
+				Rect2i(2, 2, 61, 42),
 			],
 			"obstacles": [
-				Rect2i(8, 6, 10, 10),   # NW block
-				Rect2i(8, 28, 10, 10),  # SW block
-				Rect2i(26, 8, 18, 12),  # large center-north block
-				Rect2i(26, 24, 18, 12), # large center-south block
-				Rect2i(50, 6, 8, 10),   # NE block
-				Rect2i(50, 28, 8, 10),  # SE block
+				Rect2i(30, 19, 8, 8),
 			],
 			"spawn_points": [
-				Vector2(5 * 16, 11 * 16),
-				Vector2(5 * 16, 22 * 16),
-				Vector2(5 * 16, 33 * 16),
+				Vector2(6 * 16, 17 * 16),
+				Vector2(6 * 16, 23 * 16),
+				Vector2(6 * 16, 29 * 16),
 			],
 			"enemy_spawns": [
-				Vector2(52 * 16, 4 * 16),
-				Vector2(52 * 16, 40 * 16),
-				Vector2(22 * 16, 4 * 16),
-				Vector2(22 * 16, 40 * 16),
-				Vector2(58 * 16, 16 * 16),
-				Vector2(58 * 16, 32 * 16),
-				Vector2(36 * 16, 4 * 16),
-				Vector2(36 * 16, 40 * 16),
+				Vector2(52 * 16, 23 * 16),
+				Vector2(44 * 16, 15 * 16),
+				Vector2(44 * 16, 30 * 16),
+				Vector2(24 * 16, 23 * 16),
+				Vector2(36 * 16, 15 * 16),
+				Vector2(24 * 16, 30 * 16),
+				Vector2(52 * 16, 29 * 16),
+				Vector2(36 * 16, 30 * 16),
 			],
 		},
-
-		## ── ALTSTADT SR-6 (Connector): Road corridor → Burg transition ─────────
-		## 80×10 tiles. Road floor (Modern City). Must use SRC_MODERN (0) since
-		## Room2/TileMap only has TileSetModern — source_id=1 would silently fail.
 		6: {
 			"width_tiles":  80,
-			"height_tiles": 10,
-			"tileset_src":  0,  # SRC_MODERN — Room2/TileMap only has source 0
-			"floor_tile":   Vector2i(0, 15),   # MC_CONNECTOR_ROAD (dark asphalt)
-			"wall_tile":    Vector2i(0, 0),    # MC_WALL_BRICK
-			"obstacle_tile": Vector2i(3, 0),   # unused
+			"height_tiles": 7,
+			"tileset_src":  0,
+			"floor_tile":   Vector2i(0, 15),
+			"wall_tile":    Vector2i(0, 0),
+			"obstacle_tile": Vector2i(3, 0),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [],
 			"walls": [
 				Rect2i(0, 0, 80, 1),
-				Rect2i(0, 9, 80, 1),
+				Rect2i(0, 6, 80, 1),
 			],
 			"floor": [
-				Rect2i(0, 1, 80, 8),
+				Rect2i(0, 1, 80, 5),
 			],
 			"obstacles": [],
 			"spawn_points": [
+				Vector2(4 * 16, 2 * 16),
 				Vector2(4 * 16, 3 * 16),
-				Vector2(4 * 16, 5 * 16),
-				Vector2(4 * 16, 7 * 16),
+				Vector2(4 * 16, 4 * 16),
 			],
 			"enemy_spawns": [],
 		},
 	},
 
-	## ═══════════════════════════════════════════════════════════════════════
-	## ROOM 3: BURG ALTENBURG (Tiny Dungeon tileset, stone fortress feel)
-	## No connector — SR-5 is boss arena, boss death ends loop.
-	## ═══════════════════════════════════════════════════════════════════════
+	## =======================================================================
+	## ROOM 3: BURG ALTENBURG BAMBERG (Tiny Dungeon, stone, angular bailey)
+	## =======================================================================
 	3: {
-		## ── BURG SR-1: Outer fortress courtyard ─────────────────────────────
-		## 55×40 tiles. 2–3 tower obstacle blocks. Exit right wall at row 20.
 		1: {
-			"width_tiles":  55,
-			"height_tiles": 40,
-			"tileset_src":  1,  # SRC_DUNGEON
-			"floor_tile":   Vector2i(0, 1),    # TD_FLOOR_STONE
-			"wall_tile":    Vector2i(0, 0),    # TD_WALL_CASTLE
-			"obstacle_tile": Vector2i(2, 0),   # TD_OBSTACLE_TOWER
-			"exit_dir": Vector2i(1, 0),
-			"exit_tile_coords": [
-				Vector2i(53, 19), Vector2i(53, 20), Vector2i(53, 21),
-				Vector2i(54, 19), Vector2i(54, 20), Vector2i(54, 21),
-			],
-			"walls": [
-				Rect2i(0, 0, 55, 2),
-				Rect2i(0, 38, 55, 2),
-				Rect2i(0, 0, 2, 40),
-				Rect2i(53, 0, 2, 40),
-			],
-			"floor": [
-				Rect2i(2, 2, 51, 36),
-			],
-			"obstacles": [
-				Rect2i(10, 8, 5, 5),   # NW tower
-				Rect2i(10, 26, 5, 5),  # SW tower
-				Rect2i(34, 16, 5, 5),  # center tower
-			],
-			"spawn_points": [
-				Vector2(5 * 16, 10 * 16),
-				Vector2(5 * 16, 20 * 16),
-				Vector2(5 * 16, 30 * 16),
-			],
-			"enemy_spawns": [
-				Vector2(44 * 16, 5 * 16),
-				Vector2(44 * 16, 34 * 16),
-				Vector2(22 * 16, 5 * 16),
-				Vector2(22 * 16, 34 * 16),
-				Vector2(50 * 16, 14 * 16),
-				Vector2(50 * 16, 26 * 16),
-			],
-		},
-
-		## ── BURG SR-2: Inner gatehouse passage ──────────────────────────────
-		## 55×40 tiles. Narrower walkway pattern. Exit right row 20.
-		2: {
 			"width_tiles":  55,
 			"height_tiles": 40,
 			"tileset_src":  1,
@@ -682,36 +612,75 @@ static var SUB_ROOM_DATA: Dictionary = {
 				Rect2i(0, 38, 55, 2),
 				Rect2i(0, 0, 2, 40),
 				Rect2i(53, 0, 2, 40),
+				Rect2i(2, 2, 10, 8),
+				Rect2i(43, 2, 10, 8),
+				Rect2i(2, 30, 10, 8),
+				Rect2i(43, 30, 10, 8),
 			],
 			"floor": [
 				Rect2i(2, 2, 51, 36),
 			],
-			# Gatehouse: two large blocks with narrow center passage
 			"obstacles": [
-				Rect2i(8, 5, 8, 12),   # north wall-block
-				Rect2i(8, 23, 8, 12),  # south wall-block
-				Rect2i(22, 8, 8, 10),  # center-north block
-				Rect2i(22, 22, 8, 10), # center-south block
-				Rect2i(38, 10, 5, 5),  # NE tower
-				Rect2i(38, 24, 5, 5),  # SE tower
+				Rect2i(25, 17, 6, 6),
 			],
 			"spawn_points": [
-				Vector2(5 * 16, 10 * 16),
-				Vector2(5 * 16, 20 * 16),
-				Vector2(5 * 16, 30 * 16),
+				Vector2(6 * 16, 15 * 16),
+				Vector2(6 * 16, 20 * 16),
+				Vector2(6 * 16, 25 * 16),
 			],
 			"enemy_spawns": [
-				Vector2(44 * 16, 4 * 16),
-				Vector2(44 * 16, 34 * 16),
-				Vector2(18 * 16, 3 * 16),
-				Vector2(18 * 16, 35 * 16),
-				Vector2(50 * 16, 16 * 16),
-				Vector2(50 * 16, 28 * 16),
+				Vector2(46 * 16, 20 * 16),
+				Vector2(40 * 16, 11 * 16),
+				Vector2(40 * 16, 29 * 16),
+				Vector2(24 * 16, 11 * 16),
+				Vector2(24 * 16, 29 * 16),
+				Vector2(48 * 16, 20 * 16),
 			],
 		},
-
-		## ── BURG SR-3: Second courtyard with tower obstacles ────────────────
-		## 60×42 tiles. 3–4 tower blocks. Exit right row 21.
+		2: {
+			"width_tiles":  56,
+			"height_tiles": 40,
+			"tileset_src":  1,
+			"floor_tile":   Vector2i(0, 1),
+			"wall_tile":    Vector2i(0, 0),
+			"obstacle_tile": Vector2i(2, 0),
+			"exit_dir": Vector2i(1, 0),
+			"exit_tile_coords": [
+				Vector2i(54, 19), Vector2i(54, 20), Vector2i(54, 21),
+				Vector2i(55, 19), Vector2i(55, 20), Vector2i(55, 21),
+			],
+			"walls": [
+				Rect2i(0, 0, 56, 2),
+				Rect2i(0, 38, 56, 2),
+				Rect2i(0, 0, 2, 40),
+				Rect2i(54, 0, 2, 40),
+				Rect2i(2, 2, 9, 8),
+				Rect2i(45, 2, 9, 8),
+				Rect2i(2, 30, 9, 8),
+				Rect2i(45, 30, 9, 8),
+				Rect2i(20, 2, 16, 11),
+				Rect2i(20, 27, 16, 11),
+			],
+			"floor": [
+				Rect2i(2, 2, 52, 36),
+			],
+			"obstacles": [
+				Rect2i(40, 18, 5, 5),
+			],
+			"spawn_points": [
+				Vector2(6 * 16, 15 * 16),
+				Vector2(6 * 16, 20 * 16),
+				Vector2(6 * 16, 25 * 16),
+			],
+			"enemy_spawns": [
+				Vector2(48 * 16, 20 * 16),
+				Vector2(28 * 16, 20 * 16),
+				Vector2(40 * 16, 11 * 16),
+				Vector2(40 * 16, 29 * 16),
+				Vector2(14 * 16, 20 * 16),
+				Vector2(50 * 16, 13 * 16),
+			],
+		},
 		3: {
 			"width_tiles":  60,
 			"height_tiles": 42,
@@ -729,36 +698,35 @@ static var SUB_ROOM_DATA: Dictionary = {
 				Rect2i(0, 40, 60, 2),
 				Rect2i(0, 0, 2, 42),
 				Rect2i(58, 0, 2, 42),
+				Rect2i(2, 2, 11, 9),
+				Rect2i(47, 2, 11, 9),
+				Rect2i(2, 31, 11, 9),
+				Rect2i(47, 31, 11, 9),
 			],
 			"floor": [
 				Rect2i(2, 2, 56, 38),
 			],
 			"obstacles": [
-				Rect2i(8, 7, 5, 5),    # NW tower
-				Rect2i(8, 29, 5, 5),   # SW tower
-				Rect2i(24, 12, 5, 5),  # center-west tower
-				Rect2i(24, 24, 5, 5),  # center-west lower tower
-				Rect2i(40, 7, 5, 5),   # NE tower
-				Rect2i(40, 29, 5, 5),  # SE tower
+				Rect2i(28, 9, 5, 5),
+				Rect2i(28, 28, 5, 5),
+				Rect2i(16, 18, 5, 5),
+				Rect2i(40, 18, 5, 5),
 			],
 			"spawn_points": [
-				Vector2(5 * 16, 10 * 16),
-				Vector2(5 * 16, 21 * 16),
-				Vector2(5 * 16, 32 * 16),
+				Vector2(6 * 16, 16 * 16),
+				Vector2(6 * 16, 21 * 16),
+				Vector2(6 * 16, 26 * 16),
 			],
 			"enemy_spawns": [
-				Vector2(48 * 16, 4 * 16),
-				Vector2(48 * 16, 36 * 16),
-				Vector2(20 * 16, 4 * 16),
-				Vector2(20 * 16, 36 * 16),
-				Vector2(54 * 16, 14 * 16),
-				Vector2(54 * 16, 28 * 16),
-				Vector2(34 * 16, 4 * 16),
+				Vector2(52 * 16, 21 * 16),
+				Vector2(40 * 16, 13 * 16),
+				Vector2(40 * 16, 30 * 16),
+				Vector2(20 * 16, 13 * 16),
+				Vector2(20 * 16, 30 * 16),
+				Vector2(52 * 16, 27 * 16),
+				Vector2(34 * 16, 21 * 16),
 			],
 		},
-
-		## ── BURG SR-4: Approach to keep — dense tower arrangement ───────────
-		## 65×44 tiles. Densest tower arrangement before boss. Exit right row 22.
 		4: {
 			"width_tiles":  65,
 			"height_tiles": 44,
@@ -776,42 +744,38 @@ static var SUB_ROOM_DATA: Dictionary = {
 				Rect2i(0, 42, 65, 2),
 				Rect2i(0, 0, 2, 44),
 				Rect2i(63, 0, 2, 44),
+				Rect2i(2, 2, 12, 9),
+				Rect2i(51, 2, 12, 9),
+				Rect2i(2, 33, 12, 9),
+				Rect2i(51, 33, 12, 9),
+				Rect2i(28, 2, 10, 7),
+				Rect2i(28, 35, 10, 7),
 			],
 			"floor": [
 				Rect2i(2, 2, 61, 40),
 			],
 			"obstacles": [
-				Rect2i(8, 7, 5, 5),    # NW tower
-				Rect2i(8, 17, 5, 5),   # W-upper tower
-				Rect2i(8, 31, 5, 5),   # SW tower
-				Rect2i(20, 10, 5, 5),  # inner NW
-				Rect2i(20, 28, 5, 5),  # inner SW
-				Rect2i(34, 7, 5, 5),   # N-center tower
-				Rect2i(34, 31, 5, 5),  # S-center tower
-				Rect2i(48, 10, 5, 5),  # NE tower
-				Rect2i(48, 28, 5, 5),  # SE tower
+				Rect2i(18, 18, 5, 5),
+				Rect2i(30, 16, 5, 5),
+				Rect2i(30, 26, 5, 5),
+				Rect2i(42, 18, 5, 5),
+				Rect2i(42, 28, 5, 5),
 			],
 			"spawn_points": [
-				Vector2(5 * 16, 11 * 16),
-				Vector2(5 * 16, 22 * 16),
-				Vector2(5 * 16, 33 * 16),
+				Vector2(6 * 16, 16 * 16),
+				Vector2(6 * 16, 22 * 16),
+				Vector2(6 * 16, 28 * 16),
 			],
 			"enemy_spawns": [
-				Vector2(54 * 16, 4 * 16),
-				Vector2(54 * 16, 38 * 16),
-				Vector2(22 * 16, 4 * 16),
-				Vector2(22 * 16, 38 * 16),
-				Vector2(60 * 16, 14 * 16),
-				Vector2(60 * 16, 30 * 16),
-				Vector2(40 * 16, 4 * 16),
-				Vector2(40 * 16, 38 * 16),
+				Vector2(54 * 16, 22 * 16),
+				Vector2(40 * 16, 12 * 16),
+				Vector2(38 * 16, 30 * 16),
+				Vector2(20 * 16, 30 * 16),
+				Vector2(54 * 16, 30 * 16),
+				Vector2(48 * 16, 12 * 16),
+				Vector2(24 * 16, 12 * 16),
 			],
 		},
-
-		## ── BURG SR-5 (Boss Arena): Open arena — boss fight ─────────────────
-		## 70×50 tiles. Open 40×30 center zone clear of obstacles.
-		## 3-tile perimeter wall. No exit (boss death → loop end).
-		## exit_dir = Vector2i(0, 0) signals no exit passage.
 		5: {
 			"width_tiles":  70,
 			"height_tiles": 50,
@@ -819,41 +783,40 @@ static var SUB_ROOM_DATA: Dictionary = {
 			"floor_tile":   Vector2i(0, 1),
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(2, 0),
-			"exit_dir": Vector2i(0, 0),  # no exit — boss death ends loop
-			"exit_tile_coords": [],       # no blocked exit passage
-			# 3-tile thick perimeter walls
+			"exit_dir": Vector2i(0, 0),
+			"exit_tile_coords": [],
 			"walls": [
-				Rect2i(0, 0, 70, 3),    # top wall 3 tiles thick
-				Rect2i(0, 47, 70, 3),   # bottom wall 3 tiles thick
-				Rect2i(0, 0, 3, 50),    # left wall 3 tiles thick
-				Rect2i(67, 0, 3, 50),   # right wall 3 tiles thick
+				Rect2i(0, 0, 70, 2),
+				Rect2i(0, 48, 70, 2),
+				Rect2i(0, 0, 2, 50),
+				Rect2i(68, 0, 2, 50),
+				Rect2i(2, 2, 3, 46),
+				Rect2i(67, 2, 3, 46),
+				Rect2i(2, 2, 66, 3),
+				Rect2i(2, 47, 66, 3),
+				Rect2i(5, 5, 8, 8),
+				Rect2i(59, 5, 8, 8),
+				Rect2i(5, 39, 8, 8),
+				Rect2i(59, 39, 8, 8),
 			],
 			"floor": [
-				Rect2i(3, 3, 64, 44),   # full inner area
+				Rect2i(2, 2, 66, 46),
 			],
-			# Corner towers + interior pillars for cover during boss fight
 			"obstacles": [
-				Rect2i(4, 4, 4, 4),     # NW corner tower
-				Rect2i(62, 4, 4, 4),    # NE corner tower
-				Rect2i(4, 42, 4, 4),    # SW corner tower
-				Rect2i(62, 42, 4, 4),   # SE corner tower
-				Rect2i(15, 14, 3, 3),   # inner NW pillar
-				Rect2i(52, 14, 3, 3),   # inner NE pillar
-				Rect2i(15, 33, 3, 3),   # inner SW pillar
-				Rect2i(52, 33, 3, 3),   # inner SE pillar
-				Rect2i(32, 10, 6, 3),   # top center wall
-				Rect2i(32, 37, 6, 3),   # bottom center wall
+				Rect2i(22, 20, 4, 4),
+				Rect2i(46, 20, 4, 4),
+				Rect2i(22, 30, 4, 4),
+				Rect2i(46, 30, 4, 4),
 			],
-			# Spawn points: bottom center (players enter from south)
 			"spawn_points": [
-				Vector2(32 * 16, 40 * 16),
+				Vector2(33 * 16, 42 * 16),
 				Vector2(35 * 16, 42 * 16),
-				Vector2(38 * 16, 40 * 16),
+				Vector2(38 * 16, 42 * 16),
 			],
 			"enemy_spawns": [
-				# Boss spawns in center of the arena
 				Vector2(35 * 16, 25 * 16),
 			],
 		},
 	},
+
 }

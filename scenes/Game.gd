@@ -52,7 +52,14 @@ var _room_builder: RoomBuilder = null
 var _current_sub_room_rect_px: Rect2 = Rect2(0, 0, 960, 640)
 
 ## Phase 9 (D-12): Connector exit trigger guard — prevents double-triggering room transition.
+## Also reused as the "transition in progress" guard for normal sub-room edge-walk advancement.
 var _connector_triggered: bool = false
+
+## Phase 9 (D-08): True once _open_exit_passage has cleared the exit gap for the current
+## sub-room. Gates the edge-walk detection in _process so players can only advance to the
+## next sub-room AFTER the waves are cleared (the right-edge area is otherwise reachable
+## before the exit opens). Reset to false on every sub-room / location transition.
+var _exit_open: bool = false
 
 ## Wave tracker — host-authoritative. Reset to 1 on each room entry via _spawn_enemies().
 var _current_wave: int = 1
@@ -176,8 +183,9 @@ func _transition_to_room(next_room: int) -> void:
 	current_room = next_room
 	## Phase 9 (D-10, MAP-01): Reset sub-room counter on location transition
 	current_sub_room = 1
-	## Phase 9 (D-12): Reset connector exit trigger guard
+	## Phase 9 (D-12): Reset connector exit trigger guard + exit-open gate
 	_connector_triggered = false
+	_exit_open = false
 
 	## Phase 9: Build sub-room 1 of the new location on all peers (call_local context).
 	if _room_builder != null:
@@ -263,7 +271,9 @@ func _update_all_camera_limits() -> void:
 @rpc("authority", "call_local", "reliable")
 func _transition_to_sub_room(next: int) -> void:
 	current_sub_room = next
+	_current_wave = 1
 	_connector_triggered = false
+	_exit_open = false
 	var rect: Rect2
 	if next == 6:
 		## Phase 9 (D-11, D-13): Connector sub-room — no enemies, pure walking corridor.
@@ -297,22 +307,24 @@ func _check_sub_room_clear() -> void:
 	if not multiplayer.is_server():
 		return
 	if current_room == 3 and current_sub_room == 5:
-		## Boss arena — handled by _on_boss_died; skip
-		return
-	if current_room == 3 and current_sub_room == 6:
-		return
+		return  # boss arena — handled by _on_boss_died
+	if current_sub_room == 6:
+		return  # connector — no enemies
 	var alive: int = 0
 	for e in get_tree().get_nodes_in_group("enemies"):
 		if not is_instance_valid(e) or e.is_queued_for_deletion():
 			continue
-		var e_room: int = e.get_meta("room_id", current_room) if e.has_meta("room_id") else current_room
-		if e_room == current_room:
+		if e.get_meta("room_id", current_room) == current_room:
 			alive += 1
 	if alive > 0:
 		return
-	## All enemies dead — open the exit passage
-	## After sub-rooms 1–5 (including sub-room 5 for rooms 1 and 2), open exit passage
-	_open_exit_passage.rpc()
+	if _current_wave < WAVES_PER_ROOM:
+		_current_wave += 1
+		_announce_wave.rpc(_current_wave)
+		_spawn_wave.call_deferred()
+	else:
+		_current_wave = 1
+		_open_exit_passage.rpc()
 
 ## Phase 9 (D-08, MAP-02): Host-authoritative exit passage opening on all peers simultaneously.
 ## Removes the exit wall tiles from the TileMap and replaces them with floor tiles.
@@ -329,6 +341,8 @@ func _open_exit_passage() -> void:
 	var src_id: int = layout.get("tileset_src", 0)
 	for coord in _exit_tile_coords:
 		tm.set_cell(0, coord, src_id, floor_tile)
+	## Phase 9 (D-08): Exit gap is now open — arm edge-walk advancement in _process.
+	_exit_open = true
 
 ## Phase 9: Teleports all players to the current sub-room's spawn points.
 ## Called on all peers by _transition_to_sub_room() and _transition_to_room() (call_local context).
@@ -626,10 +640,9 @@ func _on_enemy_died(pos: Vector2) -> void:
 		var part_id: String = CAR_PART_IDS[randi() % CAR_PART_IDS.size()]
 		$PickupSpawner.spawn.call_deferred({"type": "car_part", "pos": pos + Vector2(10, 0), "weapon_id": part_id})
 	# Immediate respawn removed: conflicted with _check_room_clear (count never reached 0).
-	# Phase 8 Plan 03 (D-02): After each enemy death, check if the room is cleared.
-	# call_deferred so queue_free finishes before we count living enemies.
-	_check_room_clear.call_deferred()
-	## Phase 9 (D-08, MAP-02): Also check if current sub-room is cleared.
+	## Phase 9 (D-08, MAP-02): After each enemy death, check if the current sub-room is cleared.
+	## The old _check_room_clear path is retired — sub-room waves + connector now drive progression.
+	## call_deferred so queue_free finishes before we count living enemies.
 	_check_sub_room_clear.call_deferred()
 
 func _do_spawn_pickup(data: Dictionary) -> Node:
@@ -928,13 +941,25 @@ func _process(delta: float) -> void:
 		_tick_earth_effects(delta)
 		# Phase 7 Plan 03 (D-13, HUD-07): Elite enemy spawn timer tick (host-only)
 		_tick_elite_spawn(delta)
-		## Phase 9 (D-12): Connector corridor exit detection — when player reaches right edge,
-		## transition to the next location. Guard with _connector_triggered to prevent double-trigger.
-		if current_sub_room == 6 and not _connector_triggered:
+		## Phase 9 (D-08, D-12): Edge-walk progression. Once a sub-room's exit gap is open
+		## (_exit_open, sub-rooms 1–5) or we are in the connector corridor (sub_room 6), a
+		## player reaching the right edge advances the run:
+		##   - sub-rooms 1–5: build the next sub-room in place (current_sub_room + 1, where 5→6
+		##     is the connector for rooms 1+2; room 3 SR-4 → SR-5 boss arena).
+		##   - connector (6): instant teleport to the next location's SR-1.
+		## _connector_triggered doubles as the "transition in progress" guard (reset on every
+		## transition). For normal sub-rooms the threshold sits inside the 2-tile exit gap so the
+		## player must actually walk through the opening; the connector uses a wider margin.
+		if not _connector_triggered and (current_sub_room == 6 or _exit_open):
+			var edge_margin: int = RoomLayouts.TILE_SIZE * (4 if current_sub_room == 6 else 2)
+			var threshold_x: float = _current_sub_room_rect_px.end.x - edge_margin
 			for p in get_tree().get_nodes_in_group("players"):
-				if is_instance_valid(p) and p.global_position.x >= _current_sub_room_rect_px.end.x - RoomLayouts.TILE_SIZE * 4:
+				if is_instance_valid(p) and p.global_position.x >= threshold_x:
 					_connector_triggered = true
-					_transition_to_room.rpc(current_room + 1)
+					if current_sub_room == 6:
+						_transition_to_room.rpc(current_room + 1)
+					else:
+						_transition_to_sub_room.rpc(current_sub_room + 1)
 					break
 	_update_player_hud()
 
