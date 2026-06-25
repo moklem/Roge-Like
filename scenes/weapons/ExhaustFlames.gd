@@ -88,12 +88,14 @@ func _on_fire_timer(weapon_manager: Node) -> void:
 	if not multiplayer.is_server():
 		return
 	_area.global_position = player.global_position
+	var hit_any: bool = false
 	for body in _area.get_overlapping_bodies():
 		if not body.is_in_group("enemies"):
 			continue
 		var to_enemy: Vector2 = (body.global_position - player.global_position).normalized()
 		if abs(aim_dir.angle_to(to_enemy)) <= half_angle:
 			body.take_damage(damage)
+			hit_any = true
 			# L3: Brief slow — enemy velocity halved for 1s (T-06-15 mitigation)
 			if level >= 3 and is_instance_valid(body) and not body.is_queued_for_deletion():
 				body.velocity *= 0.5
@@ -101,6 +103,8 @@ func _on_fire_timer(weapon_manager: Node) -> void:
 					if is_instance_valid(body) and not body.is_queued_for_deletion():
 						body.velocity *= 2.0
 				)
+	if hit_any:
+		GameEvents.emit_hud.rpc("engine")
 
 @rpc("any_peer", "call_local", "unreliable_ordered")
 func _show_visual(aim_dir: Vector2, pos: Vector2) -> void:

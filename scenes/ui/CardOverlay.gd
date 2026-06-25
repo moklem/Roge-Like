@@ -33,6 +33,11 @@ func navigate(direction: int) -> void:
 func get_selected_index() -> int:
 	return _selected
 
+func get_selected_card() -> Dictionary:
+	if _selected >= 0 and _selected < _cards.size():
+		return _cards[_selected]
+	return {}
+
 func _refresh_display() -> void:
 	for i in range(3):
 		var card_node := get_node_or_null("OverlayBackground/OverlayContainer/CardsRow/Card%d" % i)

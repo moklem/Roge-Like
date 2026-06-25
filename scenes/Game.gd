@@ -536,9 +536,9 @@ func _spawn_wave() -> void:
 	# Wave 1=50%, Wave 2=100%, Wave 3=150% — linear ramp across three waves
 	var wave_mult: float = 0.5 + (_current_wave - 1) * 0.5
 	var spawn_count: int = maxi(2, roundi(scaled_base * wave_mult))
-	pts.shuffle()
-	for i in range(mini(spawn_count, pts.size())):
-		$EnemySpawner.spawn({"pos": pts[i].global_position, "room_id": current_room})
+	for i in range(spawn_count):
+		var pt: Vector2 = pts[randi() % pts.size()].global_position
+		$EnemySpawner.spawn({"pos": pt, "room_id": current_room})
 	# Wave 3 always adds one elite to signal the final push
 	if _current_wave == WAVES_PER_ROOM:
 		var ep: Vector2 = pts[randi() % pts.size()].global_position
@@ -792,10 +792,11 @@ func weapon_unlocked(weapon_id: String, collector_peer_id: int) -> void:
 # CARD PICK (XP-02, XP-08 — Phase 6 Plan 03)
 # ==============================================================================
 
-## Phase 6 (XP-02, XP-08, P8): Client owning peer sends card pick index → host validates → applies effect.
+## Phase 6 (XP-02, XP-08, P8): Client owning peer sends card pick → host validates → applies effect.
+## selected_card dict avoids pool-shuffle order mismatch (client shuffles; host does not).
 ## Mirrors attempt_revive pattern: "any_peer" + is_server() guard + peer lookup by peer_id.
 @rpc("any_peer", "call_remote", "reliable")
-func confirm_card_pick(_unused_peer_id: int, card_index: int) -> void:
+func confirm_card_pick(_unused_peer_id: int, card_index: int, selected_card: Dictionary = {}) -> void:
 	if not multiplayer.is_server():
 		return
 	# CR-03: use actual sender identity — never trust the client-supplied peer ID
@@ -811,11 +812,21 @@ func confirm_card_pick(_unused_peer_id: int, card_index: int) -> void:
 		return
 	if not player_node.is_picking_card:
 		return  # race-condition guard: already confirmed
-	# Rebuild pool on host to validate index (P8: host re-validates card eligibility)
+	# Rebuild pool on host to validate card eligibility
 	var pool: Array = _build_card_pool_for_player(player_node)
-	if card_index < 0 or card_index >= pool.size():
-		card_index = 0  # fallback to first card
-	_apply_card_effect(requester_peer_id, player_node, pool[card_index])
+	# Find the card by content (avoids pool-shuffle order mismatch between client and host)
+	var card: Dictionary = {}
+	if not selected_card.is_empty():
+		for c in pool:
+			if c == selected_card:
+				card = c
+				break
+	# Fallback to index when dict match fails (desync / old client)
+	if card.is_empty():
+		if card_index < 0 or card_index >= pool.size():
+			card_index = 0
+		card = pool[card_index]
+	_apply_card_effect(requester_peer_id, player_node, card)
 	if requester_peer_id == multiplayer.get_unique_id():
 		_card_pick_complete()
 	else:
@@ -889,6 +900,7 @@ func _apply_stat_boost_rpc(stat: String, amount: int) -> void:
 			return
 
 ## Phase 6: Signal owning peer that card pick is complete — clear overlay and flag.
+## Also drains any queued picks from rapid level-ups.
 @rpc("authority", "call_remote", "reliable")
 func _card_pick_complete() -> void:
 	# Runs on the owning peer
@@ -900,6 +912,8 @@ func _card_pick_complete() -> void:
 				p.get_node("CardOverlay").hide_overlay()
 			if p.has_method("_update_xp_hud"):
 				p._update_xp_hud()
+			if p.has_method("_trigger_pending_card_pick"):
+				p._trigger_pending_card_pick()
 			return
 
 # ==============================================================================

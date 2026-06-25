@@ -828,17 +828,21 @@ static var SUB_ROOM_DATA: Dictionary = {
 				Rect2i(0, 0, 3, 50),    # left wall 3 tiles thick
 				Rect2i(67, 0, 3, 50),   # right wall 3 tiles thick
 			],
-			# Floor with no center obstacles — clear 40×30 zone at center
-			# Center zone: tiles (15,10) to (55,40)
 			"floor": [
 				Rect2i(3, 3, 64, 44),   # full inner area
 			],
-			# Perimeter-only obstacles (corner towers — not in center clear zone)
+			# Corner towers + interior pillars for cover during boss fight
 			"obstacles": [
 				Rect2i(4, 4, 4, 4),     # NW corner tower
 				Rect2i(62, 4, 4, 4),    # NE corner tower
 				Rect2i(4, 42, 4, 4),    # SW corner tower
 				Rect2i(62, 42, 4, 4),   # SE corner tower
+				Rect2i(15, 14, 3, 3),   # inner NW pillar
+				Rect2i(52, 14, 3, 3),   # inner NE pillar
+				Rect2i(15, 33, 3, 3),   # inner SW pillar
+				Rect2i(52, 33, 3, 3),   # inner SE pillar
+				Rect2i(32, 10, 6, 3),   # top center wall
+				Rect2i(32, 37, 6, 3),   # bottom center wall
 			],
 			# Spawn points: bottom center (players enter from south)
 			"spawn_points": [

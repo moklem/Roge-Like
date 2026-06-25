@@ -57,6 +57,7 @@ var level: int = 1
 var element_tier: int = 1
 var is_picking_card: bool = false
 var stage3_damage_mult: float = 1.0
+var _pending_card_picks: int = 0
 
 ## Phase 5 Plan 02: Tank shield state
 var _shield_timer: float = 0.0          # counts down active shield duration
@@ -530,9 +531,9 @@ func receive_xp(amount: int) -> void:
 	if has_method("_update_xp_hud"):
 		_update_xp_hud()
 
-## D-02: XP required to advance FROM level lvl to lvl+1 = 100 + (lvl-1) * 50.
+## D-02: XP required to advance FROM level lvl to lvl+1.
 func _xp_threshold(lvl: int) -> int:
-	return 100 + (lvl - 1) * 50
+	return 200 + (lvl - 1) * 100
 
 ## Phase 5/6: Set evolution stage (D-04/D-20, D-13, D-22). Called by Phase 6 when XP threshold reached.
 @rpc("any_peer", "call_remote", "reliable")
@@ -605,8 +606,12 @@ func _draw_cards(pool: Array) -> Array:
 
 ## Phase 6 (XP-02, D-06, D-07): Show card overlay for this player only.
 ## Must only run on owning peer (receive_xp already runs on owning peer).
+## Guards against rapid double level-ups by queuing extra picks.
 func _trigger_card_pick() -> void:
 	if not is_multiplayer_authority():
+		return
+	if is_picking_card:
+		_pending_card_picks += 1
 		return
 	is_picking_card = true    # D-07: freezes input + invulnerability (see _physics_process + receive_damage)
 	var pool: Array = _build_card_pool()
@@ -615,16 +620,24 @@ func _trigger_card_pick() -> void:
 		$CardOverlay.show_cards(cards)
 	_update_xp_hud()
 
+## Called by Game._card_pick_complete after clearing is_picking_card, to drain the queue.
+func _trigger_pending_card_pick() -> void:
+	if _pending_card_picks > 0:
+		_pending_card_picks -= 1
+		_trigger_card_pick()
+
 func _confirm_card_pick() -> void:
 	var selected_index: int = 0
+	var selected_card: Dictionary = {}
 	if has_node("CardOverlay"):
 		selected_index = $CardOverlay.get_selected_index()
+		selected_card = $CardOverlay.get_selected_card()
 	var game := get_node_or_null("/root/Game")
 	if game and game.has_method("confirm_card_pick"):
 		if multiplayer.is_server():
-			game.confirm_card_pick(peer_id, selected_index)
+			game.confirm_card_pick(peer_id, selected_index, selected_card)
 		else:
-			game.confirm_card_pick.rpc_id(1, peer_id, selected_index)
+			game.confirm_card_pick.rpc_id(1, peer_id, selected_index, selected_card)
 
 ## Phase 6 (D-19): Host calls this RPC to increment element_tier on the owning peer.
 @rpc("any_peer", "call_remote", "reliable")
