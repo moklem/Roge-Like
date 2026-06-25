@@ -84,4 +84,4 @@ func _broadcast_game_over() -> void:
 		p.evolution_stage = 1  # direct reset — skip deferred visual swap before scene change
 	# CR-02: reset loop-scoped state before scene change so next run starts at loop 1
 	reset_for_new_run()
-	get_tree().change_scene_to_file("res://scenes/ui/GameOver.tscn")
+	get_tree().call_deferred("change_scene_to_file", "res://scenes/ui/GameOver.tscn")

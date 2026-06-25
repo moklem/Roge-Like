@@ -30,16 +30,16 @@ const SRC_1BIT: int = 2     ## 1-bit-pack — room 3 wall fill fallback
 ## Atlas coordinates for Roguelike Modern City (37 cols × 28 rows, 16+1px spacing)
 ## ALL COORDINATES [ASSUMED] from visual PNG inspection — verify before shipping.
 ## ─────────────────────────────────────────────────────────────────────────────
-const MC_FLOOR_ASPHALT   := Vector2i(0, 3)   ## dark gray asphalt [ASSUMED]
-const MC_FLOOR_GRASS     := Vector2i(0, 6)   ## dark green ground/grass [ASSUMED]
-const MC_FLOOR_GRASS_ALT := Vector2i(1, 6)   ## lighter grass variant [ASSUMED]
-const MC_FLOOR_CRACK     := Vector2i(3, 3)   ## cracked asphalt transition [ASSUMED]
-const MC_WALL_BRICK      := Vector2i(0, 0)   ## dark brick, primary wall [ASSUMED]
-const MC_WALL_BRICK_ALT  := Vector2i(1, 0)   ## lighter brick variant [ASSUMED]
-const MC_OBSTACLE_ROOF   := Vector2i(3, 0)   ## building rooftop, primary obstacle [ASSUMED]
-const MC_OBSTACLE_ROOF_ALT := Vector2i(4, 0) ## lighter rooftop variant [ASSUMED]
-const MC_CONNECTOR_ROAD  := Vector2i(0, 15)  ## road surface, connector floor [ASSUMED]
-const MC_CONNECTOR_CENTER := Vector2i(5, 15) ## road center marking stripe [ASSUMED]
+const MC_FLOOR_ASPHALT   := Vector2i(0, 13)  ## dark gray asphalt road (row 13 = confirmed dark road)
+const MC_FLOOR_GRASS     := Vector2i(0, 16)  ## green grass (row 16 col 0 = confirmed green)
+const MC_FLOOR_GRASS_ALT := Vector2i(3, 16)  ## green grass variant (row 16 col 3 = same hue)
+const MC_FLOOR_CRACK     := Vector2i(0, 17)  ## darker green ground variety (row 17 col 0)
+const MC_WALL_BRICK      := Vector2i(0, 0)   ## dark brick building wall (row 0 = confirmed reddish-brown)
+const MC_WALL_BRICK_ALT  := Vector2i(1, 0)   ## lighter brick variant
+const MC_OBSTACLE_ROOF   := Vector2i(3, 0)   ## building rooftop obstacle
+const MC_OBSTACLE_ROOF_ALT := Vector2i(4, 0) ## lighter rooftop variant
+const MC_CONNECTOR_ROAD  := Vector2i(0, 15)  ## pure dark asphalt road surface
+const MC_CONNECTOR_CENTER := Vector2i(5, 15) ## road center marking stripe
 
 ## ─────────────────────────────────────────────────────────────────────────────
 ## Atlas coordinates for Tiny Dungeon (12 cols × 11 rows, 16+1px spacing)
@@ -89,7 +89,7 @@ static var SUB_ROOM_DATA: Dictionary = {
 			"width_tiles":  50,
 			"height_tiles": 35,
 			"tileset_src":  0,  # SRC_MODERN
-			"floor_tile":   Vector2i(0, 6),   # MC_FLOOR_GRASS
+			"floor_tile":   Vector2i(0, 16),  # MC_FLOOR_GRASS
 			"wall_tile":    Vector2i(0, 0),   # MC_WALL_BRICK
 			"obstacle_tile": Vector2i(3, 0),  # MC_OBSTACLE_ROOF
 			"exit_dir": Vector2i(1, 0),
@@ -137,7 +137,7 @@ static var SUB_ROOM_DATA: Dictionary = {
 			"width_tiles":  55,
 			"height_tiles": 38,
 			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 6),
+			"floor_tile":   Vector2i(0, 16),  # MC_FLOOR_GRASS
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(3, 0),
 			"exit_dir": Vector2i(1, 0),
@@ -180,7 +180,7 @@ static var SUB_ROOM_DATA: Dictionary = {
 			"width_tiles":  60,
 			"height_tiles": 40,
 			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 6),
+			"floor_tile":   Vector2i(0, 16),  # MC_FLOOR_GRASS
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(3, 0),
 			"exit_dir": Vector2i(1, 0),
@@ -225,7 +225,7 @@ static var SUB_ROOM_DATA: Dictionary = {
 			"width_tiles":  60,
 			"height_tiles": 42,
 			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 6),
+			"floor_tile":   Vector2i(0, 16),  # MC_FLOOR_GRASS
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(3, 0),
 			"exit_dir": Vector2i(1, 0),
@@ -272,7 +272,7 @@ static var SUB_ROOM_DATA: Dictionary = {
 			"width_tiles":  65,
 			"height_tiles": 44,
 			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 6),
+			"floor_tile":   Vector2i(0, 16),  # MC_FLOOR_GRASS
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(3, 0),
 			"exit_dir": Vector2i(1, 0),
@@ -354,7 +354,7 @@ static var SUB_ROOM_DATA: Dictionary = {
 			"width_tiles":  55,
 			"height_tiles": 38,
 			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 3),    # MC_FLOOR_ASPHALT
+			"floor_tile":   Vector2i(0, 13),   # MC_FLOOR_ASPHALT
 			"wall_tile":    Vector2i(0, 0),    # MC_WALL_BRICK
 			"obstacle_tile": Vector2i(3, 0),   # MC_OBSTACLE_ROOF
 			"exit_dir": Vector2i(1, 0),
@@ -399,7 +399,7 @@ static var SUB_ROOM_DATA: Dictionary = {
 			"width_tiles":  55,
 			"height_tiles": 40,
 			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 3),
+			"floor_tile":   Vector2i(0, 13),  # MC_FLOOR_ASPHALT
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(3, 0),
 			"exit_dir": Vector2i(1, 0),
@@ -446,7 +446,7 @@ static var SUB_ROOM_DATA: Dictionary = {
 			"width_tiles":  60,
 			"height_tiles": 42,
 			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 3),
+			"floor_tile":   Vector2i(0, 13),  # MC_FLOOR_ASPHALT
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(3, 0),
 			"exit_dir": Vector2i(1, 0),
@@ -494,7 +494,7 @@ static var SUB_ROOM_DATA: Dictionary = {
 			"width_tiles":  60,
 			"height_tiles": 44,
 			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 3),
+			"floor_tile":   Vector2i(0, 13),  # MC_FLOOR_ASPHALT
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(3, 0),
 			"exit_dir": Vector2i(1, 0),
@@ -544,7 +544,7 @@ static var SUB_ROOM_DATA: Dictionary = {
 			"width_tiles":  65,
 			"height_tiles": 45,
 			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 3),
+			"floor_tile":   Vector2i(0, 13),  # MC_FLOOR_ASPHALT
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(3, 0),
 			"exit_dir": Vector2i(1, 0),
@@ -586,15 +586,16 @@ static var SUB_ROOM_DATA: Dictionary = {
 			],
 		},
 
-		## ── ALTSTADT SR-6 (Connector): Stone path → Burg transition ─────────
-		## 80×10 tiles. Stone path floor (Tiny Dungeon). Transitional visual.
+		## ── ALTSTADT SR-6 (Connector): Road corridor → Burg transition ─────────
+		## 80×10 tiles. Road floor (Modern City). Must use SRC_MODERN (0) since
+		## Room2/TileMap only has TileSetModern — source_id=1 would silently fail.
 		6: {
 			"width_tiles":  80,
 			"height_tiles": 10,
-			"tileset_src":  1,  # SRC_DUNGEON — transitional feel
-			"floor_tile":   Vector2i(0, 1),    # TD_FLOOR_STONE
-			"wall_tile":    Vector2i(0, 0),    # TD_WALL_CASTLE
-			"obstacle_tile": Vector2i(0, 0),   # unused
+			"tileset_src":  0,  # SRC_MODERN — Room2/TileMap only has source 0
+			"floor_tile":   Vector2i(0, 15),   # MC_CONNECTOR_ROAD (dark asphalt)
+			"wall_tile":    Vector2i(0, 0),    # MC_WALL_BRICK
+			"obstacle_tile": Vector2i(3, 0),   # unused
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [],
 			"walls": [

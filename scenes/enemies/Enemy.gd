@@ -15,8 +15,8 @@ var is_elite: bool = false
 
 ## Synced via MultiplayerSynchronizer (SceneReplicationConfig)
 var current_hp: int  # WR-03: not initialised here — _ready() sets it to MAX_HP so any
-                     # spawn-time MAX_HP override (e.g. _do_spawn_enemy or EliteEnemy._ready)
-                     # is reflected correctly rather than always defaulting to 50.
+					 # spawn-time MAX_HP override (e.g. _do_spawn_enemy or EliteEnemy._ready)
+					 # is reflected correctly rather than always defaulting to 50.
 var state: int = 0  # 0 = IDLE, 1 = CHASE
 
 ## D-10: Track which player peer_ids are currently in contact to prevent repeated damage

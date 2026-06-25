@@ -37,10 +37,16 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 	var _src := tilemap.tile_set.get_source(source_id) as TileSetAtlasSource
 	if _src:
 		## Floor / decorative tiles — no collision.
-		for _ac: Vector2i in [
-			layout["floor_tile"],
-			RoomLayouts.MC_FLOOR_CRACK, RoomLayouts.MC_FLOOR_GRASS_ALT, RoomLayouts.MC_FLOOR_GRASS,
-		]:
+		## Mix tiles are modern-city-only; dungeon tileset has 11 rows so registering
+		## MC rows 16-17 there triggers "outside texture" errors.
+		var _floor_reg: Array[Vector2i] = [layout["floor_tile"]]
+		if source_id == RoomLayouts.SRC_MODERN:
+			_floor_reg.append_array([
+				RoomLayouts.MC_FLOOR_CRACK,
+				RoomLayouts.MC_FLOOR_GRASS_ALT,
+				RoomLayouts.MC_FLOOR_GRASS,
+			])
+		for _ac: Vector2i in _floor_reg:
 			if not _src.has_tile(_ac):
 				_src.create_tile(_ac)
 		## Solid tiles (walls + obstacles) — full-cell collision polygon on physics layer 0
@@ -49,6 +55,8 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 			if not _src.has_tile(_ac):
 				_src.create_tile(_ac)
 			var _td := _src.get_tile_data(_ac, 0)
+			if _td == null:
+				continue
 			if _td.get_collision_polygons_count(0) == 0:
 				var _half := RoomLayouts.TILE_SIZE / 2.0
 				_td.add_collision_polygon(0)
@@ -144,10 +152,11 @@ func build_connector(room_id: int, game_node: Node) -> Rect2:
 	return build_sub_room(room_id, 6, game_node)
 
 
-## Phase 9 (Pitfall 4): Toggle TileMap collision layer for hidden rooms.
-## Hidden rooms (Room 2, Room 3) start with collision_layer=0.
-## When a room becomes active, enable its TileMap collision.
-## When a room becomes hidden, disable its TileMap collision.
+## Phase 9 (Pitfall 4): Toggle TileMap collision for hidden rooms.
+## When disabling: CLEAR the TileMap entirely — this removes all physics bodies so the
+## departed room's wall tiles cannot block movement in the newly active room (both rooms
+## share world origin (0,0), so un-cleared physics bodies are invisible walls).
+## When enabling: no action needed; build_sub_room() immediately follows and populates fresh.
 ##
 ## @param room_id   Room index (1, 2, or 3)
 ## @param enabled   true = enable collision, false = disable
@@ -156,8 +165,13 @@ func set_tilemap_collision(room_id: int, enabled: bool, game_node: Node) -> void
 	var tilemap: Node = game_node.get_node_or_null("Room%d/TileMap" % room_id)
 	if tilemap == null:
 		return
-	# In Godot 4.3+, TileMap is deprecated and wraps TileMapLayer children internally.
-	# collision_enabled lives on TileMapLayer, not on the TileMap wrapper.
+	if not enabled:
+		# Clear removes all cells and their generated physics bodies.
+		# build_sub_room() will repopulate when this room becomes active again.
+		(tilemap as TileMap).clear()
+		return
+	# Enabling: belt-and-suspenders — also restore TileMapLayer collision in case
+	# Godot 4.3+ wraps layers as children with a separate collision_enabled flag.
 	for child in tilemap.get_children():
 		if child is TileMapLayer:
-			child.collision_enabled = enabled
+			child.collision_enabled = true
