@@ -53,7 +53,6 @@ script = ExtResource("1_game")
 
 [node name="TileMap" type="TileMap" parent="Room1" unique_id=1527982491]
 tile_set = SubResource("TileSetModern")
-collision_enabled = true
 format = 2
 
 [node name="NavigationRegion2D" type="NavigationRegion2D" parent="Room1" unique_id=824513027]
@@ -101,7 +100,6 @@ visible = false
 
 [node name="TileMap" type="TileMap" parent="Room2"]
 tile_set = SubResource("TileSetModern")
-collision_enabled = false
 format = 2
 
 [node name="NavigationRegion2D" type="NavigationRegion2D" parent="Room2"]
@@ -143,7 +141,6 @@ visible = false
 
 [node name="TileMap" type="TileMap" parent="Room3"]
 tile_set = SubResource("TileSetDungeon")
-collision_enabled = false
 format = 2
 
 [node name="NavigationRegion2D" type="NavigationRegion2D" parent="Room3"]

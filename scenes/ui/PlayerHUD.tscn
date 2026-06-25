@@ -12,10 +12,10 @@ anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -200.0
-offset_top = -76.0
-offset_right = 200.0
-offset_bottom = -48.0
+offset_left = -400.0
+offset_top = -36.0
+offset_right = 0.0
+offset_bottom = -8.0
 color = Color(0.08, 0.08, 0.08, 0.85)
 
 [node name="HUDRow" type="HBoxContainer" parent="HUDPanel"]

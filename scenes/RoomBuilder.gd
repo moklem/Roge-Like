@@ -150,10 +150,14 @@ func build_connector(room_id: int, game_node: Node) -> Rect2:
 ## When a room becomes hidden, disable its TileMap collision.
 ##
 ## @param room_id   Room index (1, 2, or 3)
-## @param enabled   true = enable collision (layer=1, mask=1), false = disable (layer=0, mask=0)
+## @param enabled   true = enable collision, false = disable
 ## @param game_node The Game scene root Node2D
 func set_tilemap_collision(room_id: int, enabled: bool, game_node: Node) -> void:
-	var tilemap: TileMap = game_node.get_node_or_null("Room%d/TileMap" % room_id)
+	var tilemap: Node = game_node.get_node_or_null("Room%d/TileMap" % room_id)
 	if tilemap == null:
 		return
-	tilemap.collision_enabled = enabled
+	# In Godot 4.3+, TileMap is deprecated and wraps TileMapLayer children internally.
+	# collision_enabled lives on TileMapLayer, not on the TileMap wrapper.
+	for child in tilemap.get_children():
+		if child is TileMapLayer:
+			child.collision_enabled = enabled

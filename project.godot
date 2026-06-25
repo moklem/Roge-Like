@@ -63,6 +63,11 @@ role_ability={
 2d_physics/layer_6="bullets"
 2d_physics/layer_7="pickups"
 
+[display]
+
+window/size/viewport_width=1352
+window/size/viewport_height=648
+
 [rendering]
 
 renderer/rendering_method="gl_compatibility"

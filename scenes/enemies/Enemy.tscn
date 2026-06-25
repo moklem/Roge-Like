@@ -21,6 +21,7 @@ properties/2/spawn = true
 properties/2/replication_mode = 2
 
 [node name="Enemy" type="CharacterBody2D" unique_id=969772550]
+motion_mode = 1
 collision_layer = 4
 collision_mask = 3
 script = ExtResource("1_enemy")
@@ -36,6 +37,7 @@ color = Color(0.8, 0.2, 0.2, 1)
 shape = SubResource("CapsuleShape2D_1")
 
 [node name="NavigationAgent2D" type="NavigationAgent2D" parent="." unique_id=1634111574]
+target_desired_distance = 30.0
 
 [node name="HurtboxArea" type="Area2D" parent="." unique_id=1717934630]
 collision_layer = 16

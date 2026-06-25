@@ -421,8 +421,8 @@ func _setup_player_hud() -> void:
 	panel.anchor_right = 1.0
 	panel.anchor_top = 0.0
 	panel.anchor_bottom = 0.0
-	panel.offset_left = -215
-	panel.offset_right = -10
+	panel.offset_left = -415
+	panel.offset_right = -210
 	panel.offset_top = 10
 	panel.offset_bottom = 10  # grows with content
 	var style := StyleBoxFlat.new()
