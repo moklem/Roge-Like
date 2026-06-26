@@ -24,7 +24,7 @@ alignment = 1
 
 [node name="TitleLabel" type="Label" parent="VBoxContainer"]
 layout_mode = 2
-text = "Roge-Like"
+text = "AutoBonk.io"
 horizontal_alignment = 1
 
 [node name="HostButton" type="Button" parent="VBoxContainer"]

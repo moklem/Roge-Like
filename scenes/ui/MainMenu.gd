@@ -13,6 +13,12 @@ var _connecting: bool = false
 const CONNECT_TIMEOUT: float = 5.0
 
 func _ready() -> void:
+	# Artstyle: background image + Transformers title font + Sharpshooter button font.
+	UiStyle.add_background(self)
+	UiStyle.style_title($VBoxContainer/TitleLabel)
+	UiStyle.style_buttons(self)
+	UiStyle.style_labels(self)
+
 	host_button.pressed.connect(_on_host_pressed)
 	join_button.pressed.connect(_on_join_pressed)
 	Lobby.connection_failed.connect(_on_connection_failed)

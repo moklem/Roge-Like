@@ -23,6 +23,11 @@ var _is_host: bool = false
 func _ready() -> void:
 	_is_host = multiplayer.is_server()
 
+	# Artstyle: same background + Sharpshooter button/label fonts as the main menu.
+	UiStyle.add_background(self)
+	UiStyle.style_buttons(self)
+	UiStyle.style_labels(self)
+
 	# NET-01: display host IP prominently
 	if _is_host:
 		ip_label.text = "Your IP: %s" % Lobby.get_local_ip()
@@ -154,5 +159,7 @@ func _refresh_ui() -> void:
 		var elem_str: String = data.get("element", "—")
 		var ready_str: String = "✓" if data.get("ready", false) else "·"
 		var row: Label = Label.new()
-		row.text = "%s  %s  %s" % [role_str, elem_str, ready_str]
+		# Show role + element + starting bot level (everyone begins as a Stage-1 bot).
+		row.text = "%s  •  %s  •  Bot Lv.1  %s" % [role_str, elem_str, ready_str]
+		UiStyle.style_label(row)
 		player_list.add_child(row)

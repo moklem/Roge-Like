@@ -31,11 +31,15 @@ var _burn_tick_timer: float = 0.0   # 1-sec interval for burn damage ticks
 ## CMBT-08: Signal for Game.gd to spawn XP orb at death position
 signal died(pos: Vector2)
 
+## Tracks last-seen hp so _process can fire a subtle hit cue when it drops (all peers).
+var _last_hp_seen: int = 0
+
 func _ready() -> void:
 	add_to_group("enemies")
 	# WR-03: set current_hp here so any bare instantiation (without _do_spawn_enemy) gets the
 	# correct value. _do_spawn_enemy and EliteEnemy._ready() overwrite current_hp after this.
 	current_hp = MAX_HP
+	_last_hp_seen = current_hp
 	# P6: NavigationAgent2D must not run on clients — only host runs AI
 	set_physics_process(is_multiplayer_authority())
 	# HurtboxArea (collision_layer=16, mask=32) detects bullet hits via area_entered
@@ -48,6 +52,11 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if has_node("HealthBar"):
 		$HealthBar.value = float(current_hp) / float(MAX_HP) * 100.0
+	# Subtle hit cue on damage. current_hp is replicated, so this fires on every peer
+	# (host applies damage directly; clients see the synced drop) for any damage source.
+	if current_hp < _last_hp_seen:
+		Sfx.hit()
+	_last_hp_seen = current_hp
 
 func _physics_process(_delta: float) -> void:
 	var target := _find_nearest_player()

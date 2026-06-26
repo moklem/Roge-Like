@@ -67,6 +67,9 @@ func _fire_screws() -> void:
 		return
 	var level: int = weapon_level.get("screws_and_bolts", 1)
 	var dirs: Array = _get_screws_dirs(base_dir, level)
+	# Subtle shoot cue — _fire_screws only runs on the owning peer (tick() authority guard),
+	# so each player hears their own default attack, once per volley.
+	Sfx.shoot()
 	# Element buff: count volleys for fire/ice players; every ELEMENT_PROC_INTERVAL-th volley
 	# the bolts carry the element proc (guaranteed burn/slow + CarHUD pulse on hit).
 	var element_proc: bool = false
