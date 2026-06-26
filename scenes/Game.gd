@@ -9,7 +9,7 @@ const ENEMY_SCENE     := preload("res://scenes/enemies/Enemy.tscn")
 const BULLET_SCENE    := preload("res://scenes/projectiles/Bullet.tscn")
 const ORB_SCENE       := preload("res://scenes/pickups/XpOrb.tscn")
 const CAR_PART_SCENE  := preload("res://scenes/pickups/CarPartPickup.tscn")
-const CAR_PART_IDS    := ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave", "airbag_shield"]
+const CAR_PART_IDS    := ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave"]  # airbag_shield disabled as a weapon
 ## Phase 5 Plan 03 (D-14, D-15, D-21): Engineer Heal Drone spawnable scene
 const HEAL_DRONE_SCENE := preload("res://scenes/roles/HealDrone.tscn")
 ## Phase 5 Plan 05 (D-18, ELEM-04): Ice Trail frost zone spawnable scene
@@ -91,6 +91,8 @@ const SUSPENSION_DEBOUNCE: float = 1.5
 var _last_suspension_emit: float = -100.0
 
 func _ready() -> void:
+	# In-game music starts as soon as the match scene loads (replaces the quiet lobby track).
+	Music.play_ingame()
 	# P7: custom spawn_functions forward data Dictionary to every peer automatically
 	$MultiplayerSpawner.spawn_function = _do_spawn         # players (existing)
 	$EnemySpawner.spawn_function  = _do_spawn_enemy
@@ -885,7 +887,7 @@ func _build_card_pool_for_player(player_node: Node) -> Array:
 	var pool: Array = []
 	var wm: Node = player_node.get_node_or_null("WeaponManager")
 	if wm:
-		for wid in ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave", "airbag_shield"]:
+		for wid in ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave"]:  # airbag_shield disabled
 			if not wm.unlocked_weapons.has(wid):
 				if wm.unlocked_weapons.size() < wm.MAX_WEAPONS:
 					pool.append({"type": "weapon_unlock", "weapon_id": wid})

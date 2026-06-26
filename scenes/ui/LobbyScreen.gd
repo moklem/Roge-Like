@@ -28,6 +28,9 @@ func _ready() -> void:
 	UiStyle.style_buttons(self)
 	UiStyle.style_labels(self)
 
+	# Quiet lobby music (continues from the menu; no restart if already playing).
+	Music.play_lobby()
+
 	# NET-01: display host IP prominently
 	if _is_host:
 		ip_label.text = "Your IP: %s" % Lobby.get_local_ip()

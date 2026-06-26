@@ -95,6 +95,21 @@ func _ready() -> void:
 		$Camera2D.enabled = is_multiplayer_authority()
 	# AUTOBONK: swap ColorRect placeholder for animated character art when available
 	_setup_char_sprite()
+	_setup_draw_layers()
+
+## Layering so weapon/item visuals never hide the character. WeaponManager sits AFTER the
+## character in the scene tree, so its weapon nodes (orbiting tires, shield/airbag rings,
+## flames, beams) would draw on top. Push the character above those (z=1) and keep the HP
+## bar + labels on top of everything (z=2).
+func _setup_draw_layers() -> void:
+	for n in ["Sprite", "CharSprite", "Stage1Container", "Stage2Container", "Stage3Container"]:
+		var node: CanvasItem = get_node_or_null(n)
+		if node:
+			node.z_index = 1
+	for n in ["RoleLabel", "HealthBar", "ReviveBar"]:
+		var node: CanvasItem = get_node_or_null(n)
+		if node:
+			node.z_index = 2
 
 ## AUTOBONK: Choose the character art set for this role and switch from the ColorRect
 ## placeholder to the AnimatedSprite2D. Runs on all peers (role_label is set before _ready
@@ -103,6 +118,7 @@ func _setup_char_sprite() -> void:
 	match role_label:
 		"Tank": _sprite_key = "tank"
 		"Engineer": _sprite_key = "engineer"   # Healer art
+		"Speedster": _sprite_key = "speedster" # single Speedstar_lvl_1.png reused for all stages
 		_: _sprite_key = ""
 	_uses_char_sprite = _sprite_key != "" and has_node("CharSprite")
 	if not _uses_char_sprite:
@@ -115,6 +131,9 @@ func _setup_char_sprite() -> void:
 		if c:
 			c.visible = false
 	$CharSprite.visible = true
+	# Match render size across roles: tank/engineer art is 256px (scale 0.25 → 64px), but the
+	# Speedster art is 2048px, so it needs a smaller scale to end up the same ~64px on screen.
+	$CharSprite.scale = Vector2(0.03125, 0.03125) if _sprite_key == "speedster" else Vector2(0.25, 0.25)
 	_last_anim_pos = global_position
 	_update_char_visual(0.0)
 
@@ -648,8 +667,8 @@ func _build_card_pool() -> Array:
 	var pool: Array = []
 	var wm: Node = get_node_or_null("WeaponManager")
 	if wm:
-		# Weapon unlocks — exclude already-owned weapons (XP-05)
-		for wid in ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave", "airbag_shield"]:
+		# Weapon unlocks — exclude already-owned weapons (XP-05). airbag_shield disabled as a weapon.
+		for wid in ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave"]:
 			if not wm.unlocked_weapons.has(wid):
 				if wm.unlocked_weapons.size() < wm.MAX_WEAPONS:
 					pool.append({"type": "weapon_unlock", "weapon_id": wid})

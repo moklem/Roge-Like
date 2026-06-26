@@ -19,6 +19,9 @@ func _ready() -> void:
 	UiStyle.style_buttons(self)
 	UiStyle.style_labels(self)
 
+	# Quiet background music before the game starts (continues into the lobby).
+	Music.play_lobby()
+
 	host_button.pressed.connect(_on_host_pressed)
 	join_button.pressed.connect(_on_join_pressed)
 	Lobby.connection_failed.connect(_on_connection_failed)

@@ -1,4 +1,4 @@
-[gd_resource type="SpriteFrames" load_steps=25 format=3]
+[gd_resource type="SpriteFrames" load_steps=26 format=3]
 
 [ext_resource type="Texture2D" path="res://assets/active/players/tank_1_idle.png" id="1"]
 [ext_resource type="Texture2D" path="res://assets/active/players/tank_1_walk_1.png" id="2"]
@@ -24,6 +24,7 @@
 [ext_resource type="Texture2D" path="res://assets/active/players/engineer_3_walk_1.png" id="22"]
 [ext_resource type="Texture2D" path="res://assets/active/players/engineer_3_walk_2.png" id="23"]
 [ext_resource type="Texture2D" path="res://assets/active/players/engineer_3_walk_3.png" id="24"]
+[ext_resource type="Texture2D" path="res://assets/Speedstar_lvl_1.png" id="25"]
 
 [resource]
 animations = [{
@@ -170,4 +171,34 @@ animations = [{
 "loop": true,
 "name": &"engineer_3_walk",
 "speed": 8.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("25")}],
+"loop": true,
+"name": &"speedster_1_idle",
+"speed": 5.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("25")}],
+"loop": true,
+"name": &"speedster_1_walk",
+"speed": 5.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("25")}],
+"loop": true,
+"name": &"speedster_2_idle",
+"speed": 5.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("25")}],
+"loop": true,
+"name": &"speedster_2_walk",
+"speed": 5.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("25")}],
+"loop": true,
+"name": &"speedster_3_idle",
+"speed": 5.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("25")}],
+"loop": true,
+"name": &"speedster_3_walk",
+"speed": 5.0
 }]
