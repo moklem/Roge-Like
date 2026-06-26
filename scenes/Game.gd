@@ -280,6 +280,9 @@ func _transition_to_sub_room(next: int) -> void:
 	_current_wave = 1
 	_connector_triggered = false
 	_exit_open = false
+	# Revive limit is now per sub-room (was per loop): clear the per-player revive counter on
+	# every sub-room entry so each player can be revived once again in the new sub-room.
+	GameState.revives_used.clear()
 	var rect: Rect2
 	if next == 6:
 		## Phase 9 (D-11, D-13): Connector sub-room — no enemies, pure walking corridor.
@@ -356,7 +359,14 @@ func _teleport_players_to_spawn() -> void:
 	var sp_node := get_node_or_null("Room%d/SpawnPoints" % current_room)
 	if sp_node == null:
 		return
-	var spawn_pts: Array = sp_node.get_children()
+	# Use only fresh markers. RoomBuilder queue_free()s the previous sub-room's markers, but
+	# queue_free is deferred — the stale markers are still in the child list this same frame.
+	# Including them would teleport players to the OLD room's spawn points (e.g. outside the
+	# narrow connector corridor → "spawn beside the corridor"). Skip queued-for-deletion nodes.
+	var spawn_pts: Array = []
+	for c in sp_node.get_children():
+		if not c.is_queued_for_deletion():
+			spawn_pts.append(c)
 	var players := get_tree().get_nodes_in_group("players")
 	var fallback := Vector2(80, 80)  ## safe default if spawn data missing
 	for idx in range(players.size()):
