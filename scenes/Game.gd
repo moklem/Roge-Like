@@ -455,9 +455,8 @@ func _setup_player_hud() -> void:
 	vbox.add_child(_hud_hp_label)
 	_hud_ability_label = Label.new()
 	vbox.add_child(_hud_ability_label)
-	_hud_wave_label = Label.new()
-	_hud_wave_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.25))
-	vbox.add_child(_hud_wave_label)
+	# Wave text removed from screen — _hud_wave_label stays null so _update_player_hud
+	# skips it and no "Welle x / y" label is shown.
 	# Phase 7 Plan 03 (HUD-10, RESEARCH "Deprecated"): _hud_event_label removed — CarHUD
 	# is now the sole HUD-event consumer. The old hud_event signal connection to _on_hud_event
 	# has been removed; CarHUD.gd connects directly in its own _ready().
@@ -565,34 +564,10 @@ func _announce_wave(wave: int) -> void:
 	_display_wave = wave
 	_show_wave_banner(wave)
 
-## Spawns a centred, auto-fading wave banner on the local peer's HUD.
-func _show_wave_banner(wave: int) -> void:
-	var hud := get_node_or_null("HUD")
-	if hud == null:
-		return
-	# Remove any previous banner still fading
-	var old := hud.get_node_or_null("WaveBanner")
-	if old:
-		old.queue_free()
-	var lbl := Label.new()
-	lbl.name = "WaveBanner"
-	if wave == WAVES_PER_ROOM:
-		lbl.text = "LETZTE WELLE!"
-		lbl.add_theme_color_override("font_color", Color(1.0, 0.35, 0.2))
-	else:
-		lbl.text = "Welle  %d / %d" % [wave, WAVES_PER_ROOM]
-		lbl.add_theme_color_override("font_color", Color(0.9, 0.85, 0.2))
-	lbl.add_theme_font_size_override("font_size", 32)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.anchor_left   = 0.0;  lbl.anchor_right  = 1.0
-	lbl.anchor_top    = 0.42; lbl.anchor_bottom = 0.58
-	lbl.offset_left   = 0;    lbl.offset_right  = 0
-	lbl.offset_top    = 0;    lbl.offset_bottom = 0
-	hud.add_child(lbl)
-	var tw := lbl.create_tween()
-	tw.tween_interval(1.6)
-	tw.tween_property(lbl, "modulate:a", 0.0, 0.6)
-	tw.tween_callback(lbl.queue_free)
+## Wave banner removed — the centred "Welle x / y" / "LETZTE WELLE!" text is no
+## longer shown on screen. Kept as a no-op so _announce_wave callers stay valid.
+func _show_wave_banner(_wave: int) -> void:
+	return
 
 func _do_spawn_enemy(data: Dictionary) -> Node:
 	# Phase 7 Plan 03 (D-19, D-20): dispatch on type; elite uses ELITE_ENEMY_SCENE

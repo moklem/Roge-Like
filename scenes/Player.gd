@@ -187,10 +187,16 @@ func _check_revive(_delta: float) -> void:
 		if has_node("ReviveBar"):
 			$ReviveBar.visible = false
 		return
-	# Send attempt_revive to host (Game.gd accumulates progress per-frame)
+	# Send attempt_revive to host (Game.gd accumulates progress per-frame).
+	# attempt_revive is @rpc("call_remote") — rpc_id(1) is a no-op when the reviver
+	# IS the host, so the host could never revive anyone. Call it directly on the
+	# server, mirror the request_deploy_drone / _fire_burst pattern for clients.
 	var game := get_node_or_null("/root/Game")
 	if game and game.has_method("attempt_revive"):
-		game.attempt_revive.rpc_id(1, peer_id, nearby.peer_id)
+		if multiplayer.is_server():
+			game.attempt_revive(peer_id, nearby.peer_id)
+		else:
+			game.attempt_revive.rpc_id(1, peer_id, nearby.peer_id)
 
 ## Find downed player within REVIVE_PROXIMITY range
 func _find_nearby_downed() -> Node:
@@ -591,8 +597,15 @@ func _update_char_visual(delta_t: float) -> void:
 	var spr: AnimatedSprite2D = $CharSprite
 	var move_delta: Vector2 = global_position - _last_anim_pos
 	_last_anim_pos = global_position
-	if absf(move_delta.x) > 0.5:
-		spr.flip_h = move_delta.x < 0.0
+	# Facing: the local player flips by the input direction it is pressing (responds
+	# instantly, even when blocked by a wall). Remote peers have no access to that
+	# input, so they flip by the replicated position delta instead.
+	if is_multiplayer_authority() and not is_downed:
+		var input_dir := Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
+		if absf(input_dir.x) > 0.1:
+			spr.flip_h = input_dir.x > 0.0
+	elif absf(move_delta.x) > 0.5:
+		spr.flip_h = move_delta.x > 0.0
 	if move_delta.length() > 0.5:
 		_move_timer = 0.15
 	else:
