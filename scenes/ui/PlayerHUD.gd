@@ -3,7 +3,13 @@ extends CanvasLayer
 ## Local CanvasLayer — shown only on the owning peer's screen.
 
 func _ready() -> void:
-	# D-18: only show on the owning peer's screen
+	# D-18: only show on the owning peer's screen.
+	# Authority is assigned in Player._ready() via set_multiplayer_authority(peer_id), which runs
+	# AFTER this child's _ready(). Reading it here would still see the default authority (the host),
+	# hiding a client's own bar and showing every bar on the host. Defer so we read the final value.
+	call_deferred("_apply_visibility")
+
+func _apply_visibility() -> void:
 	var player: Node = get_parent()
 	if player and player.has_method("is_multiplayer_authority"):
 		visible = player.is_multiplayer_authority()
