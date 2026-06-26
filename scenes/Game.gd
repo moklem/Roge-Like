@@ -86,6 +86,10 @@ var _earth_shock_accum: float = 0.0
 var _elite_spawn_timer: float = 0.0
 var _elite_spawn_interval: float = 0.0  # randomized in _ready via randf_range(45, 90)
 
+## SUSPENSION indicator debounce — minimum seconds between elite-hit pulses (host-only).
+const SUSPENSION_DEBOUNCE: float = 1.5
+var _last_suspension_emit: float = -100.0
+
 func _ready() -> void:
 	# P7: custom spawn_functions forward data Dictionary to every peer automatically
 	$MultiplayerSpawner.spawn_function = _do_spawn         # players (existing)
@@ -550,13 +554,49 @@ func _spawn_wave() -> void:
 	var wave_mult: float = 0.5 + (_current_wave - 1) * 0.5
 	var spawn_count: int = maxi(2, roundi(scaled_base * wave_mult))
 	for i in range(spawn_count):
-		var pt: Vector2 = pts[randi() % pts.size()].global_position
+		var pt: Vector2 = _safe_enemy_spawn_pos(pts[randi() % pts.size()].global_position)
 		$EnemySpawner.spawn({"pos": pt, "room_id": current_room})
 	# Wave 3 always adds one elite to signal the final push
 	if _current_wave == WAVES_PER_ROOM:
-		var ep: Vector2 = pts[randi() % pts.size()].global_position
+		var ep: Vector2 = _safe_enemy_spawn_pos(pts[randi() % pts.size()].global_position)
 		$EnemySpawner.spawn({"type": "elite", "pos": ep, "room_id": current_room})
 		GameEvents.emit_hud.rpc("lidar")
+
+## Returns a spawn position guaranteed to sit on a non-solid (floor) cell.
+## Authored enemy spawn points occasionally overlap a wall/obstacle tile; this snaps
+## the position outward to the nearest open cell so enemies never spawn inside walls.
+func _safe_enemy_spawn_pos(world_pos: Vector2) -> Vector2:
+	var tilemap: TileMap = get_node_or_null("Room%d/TileMap" % current_room)
+	if tilemap == null:
+		return world_pos
+	var origin_cell: Vector2i = tilemap.local_to_map(tilemap.to_local(world_pos))
+	if not _cell_is_solid(tilemap, origin_cell):
+		return world_pos
+	# Spiral outward ring by ring to find the nearest non-solid cell.
+	for radius in range(1, 8):
+		for dx in range(-radius, radius + 1):
+			for dy in range(-radius, radius + 1):
+				# Only walk the border cells of the current ring.
+				if absi(dx) != radius and absi(dy) != radius:
+					continue
+				var cell: Vector2i = origin_cell + Vector2i(dx, dy)
+				if not _cell_is_solid(tilemap, cell):
+					return tilemap.to_global(tilemap.map_to_local(cell))
+	return world_pos  # fallback — no open cell found nearby
+
+## True when the TileMap cell carries a collision polygon (wall or obstacle tile).
+## Layout-independent: reads the tile's collision data rather than comparing atlas coords.
+func _cell_is_solid(tilemap: TileMap, cell: Vector2i) -> bool:
+	var src_id: int = tilemap.get_cell_source_id(0, cell)
+	if src_id == -1:
+		return false  # empty cell — treat as open
+	var src := tilemap.tile_set.get_source(src_id) as TileSetAtlasSource
+	if src == null:
+		return false
+	var td := src.get_tile_data(tilemap.get_cell_atlas_coords(0, cell), 0)
+	if td == null:
+		return false
+	return td.get_collision_polygons_count(0) > 0
 
 ## Syncs the wave display counter to all peers and shows a brief centre banner.
 @rpc("authority", "call_local", "reliable")
@@ -645,7 +685,7 @@ func _do_spawn_pickup(data: Dictionary) -> Node:
 ## Phase 5 Plan 05 (D-17, ELEM-07, T-05-19): Optional force_burn param — defaults false so
 ## existing screws/bolts callers (rpc_id(1, pos, dir, peer_id)) remain valid.
 @rpc("any_peer", "call_remote", "reliable")
-func request_fire(_client_pos: Vector2, dir: Vector2, requester_peer_id: int, force_burn: bool = false) -> void:
+func request_fire(_client_pos: Vector2, dir: Vector2, requester_peer_id: int, force_burn: bool = false, element_proc: bool = false) -> void:
 	# Runs on host only
 	if not multiplayer.is_server():
 		return
@@ -664,6 +704,7 @@ func request_fire(_client_pos: Vector2, dir: Vector2, requester_peer_id: int, fo
 		"dir": dir.normalized(),
 		"owner_id": requester_peer_id,
 		"fire_burst": force_burn,
+		"element_proc": element_proc,
 		"damage_mult": player_node.stage3_damage_mult
 	})
 
@@ -678,8 +719,16 @@ func _do_spawn_bullet(data: Dictionary) -> Node:
 	# T-05-19: force_burn defaults false; only Fire Burst spawn path sets fire_burst=true.
 	b.damage_mult = data.get("damage_mult", 1.0)
 	b.force_burn = data.get("fire_burst", false)
+	b.element_proc = data.get("element_proc", false)
 	if b.force_burn:
 		b.modulate = Color(1.0, 0.5, 0.0)  # orange modulate (D-17, D-ELEM-07 visual)
+	elif b.element_proc:
+		# Tint the buffed shot by element so the proc is visible: fire→orange, ice→blue.
+		var oe: String = Lobby.players.get(b.owner_peer_id, {}).get("element", "").to_lower()
+		if oe == "fire":
+			b.modulate = Color(1.0, 0.5, 0.0)
+		elif oe == "ice":
+			b.modulate = Color(0.4, 0.7, 1.0)
 	return b
 
 # ==============================================================================
@@ -750,6 +799,13 @@ func attempt_revive(reviver_id: int, target_id: int) -> void:
 func notify_significant_hit() -> void:
 	if not multiplayer.is_server():
 		return  # host-only guard (T-07-07: client request received, host decides to broadcast)
+	# Debounce: a chasing elite repeatedly exits/re-enters a player's hurtbox, which would
+	# re-fire SUSPENSION every bump and read as random flicker. Collapse rapid elite hits
+	# into one indicator pulse per SUSPENSION_DEBOUNCE window (still elite-only — gated upstream).
+	var now: float = Time.get_ticks_msec() / 1000.0
+	if now - _last_suspension_emit < SUSPENSION_DEBOUNCE:
+		return
+	_last_suspension_emit = now
 	# Host is authority for GameEvents.emit_hud (D-07, Pitfall 1 in RESEARCH.md)
 	GameEvents.emit_hud.rpc("suspension")
 

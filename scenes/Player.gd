@@ -84,7 +84,9 @@ func _ready() -> void:
 		$RoleLabel.text = role_label
 	# Phase 5: Apply role-specific stats and read element from Lobby
 	_apply_role_stats()
-	element = Lobby.players.get(peer_id, {}).get("element", "")
+	# Lobby stores the element capitalized ("Fire"/"Ice"/"Earth"); gameplay compares lowercase.
+	# Normalize here so _tick_element, WeaponManager procs and the Earth aura actually match.
+	element = Lobby.players.get(peer_id, {}).get("element", "").to_lower()
 	# Phase 5: Initialise element/ability timers so they don't fire immediately
 	_fire_burst_timer = 4.0
 	## Phase 9 (D-01, MAP-07): Camera2D enabled only for the local authority player.

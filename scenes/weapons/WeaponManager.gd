@@ -27,6 +27,12 @@ const SCREWS_INTERVAL: float = 0.5
 var _screws_interval: float = 0.5  # Phase 6 D-11: updated to 0.35 at Level 3 via upgrade_weapon
 var _screws_cooldown: float = 0.0
 
+## Element buff: every Nth screws/bolts volley procs this player's element effect
+## (fire → burn, ice → slow) and lights the matching CarHUD indicator. Deterministic,
+## replaces the old random 25% per-hit proc so the element reads as a predictable buff.
+const ELEMENT_PROC_INTERVAL: int = 10
+var _shot_count: int = 0
+
 func _ready() -> void:
 	# D-08: ScrewsAndBolts is always unlocked — migrated from Player._try_fire
 	add_weapon("screws_and_bolts")
@@ -61,6 +67,14 @@ func _fire_screws() -> void:
 		return
 	var level: int = weapon_level.get("screws_and_bolts", 1)
 	var dirs: Array = _get_screws_dirs(base_dir, level)
+	# Element buff: count volleys for fire/ice players; every ELEMENT_PROC_INTERVAL-th volley
+	# the bolts carry the element proc (guaranteed burn/slow + CarHUD pulse on hit).
+	var element_proc: bool = false
+	if player.element == "fire" or player.element == "ice":
+		_shot_count += 1
+		if _shot_count >= ELEMENT_PROC_INTERVAL:
+			_shot_count = 0
+			element_proc = true
 	for d in dirs:
 		if multiplayer.is_server():
 			if game.has_node("BulletSpawner"):
@@ -68,11 +82,12 @@ func _fire_screws() -> void:
 					"pos": player.global_position,
 					"dir": d,
 					"owner_id": player.peer_id,
-					"damage_mult": player.stage3_damage_mult
+					"damage_mult": player.stage3_damage_mult,
+					"element_proc": element_proc
 				})
 		else:
 			if game.has_method("request_fire"):
-				game.request_fire.rpc_id(1, player.global_position, d, player.peer_id)
+				game.request_fire.rpc_id(1, player.global_position, d, player.peer_id, false, element_proc)
 
 ## Phase 6 D-11: Compute bolt fire directions per level.
 ## L1: 1 bolt straight ahead. L2: 2 bolts ±15°. L3: 3 bolts at 0°, +30°, -30°.
