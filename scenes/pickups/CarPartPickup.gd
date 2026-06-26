@@ -47,11 +47,8 @@ func _request_collect(_pickup_name: String, collector_peer_id: int) -> void:
 	_collected = true
 	var game := get_node_or_null("/root/Game")
 	if game and game.has_method("weapon_unlocked"):
-		# weapon_unlocked is "call_remote" so .rpc() skips the local peer.
-		# Call directly for the local peer (mirrors card overlay pattern).
-		if collector_peer_id == multiplayer.get_unique_id():
-			game.weapon_unlocked(weapon_id, collector_peer_id)
-		else:
-			game.weapon_unlocked.rpc_id(collector_peer_id, weapon_id, collector_peer_id)
+		# weapon_unlocked is now "call_local" — broadcast so every peer instantiates the weapon
+		# node and can render the collector's weapon visuals (not just the owning peer).
+		game.weapon_unlocked.rpc(weapon_id, collector_peer_id)
 	# CMBT-09 pattern: queue_free on host propagates to all clients via PickupSpawner
 	queue_free()

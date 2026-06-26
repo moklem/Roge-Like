@@ -322,9 +322,9 @@ func _tick_element(delta: float) -> void:
 			if velocity.length() < 10.0:
 				return  # idle — no trail spawned
 			_ice_trail_timer -= delta
-			# Phase 6 D-19: Ice Trail spawn interval scales with element_tier.
-			# T1=0.3s, T2=0.15s, T3=0.1s (proc rate = 0.25 * element_tier)
-			var ice_interval: float = 0.3 / float(element_tier)
+			# Ice Trail drops an occasional frost patch instead of a continuous trail.
+			# T1=3s, T2=1.5s, T3=1s between zones (scales with element_tier).
+			var ice_interval: float = 3.0 / float(element_tier)
 			if _ice_trail_timer <= 0.0:
 				_ice_trail_timer = ice_interval
 				var game := get_node_or_null("/root/Game")

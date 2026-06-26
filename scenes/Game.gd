@@ -822,9 +822,12 @@ func _update_revive_bar(target_id: int, progress: float) -> void:
 # WEAPON UNLOCK (WEAP-02, WEAP-03)
 # ==============================================================================
 
-## WEAP-02 / WEAP-03: Host sends weapon unlock to the collecting player's peer.
-## @rpc("authority") so only host can call this; call_remote so it runs on the target peer only.
-@rpc("authority", "call_remote", "reliable")
+## WEAP-02 / WEAP-03: Host broadcasts weapon unlock to EVERY peer.
+## call_local so the weapon node is instantiated on all peers (not just the owner) — the
+## orbit/beam/flame weapons render their visuals on all peers (SpinningTires._physics_process,
+## AntennaBeam._show_visual), so teammates can now see each other's weapons. Damage stays
+## host-authoritative inside each weapon. @rpc("authority") so only the host can trigger it.
+@rpc("authority", "call_local", "reliable")
 func weapon_unlocked(weapon_id: String, collector_peer_id: int) -> void:
 	for p in get_tree().get_nodes_in_group("players"):
 		if p.peer_id == collector_peer_id:
@@ -902,17 +905,18 @@ func _build_card_pool_for_player(player_node: Node) -> Array:
 func _apply_card_effect(peer_id: int, player_node: Node, card: Dictionary) -> void:
 	match card.get("type", ""):
 		"weapon_unlock":
-			if peer_id == multiplayer.get_unique_id():
-				weapon_unlocked(card["weapon_id"], peer_id)
-			else:
-				weapon_unlocked.rpc_id(peer_id, card["weapon_id"], peer_id)
+			# Broadcast to all peers (call_local) so every client instantiates the weapon node
+			# and can render the owner's weapon visuals.
+			weapon_unlocked.rpc(card["weapon_id"], peer_id)
 		"weapon_upgrade":
 			var wm := player_node.get_node_or_null("WeaponManager")
 			if wm:
-				if peer_id == multiplayer.get_unique_id():
-					wm.upgrade_weapon(card["weapon_id"])
-				else:
-					wm.upgrade_weapon.rpc_id(peer_id, card["weapon_id"])
+				# Apply on every peer so level-scaled visuals (e.g. tire count) match for teammates.
+				for pid in Lobby.players:
+					if pid == multiplayer.get_unique_id():
+						wm.upgrade_weapon(card["weapon_id"])
+					else:
+						wm.upgrade_weapon.rpc_id(pid, card["weapon_id"])
 		"element_upgrade":
 			if peer_id == multiplayer.get_unique_id():
 				player_node.receive_element_tier_up()
