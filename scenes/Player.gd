@@ -59,6 +59,13 @@ var is_picking_card: bool = false
 var stage3_damage_mult: float = 1.0
 var _pending_card_picks: int = 0
 
+## AUTOBONK character sprites (Tank / Engineer use animated PNG art; Speedster keeps placeholder).
+## Animation key per role; "" means no art → fall back to ColorRect placeholder.
+var _sprite_key: String = ""
+var _uses_char_sprite: bool = false
+var _last_anim_pos: Vector2 = Vector2.ZERO
+var _move_timer: float = 0.0   # keeps "walk" anim alive between 20 Hz position syncs on remote peers
+
 ## Phase 5 Plan 02: Tank shield state
 var _shield_timer: float = 0.0          # counts down active shield duration
 var _shield_ring: ColorRect = null       # reusable outer ring node (created on first show)
@@ -84,6 +91,30 @@ func _ready() -> void:
 	## Non-authority peers keep the camera disabled — never sync camera position over network.
 	if has_node("Camera2D"):
 		$Camera2D.enabled = is_multiplayer_authority()
+	# AUTOBONK: swap ColorRect placeholder for animated character art when available
+	_setup_char_sprite()
+
+## AUTOBONK: Choose the character art set for this role and switch from the ColorRect
+## placeholder to the AnimatedSprite2D. Runs on all peers (role_label is set before _ready
+## by the spawner). Speedster has no art yet, so it keeps the ColorRect placeholder.
+func _setup_char_sprite() -> void:
+	match role_label:
+		"Tank": _sprite_key = "tank"
+		"Engineer": _sprite_key = "engineer"   # Healer art
+		_: _sprite_key = ""
+	_uses_char_sprite = _sprite_key != "" and has_node("CharSprite")
+	if not _uses_char_sprite:
+		return
+	# Hide the placeholder rects — the animated sprite represents all evolution stages
+	if has_node("Sprite"):
+		$Sprite.visible = false
+	for s in [1, 2, 3]:
+		var c := get_node_or_null("Stage%dContainer" % s)
+		if c:
+			c.visible = false
+	$CharSprite.visible = true
+	_last_anim_pos = global_position
+	_update_char_visual(0.0)
 
 ## Phase 9 (D-03, MAP-07): Called by Game.gd after each sub-room is built.
 ## Sets Camera2D limit bounds to the sub-room's pixel bounding box.
@@ -99,11 +130,15 @@ func update_camera_limits(sub_room_rect_px: Rect2) -> void:
 	cam.limit_bottom = int(sub_room_rect_px.end.y)
 
 func _process(_delta: float) -> void:
-	# D-12: downed visual tint runs on ALL peers from synced is_downed value
-	if is_downed:
-		$Sprite.modulate = Color(0.4, 0.4, 0.4)   # grayscale tint
+	# AUTOBONK: drive animated character art (walk/idle, flip, stage) on all peers
+	if _uses_char_sprite:
+		_update_char_visual(_delta)
 	else:
-		$Sprite.modulate = Color.WHITE
+		# D-12: downed visual tint runs on ALL peers from synced is_downed value
+		if is_downed:
+			$Sprite.modulate = Color(0.4, 0.4, 0.4)   # grayscale tint
+		else:
+			$Sprite.modulate = Color.WHITE
 	# HLTH-01: Update health bar from synced health value (all peers)
 	if has_node("HealthBar"):
 		$HealthBar.value = float(health) / float(MAX_HP) * 100.0
@@ -546,13 +581,38 @@ func set_evolution_stage(stage: int) -> void:
 		MAX_HP += 25
 		health = mini(health + 25, MAX_HP)
 
+## AUTOBONK: Update the animated character sprite each frame on every peer.
+## Picks walk vs idle from position delta (works for remote peers too, since position is
+## the replicated value), flips horizontally by travel direction, and selects the animation
+## for the current evolution_stage. delta_t bridges the gap between 20 Hz position syncs.
+func _update_char_visual(delta_t: float) -> void:
+	if not has_node("CharSprite"):
+		return
+	var spr: AnimatedSprite2D = $CharSprite
+	var move_delta: Vector2 = global_position - _last_anim_pos
+	_last_anim_pos = global_position
+	if absf(move_delta.x) > 0.5:
+		spr.flip_h = move_delta.x < 0.0
+	if move_delta.length() > 0.5:
+		_move_timer = 0.15
+	else:
+		_move_timer = maxf(0.0, _move_timer - delta_t)
+	var stage: int = clampi(evolution_stage, 1, 3)
+	var anim: String = "%s_%d_%s" % [_sprite_key, stage, "walk" if _move_timer > 0.0 else "idle"]
+	if spr.animation != StringName(anim) or not spr.is_playing():
+		spr.play(anim)
+	spr.modulate = Color(0.4, 0.4, 0.4) if is_downed else Color.WHITE
+
 func _swap_stage_visual(stage: int) -> void:
+	_update_xp_hud()
+	# AUTOBONK: animated roles encode the stage in the animation name, not container visibility
+	if _uses_char_sprite:
+		return
 	# D-12, D-13: Hide all stage containers, show correct one
 	for s in [1, 2, 3]:
 		var container := get_node_or_null("Stage%dContainer" % s)
 		if container:
 			container.visible = (s == stage)
-	_update_xp_hud()
 
 func _update_xp_hud() -> void:
 	if has_node("PlayerHUD") and is_multiplayer_authority():

@@ -1,9 +1,10 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource path="res://scenes/Player.gd" id="1_player" type="Script"]
 [ext_resource path="res://scenes/weapons/WeaponManager.gd" id="2_weapon_manager" type="Script"]
 [ext_resource type="PackedScene" path="res://scenes/ui/PlayerHUD.tscn" id="3_player_hud"]
 [ext_resource type="PackedScene" path="res://scenes/ui/CardOverlay.tscn" id="4_card_overlay"]
+[ext_resource type="SpriteFrames" path="res://scenes/PlayerFrames.tres" id="5_char_frames"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_1"]
 radius = 12.0
@@ -56,6 +57,12 @@ offset_top = -16.0
 offset_right = 16.0
 offset_bottom = 16.0
 color = Color(0.2, 0.6, 1, 1)
+
+[node name="CharSprite" type="AnimatedSprite2D" parent="."]
+scale = Vector2(0.25, 0.25)
+sprite_frames = ExtResource("5_char_frames")
+animation = &"tank_1_idle"
+visible = false
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CapsuleShape2D_1")
