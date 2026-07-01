@@ -12,12 +12,48 @@ Tile size: **16 px**. Spacing: **16+1 px** (1 px gap between tiles in packed she
 | 0 | Roguelike Modern City | `assets/kenney/roguelike-modern-city/Tilemap/tilemap_packed.png` | 37 cols × 28 rows |
 | 1 | Tiny Dungeon | `assets/kenney/tiny-dungeon/Tilemap/tilemap_packed.png` | 12 cols × 11 rows |
 | 2 | 1-Bit Pack *(unused)* | `assets/kenney/1-bit-pack/Tilemap/tileset_legacy.png` | 49 cols × 22 rows |
+| 3 | ERBA Atlas (Cainos) | `assets/cainos/erba_atlas.png` | 4 cols × 2 rows |
+
+---
+
+## ERBA Atlas (source 3)
+
+Used in **Room 1 (ERBA)** — replaces the Modern City tiles there. Purpose-built 16 px
+atlas composed from the Cainos "Pixel Art Top Down - Basic" pack (source PNGs in
+`assets/cainos/`, 32 px tiles halved with nearest-neighbor). No spacing, exact coords.
+
+| Constant | Atlas Coord | Visual | Used in |
+|----------|------------|--------|---------|
+| `ERBA_FLOOR_GRASS` | `(0, 0)` | Plain grass | Room 1 primary floor |
+| `ERBA_FLOOR_FLOWER` | `(1, 0)` | Grass with flower | Room 1 scatter (~2/9 of tiles) |
+| `ERBA_FLOOR_SLABS` | `(2, 0)` | Stone slabs on grass | Room 1 scatter (~1/9 of tiles) |
+| `ERBA_CONNECTOR_ROAD` | `(3, 0)` | Seamless stone road | Connector SR-6 (no mixing) |
+| `ERBA_WALL_BRICK` | `(0, 1)` | Brick wall face | Wall cells with floor directly below (south-facing) |
+| `ERBA_OBSTACLE_ROCK` | `(1, 1)` | Rock pile on grass | Room 1 obstacle blocks |
+| `ERBA_WALL_CAP` | `(2, 1)` | Near-black brick top | All other wall cells (2.5D depth) |
+| `ERBA_FLOOR_SHADOW` | `(3, 1)` | Darkened grass | Floor row under each wall face (contact shadow) |
+
+2.5D rule (RoomBuilder step 6/6b, Enter-the-Gungeon look): a wall cell whose south
+neighbor is floor renders the FACE; every other wall cell renders the CAP; the floor cell
+under a face is swapped to `ERBA_FLOOR_SHADOW` (grass variants only — connector road
+stays clean). Both wall tiles get the full-cell collision polygon.
+
+Scatter rule (RoomBuilder, coordinate hash — no diagonal stripes):
+```
+scatter = (coords.x * 31 + coords.y * 17) % 9
+scatter == 0   →  ERBA_FLOOR_SLABS
+scatter <= 2   →  ERBA_FLOOR_FLOWER
+else           →  ERBA_FLOOR_GRASS (base)
+```
+Regenerate the atlas with `assets/cainos/build_erba_atlas.gd` (run instructions in its
+header). Tile picks from the pack: grass (1,1), flower (4,0), slabs (1,5), stone (1,1),
+wall (1,7), rocks from props region (0,13)–(1,14) composited over grass.
 
 ---
 
 ## Roguelike Modern City (source 0)
 
-Used in **Room 1 (ERBA)** and **Room 2 (Altstadt)**.
+Used in **Room 2 (Altstadt)** only (Room 1 switched to the ERBA Atlas, source 3).
 
 | Constant | Atlas Coord | Visual | Used in |
 |----------|------------|--------|---------|
@@ -32,10 +68,7 @@ Used in **Room 1 (ERBA)** and **Room 2 (Altstadt)**.
 ### Floor mix rules (Room 1 & 2, computed per tile from `x_off + y_off`)
 
 ```
-Room 1 (ERBA):
-  mix_idx % 3 == 0  →  MC_FLOOR_CRACK      (0, 17)
-  mix_idx % 3 == 1  →  MC_FLOOR_GRASS_ALT  (3, 16)
-  mix_idx % 3 == 2  →  MC_FLOOR_GRASS      (0, 16)  ← base
+Room 1 (ERBA):  see ERBA Atlas section above (scatter hash, source 3)
 
 Room 2 (Altstadt):
   mix_idx % 10 == 0  →  MC_FLOOR_GRASS   (0, 16)
@@ -89,8 +122,8 @@ Defined in `RoomLayouts.gd` as fallback constants but no sub-room sets `tileset_
 
 | Room | Sub-rooms | Tileset | Floor | Wall | Obstacle |
 |------|-----------|---------|-------|------|----------|
-| 1 — ERBA | SR 1–5 | Modern City (0) | `(0,16)` + mix | `(0,0)` | `(3,0)` |
-| 1 — Connector | SR 6 | Modern City (0) | `(0,15)` | `(0,0)` | — |
+| 1 — ERBA | SR 1–5 | ERBA Atlas (3) | `(0,0)` + scatter | `(0,1)` | `(1,1)` |
+| 1 — Connector | SR 6 | ERBA Atlas (3) | `(3,0)` | `(0,1)` | — |
 | 2 — Altstadt | SR 1–5 | Modern City (0) | `(0,13)` + mix | `(0,0)` | `(3,0)` |
 | 2 — Connector | SR 6 | Modern City (0) | `(0,15)` | `(0,0)` | — |
 | 3 — Burg Altenburg | SR 1–4 | Tiny Dungeon (1) | `(0,1)` | `(0,0)` | `(2,0)` |

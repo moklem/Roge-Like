@@ -90,6 +90,11 @@ var _elite_spawn_interval: float = 0.0  # randomized in _ready via randf_range(4
 const SUSPENSION_DEBOUNCE: float = 1.5
 var _last_suspension_emit: float = -100.0
 
+## Start countdown gate — Player._physics_process freezes input while true.
+## Runs locally on every peer (scene load is near-simultaneous; movement is
+## authority-side, so each peer freezing its own player is sufficient).
+var countdown_active: bool = true
+
 func _ready() -> void:
 	# In-game music starts as soon as the match scene loads (replaces the quiet lobby track).
 	Music.play_ingame()
@@ -142,7 +147,36 @@ func _ready() -> void:
 	_setup_player_hud()
 	if multiplayer.is_server():
 		_spawn_all_players()   # existing
-		_spawn_enemies()       # CMBT-03: D-19 fixed spawn points, 3-5 enemies
+	# Start countdown on all peers; host spawns the first enemy wave when it ends
+	# (CMBT-03: D-19 fixed spawn points, 3-5 enemies — moved into _run_start_countdown).
+	_run_start_countdown()
+
+## 3-2-1-GO overlay before the match starts. Players are frozen via countdown_active
+## (checked in Player._physics_process); the host delays the first _spawn_enemies()
+## call so enemies cannot approach while everyone is locked in place.
+func _run_start_countdown() -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "CountdownLayer"
+	layer.layer = 5
+	var label := Label.new()
+	label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 96)
+	label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
+	label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0))
+	label.add_theme_constant_override("outline_size", 10)
+	layer.add_child(label)
+	add_child(layer)
+	for n in [3, 2, 1]:
+		label.text = str(n)
+		await get_tree().create_timer(1.0).timeout
+	label.text = "GO!"
+	countdown_active = false
+	if multiplayer.is_server():
+		_spawn_enemies()
+	await get_tree().create_timer(0.6).timeout
+	layer.queue_free()
 
 ## Phase 8 Plan 03 (D-04): Generalized — bakes the active room's NavigationRegion2D.
 ## At loop start current_room == 1 so this resolves to Room1/NavigationRegion2D as before.

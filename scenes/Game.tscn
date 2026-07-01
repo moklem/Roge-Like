@@ -4,9 +4,14 @@
 [ext_resource type="Texture2D" path="res://assets/kenney/roguelike-modern-city/Tilemap/tilemap_packed.png" id="2_tex_modern"]
 [ext_resource type="Texture2D" path="res://assets/kenney/tiny-dungeon/Tilemap/tilemap_packed.png" id="3_tex_dungeon"]
 [ext_resource type="Texture2D" path="res://assets/kenney/1-bit-pack/Tilemap/tileset_legacy.png" id="4_tex_1bit"]
+[ext_resource type="Texture2D" path="res://assets/cainos/erba_atlas.png" id="5_tex_erba"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_modern"]
 texture = ExtResource("2_tex_modern")
+texture_region_size = Vector2i(16, 16)
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_erba"]
+texture = ExtResource("5_tex_erba")
 texture_region_size = Vector2i(16, 16)
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_dungeon"]
@@ -21,6 +26,7 @@ texture_region_size = Vector2i(17, 17)
 physics_layer_0/collision_layer = 1
 physics_layer_0/collision_mask = 1
 sources/0 = SubResource("TileSetAtlasSource_modern")
+sources/3 = SubResource("TileSetAtlasSource_erba")
 
 [sub_resource type="TileSet" id="TileSetDungeon"]
 physics_layer_0/collision_layer = 1

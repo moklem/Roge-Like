@@ -183,7 +183,7 @@ visible = false
 [node name="Camera2D" type="Camera2D" parent="."]
 enabled = false
 offset = Vector2(67, 0)
-zoom = Vector2(1.5, 1.5)
+zoom = Vector2(1.0, 1.0)
 position_smoothing_enabled = true
 position_smoothing_speed = 5.0
 limit_left = 0

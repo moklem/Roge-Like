@@ -83,6 +83,8 @@ func _find_nearest_player() -> Node:
 	for p in get_tree().get_nodes_in_group("players"):
 		if p.is_downed:
 			continue
+		if p.is_picking_card:
+			continue  # invisible to enemies while on the upgrade screen (is_picking_card is synced)
 		var d: float = global_position.distance_to(p.global_position)
 		if d < nearest_dist:
 			nearest_dist = d

@@ -89,3 +89,11 @@ func _draw_visual() -> void:
 	rect.pivot_offset = Vector2(10.0, 10.0)
 	rect.position = Vector2(-10.0, -10.0)
 	add_child(rect)
+
+## Heal radius indicator — runs on all peers so everyone sees the drone's reach.
+## Drawn below the drone rect; stage is set by the spawner before add_child, so the
+## radius matches the actual pulse range (150px S1 / 200px S2).
+func _draw() -> void:
+	var radius: float = PULSE_RADIUS_S2 if stage >= 2 else PULSE_RADIUS_S1
+	draw_circle(Vector2.ZERO, radius, Color(0.2, 0.9, 0.3, 0.07))
+	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 64, Color(0.2, 0.9, 0.3, 0.45), 2.0)

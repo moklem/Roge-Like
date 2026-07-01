@@ -46,12 +46,23 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 				RoomLayouts.MC_FLOOR_GRASS_ALT,
 				RoomLayouts.MC_FLOOR_GRASS,
 			])
+		elif source_id == RoomLayouts.SRC_ERBA:
+			_floor_reg.append_array([
+				RoomLayouts.ERBA_FLOOR_SLABS,
+				RoomLayouts.ERBA_FLOOR_FLOWER,
+				RoomLayouts.ERBA_FLOOR_GRASS,
+				RoomLayouts.ERBA_FLOOR_SHADOW,
+			])
 		for _ac: Vector2i in _floor_reg:
 			if not _src.has_tile(_ac):
 				_src.create_tile(_ac)
 		## Solid tiles (walls + obstacles) — full-cell collision polygon on physics layer 0
 		## so the player and bullets actually collide with them.
-		for _ac: Vector2i in [layout["wall_tile"], layout["obstacle_tile"]]:
+		var _solid_reg: Array[Vector2i] = [layout["wall_tile"], layout["obstacle_tile"]]
+		if source_id == RoomLayouts.SRC_ERBA:
+			## 2.5D walls use two tiles: brick face (already wall_tile) + dark cap
+			_solid_reg.append(RoomLayouts.ERBA_WALL_CAP)
+		for _ac: Vector2i in _solid_reg:
 			if not _src.has_tile(_ac):
 				_src.create_tile(_ac)
 			var _td := _src.get_tile_data(_ac, 0)
@@ -77,11 +88,15 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 				var coords := Vector2i(rect.position.x + x_off, rect.position.y + y_off)
 				var mix_idx: int = (x_off + y_off)
 				var tile: Vector2i = floor_tile
-				if room_id == 1:
-					if mix_idx % 3 == 0:
-						tile = RoomLayouts.MC_FLOOR_CRACK      ## cracked asphalt transition
-					elif mix_idx % 3 == 1:
-						tile = RoomLayouts.MC_FLOOR_GRASS_ALT  ## lighter grass variant
+				if room_id == 1 and source_id == RoomLayouts.SRC_ERBA and sub_room_id != 6:
+					## Connector (SR 6) stays pure road; playable sub-rooms scatter grass
+					## details. Coordinate hash instead of (x+y)%3 — the old diagonal-stripe
+					## rhythm turned the chunky slab tiles into a fence pattern.
+					var scatter: int = (coords.x * 31 + coords.y * 17) % 9
+					if scatter == 0:
+						tile = RoomLayouts.ERBA_FLOOR_SLABS    ## stone slabs on grass (~1/9)
+					elif scatter <= 2:
+						tile = RoomLayouts.ERBA_FLOOR_FLOWER   ## grass with flower (~2/9)
 				elif room_id == 2:
 					if mix_idx % 10 == 0:
 						tile = RoomLayouts.MC_FLOOR_GRASS      ## occasional grass patch
@@ -89,13 +104,41 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 				tilemap.set_cell(0, coords, source_id, tile)
 
 	## Step 6: Place wall tiles
+	## ERBA 2.5D (Enter-the-Gungeon look): wall cells with floor directly below them show
+	## the brick FACE (you look at the wall's front), all other wall cells show the dark
+	## CAP (you look at the wall's top). Floor was placed in step 5, walls are not yet on
+	## the map — wall_cells tracks them so face detection cannot mistake a wall for floor.
 	var wall_tile: Vector2i = layout["wall_tile"]
+	var erba_depth: bool = source_id == RoomLayouts.SRC_ERBA
+	var wall_cells := {}
+	if erba_depth:
+		for wall_rect in layout["walls"]:
+			var r: Rect2i = wall_rect
+			for x_off in range(r.size.x):
+				for y_off in range(r.size.y):
+					wall_cells[Vector2i(r.position.x + x_off, r.position.y + y_off)] = true
 	for wall_rect in layout["walls"]:
 		var rect: Rect2i = wall_rect
 		for x_off in range(rect.size.x):
 			for y_off in range(rect.size.y):
 				var coords := Vector2i(rect.position.x + x_off, rect.position.y + y_off)
-				tilemap.set_cell(0, coords, source_id, wall_tile)
+				var tile: Vector2i = wall_tile
+				if erba_depth:
+					var below := coords + Vector2i(0, 1)
+					var below_is_floor: bool = not wall_cells.has(below) \
+						and tilemap.get_cell_source_id(0, below) != -1
+					tile = RoomLayouts.ERBA_WALL_BRICK if below_is_floor else RoomLayouts.ERBA_WALL_CAP
+				tilemap.set_cell(0, coords, source_id, tile)
+	## Step 6b (ERBA 2.5D): darken the grass row directly under each wall face — cheap
+	## contact shadow that sells the wall height. Road tiles (connector) stay untouched.
+	if erba_depth:
+		for w: Vector2i in wall_cells:
+			var below: Vector2i = w + Vector2i(0, 1)
+			if wall_cells.has(below):
+				continue
+			var ac: Vector2i = tilemap.get_cell_atlas_coords(0, below)
+			if ac in [RoomLayouts.ERBA_FLOOR_GRASS, RoomLayouts.ERBA_FLOOR_FLOWER, RoomLayouts.ERBA_FLOOR_SLABS]:
+				tilemap.set_cell(0, below, source_id, RoomLayouts.ERBA_FLOOR_SHADOW)
 
 	## Step 7: Place obstacle tiles
 	var obstacle_tile: Vector2i = layout["obstacle_tile"]

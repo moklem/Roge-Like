@@ -62,6 +62,12 @@ var _pending_card_picks: int = 0
 ## AUTOBONK character sprites (Tank / Engineer use animated PNG art; Speedster keeps placeholder).
 ## Animation key per role; "" means no art → fall back to ColorRect placeholder.
 var _sprite_key: String = ""
+
+## Target on-screen height (px) of the drawn character per evolution stage.
+## Same for every role — characters grow slightly with each stage.
+const CHAR_TARGET_HEIGHT := {1: 56.0, 2: 62.0, 3: 68.0}
+## stage → {"scale": Vector2, "offset": Vector2}, filled by _compute_char_fit()
+var _char_fit: Dictionary = {}
 var _uses_char_sprite: bool = false
 var _last_anim_pos: Vector2 = Vector2.ZERO
 var _move_timer: float = 0.0   # keeps "walk" anim alive between 20 Hz position syncs on remote peers
@@ -131,11 +137,53 @@ func _setup_char_sprite() -> void:
 		if c:
 			c.visible = false
 	$CharSprite.visible = true
-	# Match render size across roles: tank/engineer art is 256px (scale 0.25 → 64px), but the
-	# Speedster art is 2048px, so it needs a smaller scale to end up the same ~64px on screen.
-	$CharSprite.scale = Vector2(0.03125, 0.03125) if _sprite_key == "speedster" else Vector2(0.25, 0.25)
+	# Size normalization: scale is derived per role AND stage from the opaque bounding box
+	# of the idle art (see _compute_char_fit), so every character renders equally tall.
+	_compute_char_fit()
 	_last_anim_pos = global_position
 	_update_char_visual(0.0)
+
+## Visual size normalization — measure the opaque bounding box of each stage's idle art
+## and derive scale + centering offset so the DRAWN character (not the padded canvas) is
+## CHAR_TARGET_HEIGHT px tall for every role. The art canvases are uniform (256px, Speedster
+## 2048px) but the character fills 50–95% of them depending on role/stage, which made
+## on-screen sizes wildly inconsistent (Tank even shrank from stage 1 → 2).
+func _compute_char_fit() -> void:
+	_char_fit.clear()
+	var frames: SpriteFrames = $CharSprite.sprite_frames
+	if frames == null:
+		return
+	for stage in [1, 2, 3]:
+		var anim := "%s_%d_idle" % [_sprite_key, stage]
+		if not frames.has_animation(anim) or frames.get_frame_count(anim) == 0:
+			continue
+		var tex: Texture2D = frames.get_frame_texture(anim, 0)
+		if tex == null:
+			continue
+		var img: Image = tex.get_image()
+		if img == null:
+			continue
+		if img.is_compressed():
+			img.decompress()
+		var used: Rect2i = img.get_used_rect()
+		if used.size.y <= 0:
+			continue
+		var s: float = CHAR_TARGET_HEIGHT[stage] / float(used.size.y)
+		var canvas_center := Vector2(img.get_width(), img.get_height()) * 0.5
+		var used_center := Vector2(used.position) + Vector2(used.size) * 0.5
+		_char_fit[stage] = {"scale": Vector2(s, s), "offset": canvas_center - used_center}
+
+## Apply the measured fit for the current stage. Falls back to the old fixed scaling when
+## the fit could not be measured (e.g. texture without retrievable image data).
+func _apply_char_fit(stage: int, spr: AnimatedSprite2D) -> void:
+	if not _char_fit.has(stage):
+		spr.scale = Vector2(0.03125, 0.03125) if _sprite_key == "speedster" else Vector2(0.25, 0.25)
+		return
+	var fit: Dictionary = _char_fit[stage]
+	spr.scale = fit["scale"]
+	var off: Vector2 = fit["offset"]
+	# flip_h mirrors the art inside its canvas, so the centering shift mirrors with it
+	spr.offset = Vector2(-off.x if spr.flip_h else off.x, off.y)
 
 ## Phase 9 (D-03, MAP-07): Called by Game.gd after each sub-room is built.
 ## Sets Camera2D limit bounds to the sub-room's pixel bounding box.
@@ -145,10 +193,25 @@ func update_camera_limits(sub_room_rect_px: Rect2) -> void:
 	if not has_node("Camera2D"):
 		return
 	var cam: Camera2D = $Camera2D
-	cam.limit_left   = int(sub_room_rect_px.position.x)
-	cam.limit_top    = int(sub_room_rect_px.position.y)
-	cam.limit_right  = int(sub_room_rect_px.end.x)
-	cam.limit_bottom = int(sub_room_rect_px.end.y)
+	## Rooms can be SMALLER than the camera view (zoomed out for the room-overview feel).
+	## Camera2D pins to limit_left/top when limits are tighter than the view, which would
+	## glue small rooms to the top-left corner — grow the limit rect to at least the view
+	## size, centered on the room, so it sits centered with void margins instead.
+	var view: Vector2 = get_viewport_rect().size / cam.zoom
+	var rect := sub_room_rect_px
+	if rect.size.x < view.x:
+		rect.position.x -= (view.x - rect.size.x) * 0.5
+		rect.size.x = view.x
+	if rect.size.y < view.y:
+		rect.position.y -= (view.y - rect.size.y) * 0.5
+		rect.size.y = view.y
+	cam.limit_left   = int(rect.position.x)
+	cam.limit_top    = int(rect.position.y)
+	cam.limit_right  = int(rect.end.x)
+	cam.limit_bottom = int(rect.end.y)
+
+## Tracks last-seen health so _process can fire a heal particle burst when it rises (all peers).
+var _last_health_seen: int = -1
 
 func _process(_delta: float) -> void:
 	# AUTOBONK: drive animated character art (walk/idle, flip, stage) on all peers
@@ -163,6 +226,11 @@ func _process(_delta: float) -> void:
 	# HLTH-01: Update health bar from synced health value (all peers)
 	if has_node("HealthBar"):
 		$HealthBar.value = float(health) / float(MAX_HP) * 100.0
+	# Heal cue: health is synced, so every peer sees the burst (drone pulse, Earth heal, revive).
+	# Mirrors the Enemy.gd _last_hp_seen hit-cue pattern. -1 sentinel skips the first frame.
+	if _last_health_seen >= 0 and health > _last_health_seen:
+		_spawn_heal_particles()
+	_last_health_seen = health
 	# Phase 6 D-10: LevelUpLabel driven by synced is_picking_card (visible on ALL peers)
 	if has_node("LevelUpLabel"):
 		$LevelUpLabel.visible = is_picking_card
@@ -172,6 +240,12 @@ func _process(_delta: float) -> void:
 func _physics_process(delta: float) -> void:
 	# P3: Only the authority peer reads input and moves
 	if not is_multiplayer_authority():
+		return
+	# Start countdown gate — no movement, weapons, or abilities until GO
+	var game := get_node_or_null("/root/Game")
+	if game != null and game.get("countdown_active") == true:
+		velocity = Vector2.ZERO
+		move_and_slide()
 		return
 	# HLTH-04: Downed players cannot act
 	if is_downed:
@@ -195,6 +269,26 @@ func _physics_process(delta: float) -> void:
 	_tick_element(delta)
 	# HLTH-05: Check revive input (R key) each frame
 	_check_revive(delta)
+
+## One-shot green particle burst at the player — self-frees when finished.
+func _spawn_heal_particles() -> void:
+	var p := CPUParticles2D.new()
+	p.one_shot = true
+	p.amount = 14
+	p.lifetime = 0.7
+	p.explosiveness = 0.9
+	p.direction = Vector2.UP
+	p.spread = 40.0
+	p.initial_velocity_min = 25.0
+	p.initial_velocity_max = 55.0
+	p.gravity = Vector2(0.0, -30.0)
+	p.scale_amount_min = 2.0
+	p.scale_amount_max = 3.5
+	p.color = Color(0.3, 1.0, 0.45, 0.9)
+	p.z_index = 2
+	p.emitting = true
+	add_child(p)
+	p.finished.connect(p.queue_free)
 
 ## HLTH-05: Check if holding E near a downed teammate; send request to host each frame
 func _check_revive(_delta: float) -> void:
@@ -635,6 +729,8 @@ func _update_char_visual(delta_t: float) -> void:
 	var anim: String = "%s_%d_%s" % [_sprite_key, stage, "walk" if _move_timer > 0.0 else "idle"]
 	if spr.animation != StringName(anim) or not spr.is_playing():
 		spr.play(anim)
+	# Normalized size per stage (also re-applies on evolution and mirrors the offset on flip)
+	_apply_char_fit(stage, spr)
 	spr.modulate = Color(0.4, 0.4, 0.4) if is_downed else Color.WHITE
 
 func _swap_stage_visual(stage: int) -> void:
@@ -739,7 +835,7 @@ func receive_element_tier_up() -> void:
 	element_tier = mini(element_tier + 1, 3)  # D-20: max Tier 3
 	_update_xp_hud()
 
-## Phase 6 (D-08): Keyboard card navigation — A/D cycle, Space/Enter confirm.
+## Phase 6 (D-08): Keyboard card navigation — A/D cycle, Enter confirm.
 ## Only active on owning peer while is_picking_card is true.
 func _unhandled_input(event: InputEvent) -> void:
 	if not is_multiplayer_authority():
@@ -754,9 +850,17 @@ func _unhandled_input(event: InputEvent) -> void:
 		if has_node("CardOverlay"):
 			$CardOverlay.navigate(1)
 		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("ui_accept"): # Space or Enter
+	elif _is_confirm_key(event): # Enter only — Space is role_ability and confirmed cards by accident
 		_confirm_card_pick()
 		get_viewport().set_input_as_handled()
+
+## Card confirm must NOT use ui_accept: that action includes Space, which doubles as
+## role_ability, so spamming the ability during a level-up picked a card unintentionally.
+func _is_confirm_key(event: InputEvent) -> bool:
+	if event is InputEventKey and event.pressed and not event.echo:
+		return event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER \
+			or event.physical_keycode == KEY_ENTER or event.physical_keycode == KEY_KP_ENTER
+	return false
 
 ## HLTH-04: Enter downed state — disable actions, trigger visual, notify GameState
 func _enter_downed() -> void:

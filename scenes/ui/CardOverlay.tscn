@@ -109,5 +109,5 @@ autowrap_mode = 2
 
 [node name="HintLabel" type="Label" parent="OverlayBackground/OverlayContainer"]
 layout_mode = 2
-text = "[A]/[D] Cycle     [Space]/[Enter] Confirm"
+text = "[A]/[D] Cycle     [Enter] Confirm"
 horizontal_alignment = 1
