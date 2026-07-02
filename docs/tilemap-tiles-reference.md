@@ -16,6 +16,13 @@ Tile size: **16 px**. Spacing: **16+1 px** (1 px gap between tiles in packed she
 | 4 | ERBA Wall (Cainos) | `assets/cainos/TX Tileset Wall.png` | 16 × 16 @ 32 px |
 | 5 | ERBA Props (Cainos) | `assets/cainos/TX Props.png` | 16 × 16 @ 32 px |
 | 6 | ERBA Stone (Cainos) | `assets/cainos/TX Tileset Stone Ground.png` | 8 × 8 @ 32 px |
+| 10–15 | Altstadt (janv2, custom art) | `assets/janv2/modern-city/*.png` | 1 tile @ 32 px each |
+
+Altstadt sources (on `TileSetAltstadt`, Room2/TileMap at scale 0.5, all coords `(0,0)`):
+10 asphalt floor · 11 mossy grass patch (~1/10 hash mix) · 12 connector road ·
+13 wall face · 14 roof obstacle (layer 1, transparent corners) · 15 wall cap
+(same wall texture, modulate 0.55 — 2.5D top). Face/cap rule identical to ERBA.
+To swap art: overwrite the PNGs in `assets/janv2/modern-city/` (same names/32 px).
 
 ---
 

@@ -29,6 +29,14 @@ const SRC_ERBA_GRASS: int = 3  ## cainos TX Tileset Grass — room 1 floors
 const SRC_ERBA_WALL: int = 4   ## cainos TX Tileset Wall — room 1 walls
 const SRC_ERBA_PROPS: int = 5  ## cainos TX Props — room 1 obstacles + deco
 const SRC_ERBA_STONE: int = 6  ## cainos TX Tileset Stone Ground — room 1 connector road
+## Room 2 (Altstadt) — custom janv2 art (assets/janv2/modern-city, one 32px PNG per tile,
+## atlas coord is always (0,0)). Room2/TileMap uses TileSetAltstadt (tile_size 32, scale 0.5).
+const SRC_ALT_ASPHALT: int = 10  ## janv2 floor-asphalt — room 2 base floor
+const SRC_ALT_GRASS: int = 11    ## janv2 floor-grass — room 2 floor mix (~1/10)
+const SRC_ALT_ROAD: int = 12     ## janv2 floor-connector — room 2 connector road
+const SRC_ALT_WALL: int = 13     ## janv2 wall — room 2 wall faces
+const SRC_ALT_ROOF: int = 14     ## janv2 obstacle-roof — room 2 obstacles (layer 1)
+const SRC_ALT_WALL_CAP: int = 15 ## same wall texture, darkened via modulate (2.5D tops)
 
 ## ─────────────────────────────────────────────────────────────────────────────
 ## Atlas coordinates for Roguelike Modern City (37 cols × 28 rows, 16+1px spacing)
@@ -384,10 +392,10 @@ static var SUB_ROOM_DATA: Dictionary = {
 		1: {
 			"width_tiles":  55,
 			"height_tiles": 38,
-			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 13),
+			"tileset_src":  10,
+			"floor_tile":   Vector2i(0, 0),
 			"wall_tile":    Vector2i(0, 0),
-			"obstacle_tile": Vector2i(3, 0),
+			"obstacle_tile": Vector2i(0, 0),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
 				Vector2i(53, 18), Vector2i(53, 19), Vector2i(53, 20),
@@ -426,10 +434,10 @@ static var SUB_ROOM_DATA: Dictionary = {
 		2: {
 			"width_tiles":  56,
 			"height_tiles": 40,
-			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 13),
+			"tileset_src":  10,
+			"floor_tile":   Vector2i(0, 0),
 			"wall_tile":    Vector2i(0, 0),
-			"obstacle_tile": Vector2i(3, 0),
+			"obstacle_tile": Vector2i(0, 0),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
 				Vector2i(54, 19), Vector2i(54, 20), Vector2i(54, 21),
@@ -470,10 +478,10 @@ static var SUB_ROOM_DATA: Dictionary = {
 		3: {
 			"width_tiles":  60,
 			"height_tiles": 42,
-			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 13),
+			"tileset_src":  10,
+			"floor_tile":   Vector2i(0, 0),
 			"wall_tile":    Vector2i(0, 0),
-			"obstacle_tile": Vector2i(3, 0),
+			"obstacle_tile": Vector2i(0, 0),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
 				Vector2i(58, 20), Vector2i(58, 21), Vector2i(58, 22),
@@ -516,10 +524,10 @@ static var SUB_ROOM_DATA: Dictionary = {
 		4: {
 			"width_tiles":  62,
 			"height_tiles": 44,
-			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 13),
+			"tileset_src":  10,
+			"floor_tile":   Vector2i(0, 0),
 			"wall_tile":    Vector2i(0, 0),
-			"obstacle_tile": Vector2i(3, 0),
+			"obstacle_tile": Vector2i(0, 0),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
 				Vector2i(60, 21), Vector2i(60, 22), Vector2i(60, 23),
@@ -562,10 +570,10 @@ static var SUB_ROOM_DATA: Dictionary = {
 		5: {
 			"width_tiles":  65,
 			"height_tiles": 46,
-			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 13),
+			"tileset_src":  10,
+			"floor_tile":   Vector2i(0, 0),
 			"wall_tile":    Vector2i(0, 0),
-			"obstacle_tile": Vector2i(3, 0),
+			"obstacle_tile": Vector2i(0, 0),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
 				Vector2i(63, 22), Vector2i(63, 23), Vector2i(63, 24),
@@ -608,10 +616,10 @@ static var SUB_ROOM_DATA: Dictionary = {
 		6: {
 			"width_tiles":  80,
 			"height_tiles": 7,
-			"tileset_src":  0,
-			"floor_tile":   Vector2i(0, 15),
+			"tileset_src":  12,
+			"floor_tile":   Vector2i(0, 0),
 			"wall_tile":    Vector2i(0, 0),
-			"obstacle_tile": Vector2i(3, 0),
+			"obstacle_tile": Vector2i(0, 0),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [],
 			"walls": [

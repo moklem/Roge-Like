@@ -8,6 +8,11 @@
 [ext_resource type="Texture2D" path="res://assets/cainos/TX Tileset Wall.png" id="6_tex_erba_wall"]
 [ext_resource type="Texture2D" path="res://assets/cainos/TX Props.png" id="7_tex_erba_props"]
 [ext_resource type="Texture2D" path="res://assets/cainos/TX Tileset Stone Ground.png" id="8_tex_erba_stone"]
+[ext_resource type="Texture2D" path="res://assets/janv2/modern-city/floor-asphalt_atlas-0-13.png" id="9_tex_alt_asphalt"]
+[ext_resource type="Texture2D" path="res://assets/janv2/modern-city/floor-grass_atlas-0-16.png" id="10_tex_alt_grass"]
+[ext_resource type="Texture2D" path="res://assets/janv2/modern-city/floor-connector_atlas-0-15.png" id="11_tex_alt_road"]
+[ext_resource type="Texture2D" path="res://assets/janv2/modern-city/wall_atlas-0-0.png" id="12_tex_alt_wall"]
+[ext_resource type="Texture2D" path="res://assets/janv2/modern-city/obstacle-roof_atlas-3-0.png" id="13_tex_alt_roof"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_modern"]
 texture = ExtResource("2_tex_modern")
@@ -41,6 +46,41 @@ texture_region_size = Vector2i(17, 17)
 physics_layer_0/collision_layer = 1
 physics_layer_0/collision_mask = 1
 sources/0 = SubResource("TileSetAtlasSource_modern")
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_alt_asphalt"]
+texture = ExtResource("9_tex_alt_asphalt")
+texture_region_size = Vector2i(32, 32)
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_alt_grass"]
+texture = ExtResource("10_tex_alt_grass")
+texture_region_size = Vector2i(32, 32)
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_alt_road"]
+texture = ExtResource("11_tex_alt_road")
+texture_region_size = Vector2i(32, 32)
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_alt_wall"]
+texture = ExtResource("12_tex_alt_wall")
+texture_region_size = Vector2i(32, 32)
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_alt_wall_cap"]
+texture = ExtResource("12_tex_alt_wall")
+texture_region_size = Vector2i(32, 32)
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_alt_roof"]
+texture = ExtResource("13_tex_alt_roof")
+texture_region_size = Vector2i(32, 32)
+
+[sub_resource type="TileSet" id="TileSetAltstadt"]
+tile_size = Vector2i(32, 32)
+physics_layer_0/collision_layer = 1
+physics_layer_0/collision_mask = 1
+sources/10 = SubResource("TileSetAtlasSource_alt_asphalt")
+sources/11 = SubResource("TileSetAtlasSource_alt_grass")
+sources/12 = SubResource("TileSetAtlasSource_alt_road")
+sources/13 = SubResource("TileSetAtlasSource_alt_wall")
+sources/14 = SubResource("TileSetAtlasSource_alt_roof")
+sources/15 = SubResource("TileSetAtlasSource_alt_wall_cap")
 
 [sub_resource type="TileSet" id="TileSetErba"]
 tile_size = Vector2i(32, 32)
@@ -129,7 +169,8 @@ position = Vector2(530, 470)
 visible = false
 
 [node name="TileMap" type="TileMap" parent="Room2"]
-tile_set = SubResource("TileSetModern")
+scale = Vector2(0.5, 0.5)
+tile_set = SubResource("TileSetAltstadt")
 format = 2
 
 [node name="NavigationRegion2D" type="NavigationRegion2D" parent="Room2"]

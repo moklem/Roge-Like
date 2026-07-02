@@ -36,10 +36,14 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 	## Godot 4 requires tiles to be registered on TileSetAtlasSource before set_cell() renders them.
 	## Room 1 (ERBA) uses its own multi-source registration across the Cainos sheets.
 	var is_erba: bool = room_id == 1
-	if is_erba:
-		_register_erba_tiles(tilemap)
-		## Props (rock obstacles, pebble deco) render on layer 1 ABOVE the grass floor —
-		## they have transparency, so the floor must stay visible underneath.
+	var is_alt: bool = room_id == 2
+	if is_erba or is_alt:
+		if is_erba:
+			_register_erba_tiles(tilemap)
+		else:
+			_register_altstadt_tiles(tilemap)
+		## Obstacles/deco render on layer 1 ABOVE the floor — the ERBA rocks and the
+		## Altstadt roof tile have transparent edges, so the floor must stay visible.
 		if tilemap.get_layers_count() < 2:
 			tilemap.add_layer(-1)
 	else:
@@ -73,7 +77,6 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 		for x_off in range(rect.size.x):
 			for y_off in range(rect.size.y):
 				var coords := Vector2i(rect.position.x + x_off, rect.position.y + y_off)
-				var mix_idx: int = (x_off + y_off)
 				var tile: Vector2i = floor_tile
 				if is_erba and sub_room_id != 6:
 					## Connector (SR 6) stays pure stone road; playable sub-rooms pick a
@@ -88,9 +91,12 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 						tile = RoomLayouts.ERBA_GRASS_DETAIL[pick % RoomLayouts.ERBA_GRASS_DETAIL.size()]
 					else:
 						tile = RoomLayouts.ERBA_GRASS_PLAIN[pick % RoomLayouts.ERBA_GRASS_PLAIN.size()]
-				elif room_id == 2:
-					if mix_idx % 10 == 0:
-						tile = RoomLayouts.MC_FLOOR_GRASS      ## occasional grass patch
+				elif is_alt and sub_room_id != 6:
+					## janv2 art: single-tile sources, so the mix switches the SOURCE
+					## (asphalt vs mossy grass patch), not the atlas coord.
+					if _cell_hash(coords, 1) % 10 == 0:
+						tilemap.set_cell(0, coords, RoomLayouts.SRC_ALT_GRASS, Vector2i(0, 0))
+						continue
 				## room_id == 3: no mixing — pure stone
 				tilemap.set_cell(0, coords, source_id, tile)
 
@@ -100,8 +106,9 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 	## CAP (you look at the wall's top). Floor was placed in step 5, walls are not yet on
 	## the map — wall_cells tracks them so face detection cannot mistake a wall for floor.
 	var wall_tile: Vector2i = layout["wall_tile"]
+	var use_depth: bool = is_erba or is_alt
 	var wall_cells := {}
-	if is_erba:
+	if use_depth:
 		for wall_rect in layout["walls"]:
 			var r: Rect2i = wall_rect
 			for x_off in range(r.size.x):
@@ -112,17 +119,23 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 		for x_off in range(rect.size.x):
 			for y_off in range(rect.size.y):
 				var coords := Vector2i(rect.position.x + x_off, rect.position.y + y_off)
-				if is_erba:
+				if use_depth:
 					var below := coords + Vector2i(0, 1)
 					var below_is_floor: bool = not wall_cells.has(below) \
 						and tilemap.get_cell_source_id(0, below) != -1
-					var pick: int = _cell_hash(coords, 3)
-					var tile: Vector2i
-					if below_is_floor:
-						tile = RoomLayouts.ERBA_WALL_FACES[pick % RoomLayouts.ERBA_WALL_FACES.size()]
+					if is_erba:
+						var pick: int = _cell_hash(coords, 3)
+						var tile: Vector2i
+						if below_is_floor:
+							tile = RoomLayouts.ERBA_WALL_FACES[pick % RoomLayouts.ERBA_WALL_FACES.size()]
+						else:
+							tile = RoomLayouts.ERBA_WALL_CAPS[pick % RoomLayouts.ERBA_WALL_CAPS.size()]
+						tilemap.set_cell(0, coords, RoomLayouts.SRC_ERBA_WALL, tile)
 					else:
-						tile = RoomLayouts.ERBA_WALL_CAPS[pick % RoomLayouts.ERBA_WALL_CAPS.size()]
-					tilemap.set_cell(0, coords, RoomLayouts.SRC_ERBA_WALL, tile)
+						## Altstadt: single wall PNG — face and cap are two sources sharing
+						## the texture; the cap source is darkened via modulate.
+						var src: int = RoomLayouts.SRC_ALT_WALL if below_is_floor else RoomLayouts.SRC_ALT_WALL_CAP
+						tilemap.set_cell(0, coords, src, Vector2i(0, 0))
 				else:
 					tilemap.set_cell(0, coords, source_id, wall_tile)
 	## Step 6b (ERBA 2.5D): darken the grass row directly under each wall face — cheap
@@ -156,6 +169,9 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 					else:
 						piece = RoomLayouts.ERBA_ROCKS_SINGLE[_cell_hash(coords, 6) % RoomLayouts.ERBA_ROCKS_SINGLE.size()]
 					tilemap.set_cell(1, coords, RoomLayouts.SRC_ERBA_PROPS, piece)
+				elif is_alt:
+					## Roof tile has transparent rounded corners → layer 1 over the floor
+					tilemap.set_cell(1, coords, RoomLayouts.SRC_ALT_ROOF, Vector2i(0, 0))
 				else:
 					tilemap.set_cell(0, coords, source_id, obstacle_tile)
 
@@ -276,6 +292,25 @@ func _register_erba_tiles(tilemap: TileMap) -> void:
 	if stone:
 		if not stone.has_tile(RoomLayouts.ERBA_CONNECTOR_ROAD):
 			stone.create_tile(RoomLayouts.ERBA_CONNECTOR_ROAD)
+
+## Room 2 (Altstadt): register the janv2 single-tile sources. Every source holds exactly
+## one tile at (0,0). Wall, wall-cap, and roof are solid; the cap source shares the wall
+## texture and is darkened via modulate for the 2.5D top look.
+func _register_altstadt_tiles(tilemap: TileMap) -> void:
+	var half: float = tilemap.tile_set.tile_size.x / 2.0  # 32px tileset → 16
+	for sid: int in [RoomLayouts.SRC_ALT_ASPHALT, RoomLayouts.SRC_ALT_GRASS, RoomLayouts.SRC_ALT_ROAD]:
+		var src := tilemap.tile_set.get_source(sid) as TileSetAtlasSource
+		if src and not src.has_tile(Vector2i.ZERO):
+			src.create_tile(Vector2i.ZERO)
+	var wall := tilemap.tile_set.get_source(RoomLayouts.SRC_ALT_WALL) as TileSetAtlasSource
+	if wall:
+		_ensure_solid_tile(wall, Vector2i.ZERO, half)
+	var cap := tilemap.tile_set.get_source(RoomLayouts.SRC_ALT_WALL_CAP) as TileSetAtlasSource
+	if cap:
+		_ensure_solid_tile(cap, Vector2i.ZERO, half, 0.55)
+	var roof := tilemap.tile_set.get_source(RoomLayouts.SRC_ALT_ROOF) as TileSetAtlasSource
+	if roof:
+		_ensure_solid_tile(roof, Vector2i.ZERO, half)
 
 ## Phase 9 (D-11, D-13): Build the connector corridor sub-room.
 ## Connector is sub_room_id == 6 in the layout data (rooms 1 and 2 only).
