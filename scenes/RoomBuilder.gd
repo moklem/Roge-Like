@@ -145,7 +145,16 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 			for y_off in range(rect.size.y):
 				var coords := Vector2i(rect.position.x + x_off, rect.position.y + y_off)
 				if is_erba:
-					var piece := RoomLayouts.ERBA_ROCK_ORIGIN + Vector2i(posmod(coords.x, 2), posmod(coords.y, 2))
+					## 2x2 piles are anchored to the RECT origin and only used where the
+					## full block fits — leftover edge cells (odd width/height) get a
+					## complete single rock instead of a cut-off pile half.
+					var block_fits: bool = (x_off - posmod(x_off, 2) + 1 < rect.size.x) \
+						and (y_off - posmod(y_off, 2) + 1 < rect.size.y)
+					var piece: Vector2i
+					if block_fits:
+						piece = RoomLayouts.ERBA_ROCK_ORIGIN + Vector2i(posmod(x_off, 2), posmod(y_off, 2))
+					else:
+						piece = RoomLayouts.ERBA_ROCKS_SINGLE[_cell_hash(coords, 6) % RoomLayouts.ERBA_ROCKS_SINGLE.size()]
 					tilemap.set_cell(1, coords, RoomLayouts.SRC_ERBA_PROPS, piece)
 				else:
 					tilemap.set_cell(0, coords, source_id, obstacle_tile)
@@ -251,11 +260,15 @@ func _register_erba_tiles(tilemap: TileMap) -> void:
 		for ac: Vector2i in RoomLayouts.ERBA_WALL_FACES:
 			_ensure_solid_tile(wall, ac, half)
 		for ac: Vector2i in RoomLayouts.ERBA_WALL_CAPS:
-			_ensure_solid_tile(wall, ac, half, 0.32)  # near-black wall tops (2.5D depth)
+			## 0.55: clearly darker than the faces but the brick texture stays readable
+			## (0.32 looked like flat black bars along the top wall rows)
+			_ensure_solid_tile(wall, ac, half, 0.55)
 	var props := tilemap.tile_set.get_source(RoomLayouts.SRC_ERBA_PROPS) as TileSetAtlasSource
 	if props:
 		for off in [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)]:
 			_ensure_solid_tile(props, RoomLayouts.ERBA_ROCK_ORIGIN + off, half)
+		for ac: Vector2i in RoomLayouts.ERBA_ROCKS_SINGLE:
+			_ensure_solid_tile(props, ac, half)
 		for ac: Vector2i in RoomLayouts.ERBA_PEBBLES:
 			if not props.has_tile(ac):
 				props.create_tile(ac)

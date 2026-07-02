@@ -850,16 +850,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		if has_node("CardOverlay"):
 			$CardOverlay.navigate(1)
 		get_viewport().set_input_as_handled()
-	elif _is_confirm_key(event): # Enter only — Space is role_ability and confirmed cards by accident
+	elif _is_confirm_key(event): # Enter or Space
 		_confirm_card_pick()
 		get_viewport().set_input_as_handled()
 
-## Card confirm must NOT use ui_accept: that action includes Space, which doubles as
-## role_ability, so spamming the ability during a level-up picked a card unintentionally.
+## Confirm with Enter or Space. Space also being role_ability is harmless here:
+## while is_picking_card is true the ability dispatch in _physics_process is frozen.
 func _is_confirm_key(event: InputEvent) -> bool:
 	if event is InputEventKey and event.pressed and not event.echo:
-		return event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER \
-			or event.physical_keycode == KEY_ENTER or event.physical_keycode == KEY_KP_ENTER
+		return event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE] \
+			or event.physical_keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]
 	return false
 
 ## HLTH-04: Enter downed state — disable actions, trigger visual, notify GameState

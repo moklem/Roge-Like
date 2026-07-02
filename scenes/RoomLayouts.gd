@@ -85,8 +85,12 @@ const ERBA_WALL_FACES: Array[Vector2i] = [
 const ERBA_WALL_CAPS: Array[Vector2i]  = [
 	Vector2i(1, 10), Vector2i(2, 10), Vector2i(4, 10), Vector2i(5, 10),
 ]
-## Obstacles + deco (TX Props): 2x2 rock pile tiled across obstacle rects; pebble scatter
+## Obstacles + deco (TX Props): full 2x2 rock piles where they fit inside the obstacle
+## rect, complete single rocks on leftover edge cells (nothing ever renders cut off).
 const ERBA_ROCK_ORIGIN     := Vector2i(0, 13)  ## top-left of the 2x2 rock pile
+const ERBA_ROCKS_SINGLE: Array[Vector2i] = [
+	Vector2i(4, 15), Vector2i(5, 15), Vector2i(9, 15),
+]
 const ERBA_PEBBLES: Array[Vector2i] = [
 	Vector2i(2, 15), Vector2i(3, 15), Vector2i(7, 15), Vector2i(8, 15),
 ]
