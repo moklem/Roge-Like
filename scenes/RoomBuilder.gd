@@ -34,50 +34,37 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 
 	## Step 4b: Register all atlas tiles this sub-room will use.
 	## Godot 4 requires tiles to be registered on TileSetAtlasSource before set_cell() renders them.
-	var _src := tilemap.tile_set.get_source(source_id) as TileSetAtlasSource
-	if _src:
-		## Floor / decorative tiles — no collision.
-		## Mix tiles are modern-city-only; dungeon tileset has 11 rows so registering
-		## MC rows 16-17 there triggers "outside texture" errors.
-		var _floor_reg: Array[Vector2i] = [layout["floor_tile"]]
-		if source_id == RoomLayouts.SRC_MODERN:
-			_floor_reg.append_array([
-				RoomLayouts.MC_FLOOR_CRACK,
-				RoomLayouts.MC_FLOOR_GRASS_ALT,
-				RoomLayouts.MC_FLOOR_GRASS,
-			])
-		elif source_id == RoomLayouts.SRC_ERBA:
-			_floor_reg.append_array([
-				RoomLayouts.ERBA_FLOOR_SLABS,
-				RoomLayouts.ERBA_FLOOR_FLOWER,
-				RoomLayouts.ERBA_FLOOR_GRASS,
-				RoomLayouts.ERBA_FLOOR_SHADOW,
-			])
-		for _ac: Vector2i in _floor_reg:
-			if not _src.has_tile(_ac):
-				_src.create_tile(_ac)
-		## Solid tiles (walls + obstacles) — full-cell collision polygon on physics layer 0
-		## so the player and bullets actually collide with them.
-		var _solid_reg: Array[Vector2i] = [layout["wall_tile"], layout["obstacle_tile"]]
-		if source_id == RoomLayouts.SRC_ERBA:
-			## 2.5D walls use two tiles: brick face (already wall_tile) + dark cap
-			_solid_reg.append(RoomLayouts.ERBA_WALL_CAP)
-		for _ac: Vector2i in _solid_reg:
-			if not _src.has_tile(_ac):
-				_src.create_tile(_ac)
-			var _td := _src.get_tile_data(_ac, 0)
-			if _td == null:
-				continue
-			if _td.get_collision_polygons_count(0) == 0:
-				var _half := RoomLayouts.TILE_SIZE / 2.0
-				_td.add_collision_polygon(0)
-				_td.set_collision_polygon_points(0, 0, PackedVector2Array([
-					Vector2(-_half, -_half), Vector2(_half, -_half),
-					Vector2(_half, _half), Vector2(-_half, _half),
-				]))
+	## Room 1 (ERBA) uses its own multi-source registration across the Cainos sheets.
+	var is_erba: bool = room_id == 1
+	if is_erba:
+		_register_erba_tiles(tilemap)
+		## Props (rock obstacles, pebble deco) render on layer 1 ABOVE the grass floor —
+		## they have transparency, so the floor must stay visible underneath.
+		if tilemap.get_layers_count() < 2:
+			tilemap.add_layer(-1)
+	else:
+		var _src := tilemap.tile_set.get_source(source_id) as TileSetAtlasSource
+		if _src:
+			## Floor / decorative tiles — no collision.
+			## Mix tiles are modern-city-only; dungeon tileset has 11 rows so registering
+			## MC rows 16-17 there triggers "outside texture" errors.
+			var _floor_reg: Array[Vector2i] = [layout["floor_tile"]]
+			if source_id == RoomLayouts.SRC_MODERN:
+				_floor_reg.append_array([
+					RoomLayouts.MC_FLOOR_CRACK,
+					RoomLayouts.MC_FLOOR_GRASS_ALT,
+					RoomLayouts.MC_FLOOR_GRASS,
+				])
+			for _ac: Vector2i in _floor_reg:
+				if not _src.has_tile(_ac):
+					_src.create_tile(_ac)
+			## Solid tiles (walls + obstacles) — full-cell collision polygon on physics layer 0
+			## so the player and bullets actually collide with them.
+			for _ac: Vector2i in [layout["wall_tile"], layout["obstacle_tile"]]:
+				_ensure_solid_tile(_src, _ac, RoomLayouts.TILE_SIZE / 2.0)
 
 	## Step 5: Place floor tiles with optional mix rules per room
-	## Room 1 (ERBA): every 3rd tile (mix_idx % 3 == 0) → crack, % 3 == 1 → grass alt
+	## Room 1 (ERBA): hash-weighted grass variants from the Cainos sheet (see below)
 	## Room 2 (Altstadt): every 10th tile (mix_idx % 10 == 0) → grass
 	## Room 3 (Burg Altenburg): no mixing — pure stone
 	var floor_tile: Vector2i = layout["floor_tile"]
@@ -88,15 +75,19 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 				var coords := Vector2i(rect.position.x + x_off, rect.position.y + y_off)
 				var mix_idx: int = (x_off + y_off)
 				var tile: Vector2i = floor_tile
-				if room_id == 1 and source_id == RoomLayouts.SRC_ERBA and sub_room_id != 6:
-					## Connector (SR 6) stays pure road; playable sub-rooms scatter grass
-					## details. Coordinate hash instead of (x+y)%3 — the old diagonal-stripe
-					## rhythm turned the chunky slab tiles into a fence pattern.
-					var scatter: int = (coords.x * 31 + coords.y * 17) % 9
-					if scatter == 0:
-						tile = RoomLayouts.ERBA_FLOOR_SLABS    ## stone slabs on grass (~1/9)
-					elif scatter <= 2:
-						tile = RoomLayouts.ERBA_FLOOR_FLOWER   ## grass with flower (~2/9)
+				if is_erba and sub_room_id != 6:
+					## Connector (SR 6) stays pure stone road; playable sub-rooms pick a
+					## weighted grass variant per cell via _cell_hash: ~1/16 slab tiles,
+					## ~3/16 flowers/tufts, rest plain — each category rotates through
+					## several sheet variants.
+					var cat: int = _cell_hash(coords, 1) % 16
+					var pick: int = _cell_hash(coords, 2)
+					if cat == 0:
+						tile = RoomLayouts.ERBA_GRASS_SLABS[pick % RoomLayouts.ERBA_GRASS_SLABS.size()]
+					elif cat <= 3:
+						tile = RoomLayouts.ERBA_GRASS_DETAIL[pick % RoomLayouts.ERBA_GRASS_DETAIL.size()]
+					else:
+						tile = RoomLayouts.ERBA_GRASS_PLAIN[pick % RoomLayouts.ERBA_GRASS_PLAIN.size()]
 				elif room_id == 2:
 					if mix_idx % 10 == 0:
 						tile = RoomLayouts.MC_FLOOR_GRASS      ## occasional grass patch
@@ -109,9 +100,8 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 	## CAP (you look at the wall's top). Floor was placed in step 5, walls are not yet on
 	## the map — wall_cells tracks them so face detection cannot mistake a wall for floor.
 	var wall_tile: Vector2i = layout["wall_tile"]
-	var erba_depth: bool = source_id == RoomLayouts.SRC_ERBA
 	var wall_cells := {}
-	if erba_depth:
+	if is_erba:
 		for wall_rect in layout["walls"]:
 			var r: Rect2i = wall_rect
 			for x_off in range(r.size.x):
@@ -122,32 +112,62 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 		for x_off in range(rect.size.x):
 			for y_off in range(rect.size.y):
 				var coords := Vector2i(rect.position.x + x_off, rect.position.y + y_off)
-				var tile: Vector2i = wall_tile
-				if erba_depth:
+				if is_erba:
 					var below := coords + Vector2i(0, 1)
 					var below_is_floor: bool = not wall_cells.has(below) \
 						and tilemap.get_cell_source_id(0, below) != -1
-					tile = RoomLayouts.ERBA_WALL_BRICK if below_is_floor else RoomLayouts.ERBA_WALL_CAP
-				tilemap.set_cell(0, coords, source_id, tile)
+					var pick: int = _cell_hash(coords, 3)
+					var tile: Vector2i
+					if below_is_floor:
+						tile = RoomLayouts.ERBA_WALL_FACES[pick % RoomLayouts.ERBA_WALL_FACES.size()]
+					else:
+						tile = RoomLayouts.ERBA_WALL_CAPS[pick % RoomLayouts.ERBA_WALL_CAPS.size()]
+					tilemap.set_cell(0, coords, RoomLayouts.SRC_ERBA_WALL, tile)
+				else:
+					tilemap.set_cell(0, coords, source_id, wall_tile)
 	## Step 6b (ERBA 2.5D): darken the grass row directly under each wall face — cheap
 	## contact shadow that sells the wall height. Road tiles (connector) stay untouched.
-	if erba_depth:
+	if is_erba:
 		for w: Vector2i in wall_cells:
 			var below: Vector2i = w + Vector2i(0, 1)
 			if wall_cells.has(below):
 				continue
-			var ac: Vector2i = tilemap.get_cell_atlas_coords(0, below)
-			if ac in [RoomLayouts.ERBA_FLOOR_GRASS, RoomLayouts.ERBA_FLOOR_FLOWER, RoomLayouts.ERBA_FLOOR_SLABS]:
-				tilemap.set_cell(0, below, source_id, RoomLayouts.ERBA_FLOOR_SHADOW)
+			if tilemap.get_cell_source_id(0, below) == RoomLayouts.SRC_ERBA_GRASS:
+				tilemap.set_cell(0, below, RoomLayouts.SRC_ERBA_GRASS, RoomLayouts.ERBA_FLOOR_SHADOW)
 
-	## Step 7: Place obstacle tiles
+	## Step 7: Place obstacle tiles.
+	## ERBA: the 2x2 rock pile pattern from TX Props goes on LAYER 1 — the props have
+	## transparent edges, so the grass floor placed in step 5 stays visible underneath.
 	var obstacle_tile: Vector2i = layout["obstacle_tile"]
 	for obs_rect in layout["obstacles"]:
 		var rect: Rect2i = obs_rect
 		for x_off in range(rect.size.x):
 			for y_off in range(rect.size.y):
 				var coords := Vector2i(rect.position.x + x_off, rect.position.y + y_off)
-				tilemap.set_cell(0, coords, source_id, obstacle_tile)
+				if is_erba:
+					var piece := RoomLayouts.ERBA_ROCK_ORIGIN + Vector2i(posmod(coords.x, 2), posmod(coords.y, 2))
+					tilemap.set_cell(1, coords, RoomLayouts.SRC_ERBA_PROPS, piece)
+				else:
+					tilemap.set_cell(0, coords, source_id, obstacle_tile)
+
+	## Step 7b (ERBA): sparse pebble deco on plain grass (layer 1, no collision).
+	## Skips shadowed cells and cells already carrying an obstacle.
+	if is_erba and sub_room_id != 6:
+		for floor_rect in layout["floor"]:
+			var rect: Rect2i = floor_rect
+			for x_off in range(rect.size.x):
+				for y_off in range(rect.size.y):
+					var coords := Vector2i(rect.position.x + x_off, rect.position.y + y_off)
+					if _cell_hash(coords, 4) % 29 != 0:
+						continue
+					if tilemap.get_cell_source_id(1, coords) != -1:
+						continue  # obstacle already there
+					if tilemap.get_cell_source_id(0, coords) != RoomLayouts.SRC_ERBA_GRASS:
+						continue  # wall or road cell
+					if tilemap.get_cell_atlas_coords(0, coords) == RoomLayouts.ERBA_FLOOR_SHADOW:
+						continue  # keep contact shadows clean
+					var pick: int = _cell_hash(coords, 5) % RoomLayouts.ERBA_PEBBLES.size()
+					tilemap.set_cell(1, coords, RoomLayouts.SRC_ERBA_PROPS, RoomLayouts.ERBA_PEBBLES[pick])
 
 	## Step 8: Update player spawn points
 	## Remove all existing Marker2D children (queue_free — safe in non-physics context)
@@ -183,6 +203,66 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 		layout["width_tiles"] * RoomLayouts.TILE_SIZE,
 		layout["height_tiles"] * RoomLayouts.TILE_SIZE)
 
+
+## Deterministic per-cell hash for tile variation. A plain linear form like
+## (x*31 + y*17) % 16 degenerates to (y - x) % 16 → diagonal stripes; the xor-shift
+## scramble kills any directional pattern. Same result on every peer (pure function).
+static func _cell_hash(c: Vector2i, salt: int) -> int:
+	var h: int = c.x * 374761393 + c.y * 668265263 + salt * 144269504
+	h = (h ^ (h >> 13)) * 1274126177
+	h = h ^ (h >> 16)
+	return absi(h)
+
+## Create the tile if missing and attach a full-cell collision polygon (physics layer 0).
+## half = half the tile size in the source's own pixel space (16 for the 32px ERBA tiles).
+## dark < 1.0 additionally darkens the tile via per-tile modulate (used for wall caps).
+func _ensure_solid_tile(src: TileSetAtlasSource, ac: Vector2i, half: float, dark: float = 1.0) -> void:
+	if not src.has_tile(ac):
+		src.create_tile(ac)
+	var td := src.get_tile_data(ac, 0)
+	if td == null:
+		return
+	if dark < 1.0:
+		td.modulate = Color(dark, dark, dark)
+	if td.get_collision_polygons_count(0) == 0:
+		td.add_collision_polygon(0)
+		td.set_collision_polygon_points(0, 0, PackedVector2Array([
+			Vector2(-half, -half), Vector2(half, -half),
+			Vector2(half, half), Vector2(-half, half),
+		]))
+
+## Room 1 (ERBA): register every used tile across the four Cainos sheet sources.
+## Grass variants + shadow (no collision), wall faces/caps (collision, caps darkened),
+## rock pile + pebbles (rocks collide, pebbles are deco), connector road (no collision).
+func _register_erba_tiles(tilemap: TileMap) -> void:
+	var half: float = tilemap.tile_set.tile_size.x / 2.0  # 32px tileset → 16
+	var grass := tilemap.tile_set.get_source(RoomLayouts.SRC_ERBA_GRASS) as TileSetAtlasSource
+	if grass:
+		for ac: Vector2i in RoomLayouts.ERBA_GRASS_PLAIN + RoomLayouts.ERBA_GRASS_DETAIL + RoomLayouts.ERBA_GRASS_SLABS:
+			if not grass.has_tile(ac):
+				grass.create_tile(ac)
+		if not grass.has_tile(RoomLayouts.ERBA_FLOOR_SHADOW):
+			grass.create_tile(RoomLayouts.ERBA_FLOOR_SHADOW)
+		var std := grass.get_tile_data(RoomLayouts.ERBA_FLOOR_SHADOW, 0)
+		if std:
+			std.modulate = Color(0.66, 0.66, 0.66)  # contact shadow under wall faces
+	var wall := tilemap.tile_set.get_source(RoomLayouts.SRC_ERBA_WALL) as TileSetAtlasSource
+	if wall:
+		for ac: Vector2i in RoomLayouts.ERBA_WALL_FACES:
+			_ensure_solid_tile(wall, ac, half)
+		for ac: Vector2i in RoomLayouts.ERBA_WALL_CAPS:
+			_ensure_solid_tile(wall, ac, half, 0.32)  # near-black wall tops (2.5D depth)
+	var props := tilemap.tile_set.get_source(RoomLayouts.SRC_ERBA_PROPS) as TileSetAtlasSource
+	if props:
+		for off in [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)]:
+			_ensure_solid_tile(props, RoomLayouts.ERBA_ROCK_ORIGIN + off, half)
+		for ac: Vector2i in RoomLayouts.ERBA_PEBBLES:
+			if not props.has_tile(ac):
+				props.create_tile(ac)
+	var stone := tilemap.tile_set.get_source(RoomLayouts.SRC_ERBA_STONE) as TileSetAtlasSource
+	if stone:
+		if not stone.has_tile(RoomLayouts.ERBA_CONNECTOR_ROAD):
+			stone.create_tile(RoomLayouts.ERBA_CONNECTOR_ROAD)
 
 ## Phase 9 (D-11, D-13): Build the connector corridor sub-room.
 ## Connector is sub_room_id == 6 in the layout data (rooms 1 and 2 only).

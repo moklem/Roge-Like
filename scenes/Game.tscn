@@ -4,15 +4,30 @@
 [ext_resource type="Texture2D" path="res://assets/kenney/roguelike-modern-city/Tilemap/tilemap_packed.png" id="2_tex_modern"]
 [ext_resource type="Texture2D" path="res://assets/kenney/tiny-dungeon/Tilemap/tilemap_packed.png" id="3_tex_dungeon"]
 [ext_resource type="Texture2D" path="res://assets/kenney/1-bit-pack/Tilemap/tileset_legacy.png" id="4_tex_1bit"]
-[ext_resource type="Texture2D" path="res://assets/cainos/erba_atlas.png" id="5_tex_erba"]
+[ext_resource type="Texture2D" path="res://assets/cainos/TX Tileset Grass.png" id="5_tex_erba_grass"]
+[ext_resource type="Texture2D" path="res://assets/cainos/TX Tileset Wall.png" id="6_tex_erba_wall"]
+[ext_resource type="Texture2D" path="res://assets/cainos/TX Props.png" id="7_tex_erba_props"]
+[ext_resource type="Texture2D" path="res://assets/cainos/TX Tileset Stone Ground.png" id="8_tex_erba_stone"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_modern"]
 texture = ExtResource("2_tex_modern")
 texture_region_size = Vector2i(16, 16)
 
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_erba"]
-texture = ExtResource("5_tex_erba")
-texture_region_size = Vector2i(16, 16)
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_erba_grass"]
+texture = ExtResource("5_tex_erba_grass")
+texture_region_size = Vector2i(32, 32)
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_erba_wall"]
+texture = ExtResource("6_tex_erba_wall")
+texture_region_size = Vector2i(32, 32)
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_erba_props"]
+texture = ExtResource("7_tex_erba_props")
+texture_region_size = Vector2i(32, 32)
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_erba_stone"]
+texture = ExtResource("8_tex_erba_stone")
+texture_region_size = Vector2i(32, 32)
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_dungeon"]
 texture = ExtResource("3_tex_dungeon")
@@ -26,7 +41,15 @@ texture_region_size = Vector2i(17, 17)
 physics_layer_0/collision_layer = 1
 physics_layer_0/collision_mask = 1
 sources/0 = SubResource("TileSetAtlasSource_modern")
-sources/3 = SubResource("TileSetAtlasSource_erba")
+
+[sub_resource type="TileSet" id="TileSetErba"]
+tile_size = Vector2i(32, 32)
+physics_layer_0/collision_layer = 1
+physics_layer_0/collision_mask = 1
+sources/3 = SubResource("TileSetAtlasSource_erba_grass")
+sources/4 = SubResource("TileSetAtlasSource_erba_wall")
+sources/5 = SubResource("TileSetAtlasSource_erba_props")
+sources/6 = SubResource("TileSetAtlasSource_erba_stone")
 
 [sub_resource type="TileSet" id="TileSetDungeon"]
 physics_layer_0/collision_layer = 1
@@ -58,7 +81,8 @@ script = ExtResource("1_game")
 [node name="Room1" type="Node2D" parent="." unique_id=1319617855]
 
 [node name="TileMap" type="TileMap" parent="Room1" unique_id=1527982491]
-tile_set = SubResource("TileSetModern")
+scale = Vector2(0.5, 0.5)
+tile_set = SubResource("TileSetErba")
 format = 2
 
 [node name="NavigationRegion2D" type="NavigationRegion2D" parent="Room1" unique_id=824513027]
