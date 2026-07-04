@@ -58,10 +58,10 @@ func tick(delta: float) -> void:
 ## D-08: ScrewsAndBolts fire — migrated from Player._try_fire; Phase 6 D-11 adds L2/L3 spread.
 func _fire_screws() -> void:
 	var player: CharacterBody2D = get_parent()
-	var nearest := _find_nearest_enemy(player)
-	if nearest == null:
+	var targets: Array = _find_nearest_enemies(player, 3)
+	if targets.is_empty():
 		return
-	var base_dir: Vector2 = (nearest.global_position - player.global_position).normalized()
+	var base_dir: Vector2 = (targets[0].global_position - player.global_position).normalized()
 	var game := get_node_or_null("/root/Game")
 	if game == null:
 		return
@@ -78,7 +78,12 @@ func _fire_screws() -> void:
 		if _shot_count >= ELEMENT_PROC_INTERVAL:
 			_shot_count = 0
 			element_proc = true
-	for d in dirs:
+	# Bolts converge (D-11 rework): spread volleys fan out, then every bolt curves onto its
+	# own enemy — targets are distributed across the nearest enemies (bolt i → enemy i,
+	# wrapping when there are fewer enemies than bolts, so nothing goes to waste).
+	for i in dirs.size():
+		var d: Vector2 = dirs[i]
+		var target_pos: Vector2 = targets[i % targets.size()].global_position
 		if multiplayer.is_server():
 			if game.has_node("BulletSpawner"):
 				game.get_node("BulletSpawner").spawn({
@@ -86,11 +91,12 @@ func _fire_screws() -> void:
 					"dir": d,
 					"owner_id": player.peer_id,
 					"damage_mult": player.stage3_damage_mult * player.driver_damage_mult,
-					"element_proc": element_proc
+					"element_proc": element_proc,
+					"target_pos": target_pos
 				})
 		else:
 			if game.has_method("request_fire"):
-				game.request_fire.rpc_id(1, player.global_position, d, player.peer_id, false, element_proc)
+				game.request_fire.rpc_id(1, player.global_position, d, player.peer_id, false, element_proc, target_pos)
 
 ## Phase 6 D-11: Compute bolt fire directions per level.
 ## L1: 1 bolt straight ahead. L2: 2 bolts ±15°. L3: 3 bolts at 0°, +30°, -30°.
@@ -108,6 +114,14 @@ func _get_screws_dirs(base_dir: Vector2, level: int) -> Array:
 		]
 	else:
 		return [base_dir]
+
+## Up to `count` enemies sorted by distance — ScrewsAndBolts spreads its bolts across them.
+func _find_nearest_enemies(player: Node, count: int) -> Array:
+	var enemies: Array = get_tree().get_nodes_in_group("enemies")
+	enemies.sort_custom(func(a, b):
+		return player.global_position.distance_squared_to(a.global_position) \
+			< player.global_position.distance_squared_to(b.global_position))
+	return enemies.slice(0, count)
 
 ## Shared utility — used by ScrewsAndBolts and timer-based weapons (Wave 3).
 func _find_nearest_enemy(player: Node) -> Node:

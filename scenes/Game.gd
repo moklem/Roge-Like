@@ -816,7 +816,7 @@ func _do_spawn_pickup(data: Dictionary) -> Node:
 ## Phase 5 Plan 05 (D-17, ELEM-07, T-05-19): Optional force_burn param — defaults false so
 ## existing screws/bolts callers (rpc_id(1, pos, dir, peer_id)) remain valid.
 @rpc("any_peer", "call_remote", "reliable")
-func request_fire(_client_pos: Vector2, dir: Vector2, requester_peer_id: int, force_burn: bool = false, element_proc: bool = false) -> void:
+func request_fire(_client_pos: Vector2, dir: Vector2, requester_peer_id: int, force_burn: bool = false, element_proc: bool = false, target_pos: Vector2 = Vector2.INF) -> void:
 	# Runs on host only
 	if not multiplayer.is_server():
 		return
@@ -836,7 +836,8 @@ func request_fire(_client_pos: Vector2, dir: Vector2, requester_peer_id: int, fo
 		"owner_id": requester_peer_id,
 		"fire_burst": force_burn,
 		"element_proc": element_proc,
-		"damage_mult": player_node.stage3_damage_mult * player_node.driver_damage_mult
+		"damage_mult": player_node.stage3_damage_mult * player_node.driver_damage_mult,
+		"target_pos": target_pos
 	})
 
 func _do_spawn_bullet(data: Dictionary) -> Node:
@@ -851,6 +852,8 @@ func _do_spawn_bullet(data: Dictionary) -> Node:
 	b.damage_mult = data.get("damage_mult", 1.0)
 	b.force_burn = data.get("fire_burst", false)
 	b.element_proc = data.get("element_proc", false)
+	# Spread bolts converge: enemy position snapshot; Vector2.INF = no homing (straight flight).
+	b.target_pos = data.get("target_pos", Vector2.INF)
 	if b.force_burn:
 		b.modulate = Color(1.0, 0.5, 0.0)  # orange modulate (D-17, D-ELEM-07 visual)
 	elif b.element_proc:

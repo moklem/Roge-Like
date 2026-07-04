@@ -10,6 +10,10 @@ extends Area2D
 const SPEED: float = 400.0
 const LIFETIME: float = 3.0
 const BULLET_DAMAGE: int = 20
+## Homing: spread bolts fly straight for HOMING_DELAY (visible fan-out), then curve
+## onto the baked target point so multi-bolt volleys all converge on the enemy.
+const HOMING_DELAY: float = 0.12
+const TURN_RATE: float = 10.0  # rad/s
 
 ## Set by Game.gd _do_spawn_bullet(data) — all peers get these values via spawn_function
 @export var direction: Vector2 = Vector2.RIGHT
@@ -20,8 +24,12 @@ const BULLET_DAMAGE: int = 20
 ## Element buff: WeaponManager marks every Nth volley so it deterministically applies the
 ## owner's element effect (fire→burn, ice→slow) and lights the CarHUD on hit.
 @export var element_proc: bool = false
+## Enemy position snapshot at fire time (Vector2.INF = no homing). Deterministic on all
+## peers — baked into spawn data, so clients simulate the same curve without a synchronizer.
+@export var target_pos: Vector2 = Vector2.INF
 
 var _elapsed: float = 0.0
+var _homing_done: bool = false
 
 func _ready() -> void:
 	# Grouped so Game.gd can purge stray projectiles on sub-room / room transitions.
@@ -34,6 +42,15 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	# ALL peers simulate local movement — this is what makes bullets look smooth on clients
 	# without needing a MultiplayerSynchronizer (P5 anti-pattern)
+	if target_pos != Vector2.INF and not _homing_done and _elapsed >= HOMING_DELAY:
+		var to_target := target_pos - position
+		# Stop steering once the target point is reached or passed — never boomerang.
+		if to_target.length_squared() < 100.0 or direction.dot(to_target) <= 0.0:
+			_homing_done = true
+		else:
+			var err := direction.angle_to(to_target.normalized())
+			direction = direction.rotated(clampf(err, -TURN_RATE * delta, TURN_RATE * delta))
+			rotation = direction.angle()
 	position += direction * SPEED * delta
 	_elapsed += delta
 	if _elapsed >= LIFETIME:
