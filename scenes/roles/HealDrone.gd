@@ -24,6 +24,8 @@ var _lifetime_elapsed: float = 0.0
 func _ready() -> void:
 	# CRITICAL (Pitfall 2): drone authority stays with host (default).
 	# owning_peer is a data field only — do not transfer authority to it.
+	# Grouped so Game.gd can despawn active drones on sub-room / room transitions.
+	add_to_group("drones")
 	_setup_area()
 	_setup_timer()
 	_draw_visual()

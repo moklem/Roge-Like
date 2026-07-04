@@ -8,6 +8,8 @@ const PLAYER_SCRIPT = preload("res://scenes/Player.gd")
 var _collected: bool = false
 
 func _ready() -> void:
+	# Grouped so Game.gd can purge uncollected orbs on sub-room / room transitions.
+	add_to_group("xp_orbs")
 	body_entered.connect(_on_body_entered)
 
 func _on_body_entered(body: Node) -> void:

@@ -24,6 +24,8 @@ const BULLET_DAMAGE: int = 20
 var _elapsed: float = 0.0
 
 func _ready() -> void:
+	# Grouped so Game.gd can purge stray projectiles on sub-room / room transitions.
+	add_to_group("bullets")
 	# Rotate sprite to face travel direction
 	rotation = direction.angle()
 	body_entered.connect(_on_body_entered)

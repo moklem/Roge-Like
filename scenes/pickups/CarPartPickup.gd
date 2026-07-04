@@ -9,6 +9,8 @@ extends Area2D
 var _collected: bool = false
 
 func _ready() -> void:
+	# Grouped so Game.gd can purge uncollected car parts on sub-room / room transitions.
+	add_to_group("car_parts")
 	body_entered.connect(_on_body_entered)
 	if has_node("Label"):
 		$Label.text = weapon_id.left(6)
