@@ -42,6 +42,17 @@ var current_room: int = 1
 ## Phase 9 (D-10, MAP-01): Sub-room tracker within each location. 1–5. Reset to 1 on room transition.
 var current_sub_room: int = 1
 
+## Driver Mode pool: host rolls one per combat sub-room; broadcast via GameEvents.emit_driver_mode.
+const DRIVER_MODES: Array[String] = ["eco", "sport", "repair", "overdrive"]
+## Random delay window (seconds) before the Driver Mode fires after entering a sub-room.
+const DRIVER_ROLL_MIN_DELAY: float = 2.0
+const DRIVER_ROLL_MAX_DELAY: float = 7.0
+## Bumped on every sub-room/room entry so a pending scheduled roll from the previous room is
+## cancelled if the players clear/leave before it fires.
+var _driver_roll_token: int = 0
+## Last Driver Mode that actually fired — used to avoid rolling the same one twice in a row.
+var _last_driver_mode: String = ""
+
 ## Phase 9 (D-08): Exit tile coords set by RoomBuilder; read by _open_exit_passage() RPC.
 var _exit_tile_coords: Array[Vector2i] = []
 
@@ -175,6 +186,8 @@ func _run_start_countdown() -> void:
 	countdown_active = false
 	if multiplayer.is_server():
 		_spawn_enemies()
+		# Driver Mode: schedule the first roll for a random moment now that combat has begun.
+		_schedule_driver_roll()
 	await get_tree().create_timer(0.6).timeout
 	layer.queue_free()
 
@@ -241,17 +254,8 @@ func _transition_to_room(next_room: int) -> void:
 	if not multiplayer.is_server():
 		return
 
-	# Purge leftover XP orbs and car-part pickups from shared Entities node
-	var entities := get_node_or_null("Entities")
-	if entities:
-		for child in entities.get_children():
-			if child.is_in_group("xp_orbs") or child.is_in_group("car_parts"):
-				child.queue_free()
-		# Purge surviving enemies tagged to the room we just left
-		for child in entities.get_children():
-			if child.is_in_group("enemies"):
-				if child.get_meta("room_id", old_room_id) == old_room_id:
-					child.queue_free()
+	# Clean slate for the new room: drop leftover enemies, pickups, orbs and bullets.
+	_purge_transient_entities()
 
 	# Bake the new room's navmesh (current_room is now next_room)
 	_bake_navigation.call_deferred()
@@ -263,6 +267,8 @@ func _transition_to_room(next_room: int) -> void:
 	elif next_room == 2:
 		# D-07: Room 2 enemy wave using INITIAL_ENEMY_COUNT_R2 density
 		_spawn_enemies.call_deferred()
+	# Driver Mode: schedule a fresh effect on entering the new location's first sub-room.
+	_schedule_driver_roll()
 
 ## D-02, ROOM-07: Check if the active room's enemies are all dead; if so, fire transition.
 ## Host-only. Skips Room 3 — that room clears on boss death, not enemy count (Pitfall 5).
@@ -304,6 +310,31 @@ func _update_all_camera_limits() -> void:
 		if is_instance_valid(p) and p.has_method("update_camera_limits"):
 			p.update_camera_limits(_current_sub_room_rect_px)
 
+## Driver Mode: host schedules a random team-wide effect to fire at a RANDOM moment inside the
+## sub-room (not on entry). Each call bumps _driver_roll_token; after the delay the roll only
+## fires if the token is still current — so leaving/clearing the sub-room first cancels it.
+## authority+call_local means CarHUD + every player react on all peers at once.
+func _schedule_driver_roll() -> void:
+	if not multiplayer.is_server():
+		return
+	_driver_roll_token += 1
+	var my_token: int = _driver_roll_token
+	await get_tree().create_timer(randf_range(DRIVER_ROLL_MIN_DELAY, DRIVER_ROLL_MAX_DELAY)).timeout
+	if my_token != _driver_roll_token:
+		return  # superseded by a newer sub-room/room entry — drop this roll
+	var mode: String = DRIVER_MODES[randi() % DRIVER_MODES.size()]
+	# Avoid the same mode twice in a row so it feels varied (other 3 stay equally likely).
+	if mode == _last_driver_mode and DRIVER_MODES.size() > 1:
+		var choices: Array = DRIVER_MODES.filter(func(m): return m != _last_driver_mode)
+		mode = choices[randi() % choices.size()]
+	_last_driver_mode = mode
+	GameEvents.emit_driver_mode.rpc(mode)
+
+## Cancel any pending Driver Mode roll (used when entering a sub-room that gets no effect,
+## e.g. the walking connector, so a stale roll can't fire mid-corridor).
+func _cancel_driver_roll() -> void:
+	_driver_roll_token += 1
+
 ## Phase 9 (D-08, D-10, MAP-01, MAP-02): Advance to the next sub-room within the current location.
 ## Called by host when _check_sub_room_clear() detects all enemies dead.
 ## If next == 6: build connector. If connector end reached: call _transition_to_room.rpc(next_room).
@@ -333,9 +364,12 @@ func _transition_to_sub_room(next: int) -> void:
 	_teleport_players_to_spawn()
 	## Bake navmesh for new sub-room geometry (host + all peers; bake is local)
 	_bake_navigation.call_deferred()
-	## Host-only post-transition: spawn enemies or boss
+	## Host-only post-transition: purge leftovers, then spawn enemies or boss
 	if not multiplayer.is_server():
 		return
+	## Clean slate for every sub-room: remove any leftover enemies, pickups, orbs and
+	## bullets from the previous sub-room so the new one starts empty.
+	_purge_transient_entities()
 	if current_room == 3 and next == 5:
 		## Phase 9 (MAP-03): Boss arena — spawn boss, no normal enemies
 		_spawn_boss.call_deferred()
@@ -343,6 +377,31 @@ func _transition_to_sub_room(next: int) -> void:
 		## Normal sub-room: spawn enemy wave
 		_spawn_enemies.call_deferred()
 	## If next == 6 (connector): no enemies; host waits for player to reach corridor end via _process
+	## Driver Mode: schedule a fresh effect for every combat sub-room; cancel any pending roll
+	## when entering the empty connector so it can't fire mid-corridor.
+	if next < 6:
+		_schedule_driver_roll()
+	else:
+		_cancel_driver_roll()
+
+## Host-authoritative cleanup: despawn every transient entity (enemies, XP orbs, car-part
+## pickups, bullets) left in the shared Entities node so each sub-room / room starts clean.
+## Players are NOT in these groups and stay untouched; active heal drones ARE purged so a
+## new sub-room starts fresh. queue_free() on the host propagates to all peers via the
+## MultiplayerSpawners.
+func _purge_transient_entities() -> void:
+	if not multiplayer.is_server():
+		return
+	var entities := get_node_or_null("Entities")
+	if entities == null:
+		return
+	for child in entities.get_children():
+		if child.is_queued_for_deletion():
+			continue
+		if child.is_in_group("enemies") or child.is_in_group("xp_orbs") \
+				or child.is_in_group("car_parts") or child.is_in_group("bullets") \
+				or child.is_in_group("drones"):
+			child.queue_free()
 
 ## Phase 9 (D-08, MAP-02): Host checks if all enemies in current sub-room are dead.
 ## On clear: opens exit passage. Distinct from _check_room_clear which handles room transitions.
@@ -751,7 +810,7 @@ func request_fire(_client_pos: Vector2, dir: Vector2, requester_peer_id: int, fo
 		"owner_id": requester_peer_id,
 		"fire_burst": force_burn,
 		"element_proc": element_proc,
-		"damage_mult": player_node.stage3_damage_mult
+		"damage_mult": player_node.stage3_damage_mult * player_node.driver_damage_mult
 	})
 
 func _do_spawn_bullet(data: Dictionary) -> Node:

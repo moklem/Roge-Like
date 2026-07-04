@@ -68,7 +68,7 @@ func _on_fire_timer(weapon_manager: Node) -> void:
 	var level: int = weapon_manager.weapon_level.get("exhaust_flames", 1)
 	var half_angle: float = HALF_ANGLE                      # L1: ±30° (60° total)
 	var radius: float = RADIUS                              # L1: 120px
-	var damage: int = int(float(DAMAGE) * player.stage3_damage_mult)  # D-22 Stage 3 mult
+	var damage: int = int(float(DAMAGE) * player.stage3_damage_mult * player.driver_damage_mult)  # D-22 + Driver OVERDRIVE
 	if level >= 2:
 		half_angle = deg_to_rad(45.0)                       # L2: 90° total cone
 		radius = 160.0                                      # L2: 120→160px range

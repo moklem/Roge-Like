@@ -4,6 +4,10 @@ extends Node
 ## Registered here to prevent RPC signature drift later.
 
 signal hud_event(event_name: String)
+## Driver Mode: host-rolled team-wide timed effect, one per combat sub-room.
+## mode ∈ "eco" | "sport" | "repair" | "overdrive". Fires on ALL peers (CarHUD + players).
+@warning_ignore("unused_signal")
+signal driver_mode(mode: String)
 @warning_ignore("unused_signal")
 signal player_downed(player_id: int)
 @warning_ignore("unused_signal")
@@ -16,3 +20,9 @@ signal loop_ended(reason: String)  # "boss_dead" | "all_dead" | "timer"
 @rpc("authority", "call_local", "reliable")
 func emit_hud(event_name: String) -> void:
 	hud_event.emit(event_name)
+
+# Host broadcasts the rolled Driver Mode. authority+call_local fires driver_mode on ALL peers
+# simultaneously so the CarHUD label and every player's effect+particles stay in sync.
+@rpc("authority", "call_local", "reliable")
+func emit_driver_mode(mode: String) -> void:
+	driver_mode.emit(mode)

@@ -27,7 +27,7 @@ const DASH_SHOCK_RADIUS: float = 80.0  # shockwave Area2D radius (Stage-2 second
 const DASH_SHOCK_DAMAGE: int = 25      # shockwave damage to enemies
 
 ## Engineer drone constants
-const ENGINEER_DRONE_COOLDOWN: float = 13.0  # drone lives 10s, 3s gap before re-deploy
+const ENGINEER_DRONE_COOLDOWN: float = 18.0  # drone lives 10s, 8s gap before re-deploy (+5s)
 
 ## Phase 6: XP/evolution tuning constants (D-01/D-02/D-03/D-04, planner-calculated)
 const XP_PER_ORB: int = 15           # D-01 tuned: 5→15 to hit Stage 2 in ~8-12 min
@@ -58,6 +58,18 @@ var element_tier: int = 1
 var is_picking_card: bool = false
 var stage3_damage_mult: float = 1.0
 var _pending_card_picks: int = 0
+
+## Driver Mode (CarHUD): team-wide timed effect rolled per sub-room by the host and applied
+## on every peer via GameEvents.driver_mode. Lasts DRIVER_EFFECT_DURATION, then auto-resets.
+## driver_damage_mult is read by the weapon fire paths (like stage3_damage_mult); the speed
+## mult only matters on the authority peer; the heal is applied on the authority peer only.
+const DRIVER_EFFECT_DURATION: float = 5.0
+var driver_damage_mult: float = 1.0
+var _driver_speed_mult: float = 1.0
+var _driver_heal_rate: float = 0.0   # HP/sec while active (authority only)
+var _driver_heal_accum: float = 0.0  # fractional-HP carry for integer heal ticks
+var _driver_timer: float = 0.0
+var _driver_particles: CPUParticles2D = null
 
 ## AUTOBONK character sprites (Tank / Engineer use animated PNG art; Speedster keeps placeholder).
 ## Animation key per role; "" means no art → fall back to ColorRect placeholder.
@@ -102,6 +114,8 @@ func _ready() -> void:
 	# AUTOBONK: swap ColorRect placeholder for animated character art when available
 	_setup_char_sprite()
 	_setup_draw_layers()
+	# Driver Mode: react to the host's per-sub-room roll on every peer (this player's copy).
+	GameEvents.driver_mode.connect(_on_driver_mode)
 
 ## Layering so weapon/item visuals never hide the character. WeaponManager sits AFTER the
 ## character in the scene tree, so its weapon nodes (orbiting tires, shield/airbag rings,
@@ -236,6 +250,8 @@ func _process(_delta: float) -> void:
 		$LevelUpLabel.visible = is_picking_card
 		if is_picking_card:
 			$LevelUpLabel.text = "%s is leveling up!" % role_label
+	# Driver Mode: count the active effect down on every peer so all mult copies reset in sync.
+	_tick_driver_effect(_delta)
 
 func _physics_process(delta: float) -> void:
 	# P3: Only the authority peer reads input and moves
@@ -258,7 +274,7 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		return
 	var dir := Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
-	velocity = dir * SPEED
+	velocity = dir * SPEED * _driver_speed_mult   # Driver Mode: ECO slows / SPORT speeds up
 	move_and_slide()
 	# D-08: Delegate all weapon firing to WeaponManager (ScrewsAndBolts + future weapons)
 	if has_node("WeaponManager"):
@@ -289,6 +305,79 @@ func _spawn_heal_particles() -> void:
 	p.emitting = true
 	add_child(p)
 	p.finished.connect(p.queue_free)
+
+# ------------------------------------------------------------------------------
+# Driver Mode — per-sub-room team-wide timed effect (CarHUD "Driver Mode: …")
+# ------------------------------------------------------------------------------
+
+## GameEvents.driver_mode fires on ALL peers (host-rolled, call_local). Configures this
+## player's copy: sets the active mult/heal, starts the timer, spawns matching sparkles.
+## REPAIR reuses the existing green heal cue — the per-tick health gain triggers it on every
+## peer automatically (see _process), so no extra particle emitter is needed for it.
+func _on_driver_mode(mode: String) -> void:
+	_clear_driver_effect()  # cancel any lingering effect before applying the new one
+	_driver_timer = DRIVER_EFFECT_DURATION
+	match mode:
+		"eco":
+			_driver_speed_mult = 0.5                                # half speed (deutlich stärker)
+			_spawn_driver_particles(Color(1.0, 0.95, 0.35, 0.85))   # light yellow
+		"sport":
+			_driver_speed_mult = 1.5
+			_spawn_driver_particles(Color(0.45, 0.8, 1.0, 0.9))     # light blue
+		"repair":
+			_driver_heal_rate = 5.0
+			_spawn_driver_particles(Color(0.3, 1.0, 0.45, 0.95))    # green (like drone/earth heal)
+		"overdrive":
+			driver_damage_mult = 1.3
+			_spawn_driver_particles(Color(0.7, 0.3, 1.0, 0.9))      # purple
+
+## Runs on every peer from _process. Ticks the timer; applies heal-over-time on the authority
+## peer only (health is authority-owned + synced). Resets all mults when the effect ends.
+func _tick_driver_effect(delta: float) -> void:
+	if _driver_timer <= 0.0:
+		return
+	_driver_timer -= delta
+	if _driver_heal_rate > 0.0 and is_multiplayer_authority() and not is_downed:
+		_driver_heal_accum += _driver_heal_rate * delta
+		if _driver_heal_accum >= 1.0:
+			var whole: int = int(_driver_heal_accum)
+			_driver_heal_accum -= float(whole)
+			health = mini(health + whole, MAX_HP)
+	if _driver_timer <= 0.0:
+		_clear_driver_effect()
+
+## Reset all Driver Mode state to neutral and stop any active sparkle emitter.
+func _clear_driver_effect() -> void:
+	_driver_timer = 0.0
+	_driver_speed_mult = 1.0
+	driver_damage_mult = 1.0
+	_driver_heal_rate = 0.0
+	_driver_heal_accum = 0.0
+	if is_instance_valid(_driver_particles):
+		_driver_particles.emitting = false          # stop new sparkles; let live ones fade out
+		_driver_particles.finished.connect(_driver_particles.queue_free)
+	_driver_particles = null
+
+## Continuous sparkle emitter around the player for the effect duration (all peers).
+## Emits in a ring around the player so the effect reads clearly on screen.
+func _spawn_driver_particles(color: Color) -> void:
+	var p := CPUParticles2D.new()
+	p.amount = 20
+	p.lifetime = 1.0
+	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = 22.0
+	p.spread = 180.0
+	p.direction = Vector2.UP
+	p.initial_velocity_min = 20.0
+	p.initial_velocity_max = 55.0
+	p.gravity = Vector2(0.0, -35.0)
+	p.scale_amount_min = 3.0
+	p.scale_amount_max = 5.5
+	p.color = color
+	p.z_index = 3
+	p.emitting = true
+	add_child(p)
+	_driver_particles = p
 
 ## HLTH-05: Check if holding E near a downed teammate; send request to host each frame
 func _check_revive(_delta: float) -> void:

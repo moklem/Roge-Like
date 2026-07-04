@@ -87,3 +87,14 @@ horizontal_alignment = 1
 vertical_alignment = 1
 theme_override_font_sizes/font_size = 14
 theme_override_colors/font_color = Color(0.35, 0.35, 0.35, 1)
+
+[node name="DriverModeIndicator" type="PanelContainer" parent="CarHUDPanel/CarHUDContainer"]
+custom_minimum_size = Vector2(0, 48)
+
+[node name="DriverModeLabel" type="Label" parent="CarHUDPanel/CarHUDContainer/DriverModeIndicator"]
+layout_mode = 2
+text = "Driver Mode:"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.35, 0.35, 0.35, 1)

@@ -107,7 +107,7 @@ func _apply_damage(origin: Vector2, dir: Vector2, level: int = 1, shooter_peer_i
 	if shooter_peer_id != 0:
 		for p in get_tree().get_nodes_in_group("players"):
 			if p.peer_id == shooter_peer_id:
-				stage_mult = p.stage3_damage_mult
+				stage_mult = p.stage3_damage_mult * p.driver_damage_mult
 				break
 	var final_dmg: int = int(float(base_dmg) * stage_mult)
 	var perp: Vector2 = Vector2(-dir.y, dir.x)

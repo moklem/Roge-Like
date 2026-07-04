@@ -12,12 +12,31 @@ var _indicators: Dictionary = {}
 var _loop_label: Label = null
 var _last_loop_number: int = 0
 
+## Driver Mode indicator — a single dynamic panel whose text/color changes per host roll.
+## Distinct from the 5 reactive indicators: it displays the active team-wide sub-room effect.
+var _driver_panel: PanelContainer = null
+var _driver_label: Label = null
+var _driver_style: StyleBoxFlat = null
+var _driver_tween: Tween = null
+## mode → [display text, lit background color]. Duration mirrors Player.DRIVER_EFFECT_DURATION.
+const DRIVER_HOLD: float = 5.0
+const DRIVER_MODE_DISPLAY: Dictionary = {
+	"eco":       ["Driver Mode: ECO",       Color(0.55, 0.48, 0.05, 1)],
+	"sport":     ["Driver Mode: SPORT",     Color(0.12, 0.4, 0.7, 1)],
+	"repair":    ["Driver Mode: REPAIR",    Color(0.1, 0.55, 0.2, 1)],
+	"overdrive": ["Driver Mode: OVERDRIVE", Color(0.45, 0.18, 0.7, 1)],
+}
+
 func _ready() -> void:
 	# Mirror Game.gd line 106: connect to hud_event signal so CarHUD reacts on all peers.
 	GameEvents.hud_event.connect(_on_hud_event)
 
 	# Build indicator dictionary — get node references and create per-indicator StyleBoxFlats.
 	_build_indicators()
+
+	# Driver Mode: one dynamic panel driven by the host's per-sub-room roll (GameEvents.driver_mode).
+	_build_driver_indicator()
+	GameEvents.driver_mode.connect(_on_driver_mode)
 
 	# Cache LoopLabel and set initial text.
 	_loop_label = get_node_or_null("CarHUDPanel/CarHUDContainer/LoopLabel")
@@ -114,3 +133,46 @@ func _restore_idle(event_name: String) -> void:
 	# Restore dim idle label text (UI-SPEC indicator idle label text #595959).
 	lbl.add_theme_color_override("font_color", Color(0.35, 0.35, 0.35, 1))
 	lbl.add_theme_constant_override("outline_size", 0)
+
+# ------------------------------------------------------------------------------
+# Driver Mode indicator — single dynamic panel, text/color per host roll.
+# ------------------------------------------------------------------------------
+
+func _build_driver_indicator() -> void:
+	var base := "CarHUDPanel/CarHUDContainer/DriverModeIndicator"
+	_driver_panel = get_node_or_null(base)
+	_driver_label = get_node_or_null(base + "/DriverModeLabel")
+	if _driver_panel == null or _driver_label == null:
+		push_warning("CarHUD: missing Driver Mode nodes")
+		return
+	_driver_style = StyleBoxFlat.new()
+	_driver_style.bg_color = Color(0.10, 0.10, 0.10, 1)  # idle bg
+	_driver_panel.add_theme_stylebox_override("panel", _driver_style)
+
+## GameEvents.driver_mode fires on all peers. Show the active mode brightly for DRIVER_HOLD
+## seconds (matches the gameplay effect duration), then fade back to the dim idle state.
+func _on_driver_mode(mode: String) -> void:
+	if _driver_panel == null or not DRIVER_MODE_DISPLAY.has(mode):
+		return
+	if _driver_tween != null and _driver_tween.is_valid():
+		_driver_tween.kill()
+	var info: Array = DRIVER_MODE_DISPLAY[mode]
+	_driver_label.text = info[0]
+	_driver_style.bg_color = info[1]
+	_driver_label.add_theme_color_override("font_color", Color(1, 1, 1, 1))
+	_driver_label.add_theme_constant_override("outline_size", 1)
+	_driver_panel.modulate.a = 1.0
+	# Hold for the effect duration, fade out, then reset to idle.
+	_driver_tween = _driver_panel.create_tween()
+	_driver_tween.tween_interval(DRIVER_HOLD)
+	_driver_tween.tween_property(_driver_panel, "modulate:a", 0.0, 0.5)
+	_driver_tween.tween_callback(_restore_driver_idle)
+
+func _restore_driver_idle() -> void:
+	if _driver_panel == null:
+		return
+	_driver_panel.modulate.a = 1.0
+	_driver_style.bg_color = Color(0.10, 0.10, 0.10, 1)
+	_driver_label.text = "Driver Mode:"
+	_driver_label.add_theme_color_override("font_color", Color(0.35, 0.35, 0.35, 1))
+	_driver_label.add_theme_constant_override("outline_size", 0)

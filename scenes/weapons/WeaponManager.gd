@@ -85,7 +85,7 @@ func _fire_screws() -> void:
 					"pos": player.global_position,
 					"dir": d,
 					"owner_id": player.peer_id,
-					"damage_mult": player.stage3_damage_mult,
+					"damage_mult": player.stage3_damage_mult * player.driver_damage_mult,
 					"element_proc": element_proc
 				})
 		else:

@@ -65,7 +65,7 @@ func _physics_process(delta: float) -> void:
 	if not is_instance_valid(player) or player.is_downed:
 		return
 	# Stage 3 damage multiplier (D-22)
-	damage_per_tick = int(float(damage_per_tick) * player.stage3_damage_mult)
+	damage_per_tick = int(float(damage_per_tick) * player.stage3_damage_mult * player.driver_damage_mult)
 	# D-11: Active orbit count: L1=3, L2=4, L3=5
 	var active_count: int = mini(3 + maxi(level - 1, 0), _tires.size())
 	# Update orbit positions — runs on ALL peers for visual sync (D-14 visual half)

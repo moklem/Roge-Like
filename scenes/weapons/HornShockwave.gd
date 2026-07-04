@@ -55,7 +55,7 @@ func _on_fire_timer(weapon_manager: Node) -> void:
 	# Phase 6 D-11: Level scaling for Horn Shockwave
 	var level: int = weapon_manager.weapon_level.get("horn_shockwave", 1)
 	var radius: float = RADIUS          # L1: 150px
-	var damage: int = int(float(DAMAGE) * player.stage3_damage_mult)  # D-22 Stage 3 mult
+	var damage: int = int(float(DAMAGE) * player.stage3_damage_mult * player.driver_damage_mult)  # D-22 + Driver OVERDRIVE
 	if level >= 2:
 		radius = 220.0                  # L2: 150→220px
 		if _timer.wait_time != 2.5:
