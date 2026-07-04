@@ -36,6 +36,10 @@ const REVIVE_PROXIMITY: float = 80.0
 ## Wave system: 3 waves per room before advancing (Room 3/boss excluded)
 const WAVES_PER_ROOM: int = 3
 
+## Guard: true while a wave advance is scheduled but the new wave hasn't spawned yet.
+## Prevents double-advance when several enemies die in the same frame (deferred checks stack).
+var _wave_advancing: bool = false
+
 ## Phase 8 Plan 03 (D-04): Active room tracker — 1=Room1, 2=Room2, 3=Room3 (boss arena)
 var current_room: int = 1
 
@@ -47,6 +51,9 @@ const DRIVER_MODES: Array[String] = ["eco", "sport", "repair", "overdrive"]
 ## Random delay window (seconds) before the Driver Mode fires after entering a sub-room.
 const DRIVER_ROLL_MIN_DELAY: float = 2.0
 const DRIVER_ROLL_MAX_DELAY: float = 7.0
+## Random effect duration window (seconds) — host-rolled per effect, broadcast with the mode.
+const DRIVER_DURATION_MIN: float = 3.0
+const DRIVER_DURATION_MAX: float = 5.0
 ## Bumped on every sub-room/room entry so a pending scheduled roll from the previous room is
 ## cancelled if the players clear/leave before it fires.
 var _driver_roll_token: int = 0
@@ -236,9 +243,10 @@ func _transition_to_room(next_room: int) -> void:
 	current_room = next_room
 	## Phase 9 (D-10, MAP-01): Reset sub-room counter on location transition
 	current_sub_room = 1
-	## Phase 9 (D-12): Reset connector exit trigger guard + exit-open gate
+	## Phase 9 (D-12): Reset connector exit trigger guard + exit-open gate + wave-advance guard
 	_connector_triggered = false
 	_exit_open = false
+	_wave_advancing = false
 
 	## Phase 9: Build sub-room 1 of the new location on all peers (call_local context).
 	if _room_builder != null:
@@ -328,7 +336,8 @@ func _schedule_driver_roll() -> void:
 		var choices: Array = DRIVER_MODES.filter(func(m): return m != _last_driver_mode)
 		mode = choices[randi() % choices.size()]
 	_last_driver_mode = mode
-	GameEvents.emit_driver_mode.rpc(mode)
+	# Duration is host-rolled too so every peer runs the effect for exactly the same time.
+	GameEvents.emit_driver_mode.rpc(mode, randf_range(DRIVER_DURATION_MIN, DRIVER_DURATION_MAX))
 
 ## Cancel any pending Driver Mode roll (used when entering a sub-room that gets no effect,
 ## e.g. the walking connector, so a stale roll can't fire mid-corridor).
@@ -343,6 +352,7 @@ func _cancel_driver_roll() -> void:
 func _transition_to_sub_room(next: int) -> void:
 	current_sub_room = next
 	_current_wave = 1
+	_wave_advancing = false
 	_connector_triggered = false
 	_exit_open = false
 	# Revive limit is now per sub-room (was per loop): clear the per-player revive counter on
@@ -412,9 +422,20 @@ func _check_sub_room_clear() -> void:
 		return  # boss arena — handled by _on_boss_died
 	if current_sub_room == 6:
 		return  # connector — no enemies
+	# Guard 1: exit already open → this sub-room is done, never restart waves (e.g. when the
+	# wave-independent roamer elite dies after clear, _current_wave is already reset to 1).
+	if _exit_open:
+		return
+	# Guard 2: a wave advance is already scheduled this frame — two enemies dying in the same
+	# frame queue this check twice; without the flag both would advance the wave (skip/double).
+	if _wave_advancing:
+		return
 	var alive: int = 0
 	for e in get_tree().get_nodes_in_group("enemies"):
 		if not is_instance_valid(e) or e.is_queued_for_deletion():
+			continue
+		# Bonus roamer elites don't gate the 3-wave clear (may linger after the exit opens).
+		if e.get_meta("wave_independent", false):
 			continue
 		if e.get_meta("room_id", current_room) == current_room:
 			alive += 1
@@ -422,6 +443,7 @@ func _check_sub_room_clear() -> void:
 		return
 	if _current_wave < WAVES_PER_ROOM:
 		_current_wave += 1
+		_wave_advancing = true  # cleared in _spawn_wave once the new wave actually exists
 		_announce_wave.rpc(_current_wave)
 		_spawn_wave.call_deferred()
 	else:
@@ -646,6 +668,8 @@ func _spawn_enemies() -> void:
 ## Wave 1 = 50% of base, Wave 2 = 100%, Wave 3 = 150% + 1 elite (harder finish).
 ## Spawn points are shuffled each wave so enemies come from different directions.
 func _spawn_wave() -> void:
+	# New wave is being spawned right now (synchronously below) — release the advance guard.
+	_wave_advancing = false
 	if not multiplayer.is_server():
 		return
 	if current_room == 3:
@@ -729,6 +753,8 @@ func _do_spawn_enemy(data: Dictionary) -> Node:
 	# Phase 8 Plan 03 (D-04): Tag with room_id for room-clear filtering in _check_room_clear.
 	# room_id passed in data dict; defaults to current_room if not specified.
 	e.set_meta("room_id", data.get("room_id", current_room))
+	# wave_independent: periodic bonus elites are excluded from the 3-wave sub-room clear count.
+	e.set_meta("wave_independent", data.get("wave_independent", false))
 	# Phase 7 Plan 03 (D-19, D-20, D-21): Apply difficulty scaling at spawn time.
 	# For normal enemies: scaling applied here before add_to_tree (Enemy._ready() does not reset stats).
 	# For elite enemies: EliteEnemy._ready() applies its own scaling after calling super._ready()
@@ -1079,7 +1105,8 @@ func _process(delta: float) -> void:
 	if multiplayer.is_server():
 		_tick_engineer_passive(delta)
 		_tick_earth_effects(delta)
-		# Phase 7 Plan 03 (D-13, HUD-07): Elite enemy spawn timer tick (host-only)
+		# Phase 7 Plan 03 (D-13, HUD-07): Periodic bonus-elite spawn + LIDAR HUD pulse (host-only).
+		# The elite is wave-independent so normal enemies still come in exactly 3 fixed waves.
 		_tick_elite_spawn(delta)
 		## Phase 9 (D-08, D-12): Edge-walk progression. Once a sub-room's exit gap is open
 		## (_exit_open, sub-rooms 1–5) or we are in the connector corridor (sub_room 6), a
@@ -1128,32 +1155,30 @@ func _tick_engineer_passive(delta: float) -> void:
 			else:
 				target.receive_heal.rpc_id(target.peer_id, 10)
 
-## Phase 7 Plan 03 (D-13, HUD-07): Host-only elite enemy spawn timer.
-## Mirrors _tick_engineer_passive pattern (Game.gd lines 462-468).
-## Accumulates delta; when interval reached, spawns one elite at a random spawn point.
-## Interval resets to a new randf_range(45, 90) value after each spawn.
+## Phase 7 Plan 03 (D-13, HUD-07): Host-only periodic bonus-elite spawn + LIDAR HUD pulse.
+## Mirrors _tick_engineer_passive pattern. When the interval is reached it spawns one elite at a
+## random spawn point and fires LIDAR on all peers, then rolls a fresh randf_range(45, 90) interval.
+## The elite is tagged "wave_independent" so it is EXCLUDED from _check_sub_room_clear — normal
+## enemies still come in exactly WAVES_PER_ROOM (3) waves, and this roamer may even appear after
+## the exit has opened without gating progression.
 func _tick_elite_spawn(delta: float) -> void:
+	# No spawns/pings in the boss arena (Room 3 is boss-only, D-09).
+	if current_room == 3:
+		return
 	_elite_spawn_timer += delta
 	if _elite_spawn_timer < _elite_spawn_interval:
 		return
 	_elite_spawn_timer = 0.0
 	_elite_spawn_interval = randf_range(45.0, 90.0)
-	_spawn_elite_enemy()
-
-## Phase 7 Plan 03 (D-13, HUD-07): Spawn one elite enemy at a random EnemySpawnPoint.
-## Uses call_deferred to avoid "Can't change state while flushing queries" (Pitfall, Game.gd lines 196-205).
-## Fires LIDAR on all peers via emit_hud.rpc (D-10, HUD-07; host is authority so RPC is valid).
-func _spawn_elite_enemy() -> void:
-	# Phase 8 Plan 03 (D-04): Use current room's EnemySpawnPoints; skip in Room 3 (boss-only, D-09)
-	if current_room == 3:
+	var sp := get_node_or_null("Room%d/EnemySpawnPoints" % current_room)
+	if sp == null or sp.get_child_count() == 0:
 		return
-	var points := get_node("Room%d/EnemySpawnPoints" % current_room).get_children()
-	if points.is_empty():
-		return
-	var pos: Vector2 = points[randi() % points.size()].global_position
-	# call_deferred — physics-safe spawn (mirrors _on_enemy_died call_deferred pattern)
-	$EnemySpawner.spawn.call_deferred({"type": "elite", "pos": pos, "room_id": current_room})
-	# LIDAR fires only on elite spawn (D-10, D-13) — host-only emit, valid as authority RPC
+	var pts: Array = sp.get_children()
+	var pos: Vector2 = _safe_enemy_spawn_pos(pts[randi() % pts.size()].global_position)
+	# call_deferred — physics-safe spawn (mirrors _on_enemy_died pattern).
+	# wave_independent flag keeps it out of the 3-wave clear count.
+	$EnemySpawner.spawn.call_deferred({"type": "elite", "pos": pos, "room_id": current_room, "wave_independent": true})
+	# host is authority — valid emit_hud RPC to all peers (D-10, HUD-07)
 	GameEvents.emit_hud.rpc("lidar")
 
 ## ROLE-08: Client Engineer requests drone deploy → host validates + spawns.

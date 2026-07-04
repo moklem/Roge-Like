@@ -18,8 +18,7 @@ var _driver_panel: PanelContainer = null
 var _driver_label: Label = null
 var _driver_style: StyleBoxFlat = null
 var _driver_tween: Tween = null
-## mode → [display text, lit background color]. Duration mirrors Player.DRIVER_EFFECT_DURATION.
-const DRIVER_HOLD: float = 5.0
+## mode → [display text, lit background color]. Hold time arrives with the signal (host-rolled 3-5s).
 const DRIVER_MODE_DISPLAY: Dictionary = {
 	"eco":       ["Driver Mode: ECO",       Color(0.55, 0.48, 0.05, 1)],
 	"sport":     ["Driver Mode: SPORT",     Color(0.12, 0.4, 0.7, 1)],
@@ -149,9 +148,9 @@ func _build_driver_indicator() -> void:
 	_driver_style.bg_color = Color(0.10, 0.10, 0.10, 1)  # idle bg
 	_driver_panel.add_theme_stylebox_override("panel", _driver_style)
 
-## GameEvents.driver_mode fires on all peers. Show the active mode brightly for DRIVER_HOLD
-## seconds (matches the gameplay effect duration), then fade back to the dim idle state.
-func _on_driver_mode(mode: String) -> void:
+## GameEvents.driver_mode fires on all peers. Show the active mode brightly for the host-rolled
+## duration (matches the gameplay effect duration exactly), then fade back to the dim idle state.
+func _on_driver_mode(mode: String, duration: float) -> void:
 	if _driver_panel == null or not DRIVER_MODE_DISPLAY.has(mode):
 		return
 	if _driver_tween != null and _driver_tween.is_valid():
@@ -164,7 +163,7 @@ func _on_driver_mode(mode: String) -> void:
 	_driver_panel.modulate.a = 1.0
 	# Hold for the effect duration, fade out, then reset to idle.
 	_driver_tween = _driver_panel.create_tween()
-	_driver_tween.tween_interval(DRIVER_HOLD)
+	_driver_tween.tween_interval(duration)
 	_driver_tween.tween_property(_driver_panel, "modulate:a", 0.0, 0.5)
 	_driver_tween.tween_callback(_restore_driver_idle)
 

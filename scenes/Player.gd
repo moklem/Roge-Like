@@ -60,10 +60,10 @@ var stage3_damage_mult: float = 1.0
 var _pending_card_picks: int = 0
 
 ## Driver Mode (CarHUD): team-wide timed effect rolled per sub-room by the host and applied
-## on every peer via GameEvents.driver_mode. Lasts DRIVER_EFFECT_DURATION, then auto-resets.
-## driver_damage_mult is read by the weapon fire paths (like stage3_damage_mult); the speed
-## mult only matters on the authority peer; the heal is applied on the authority peer only.
-const DRIVER_EFFECT_DURATION: float = 5.0
+## on every peer via GameEvents.driver_mode. Duration is host-rolled (3-5s) and arrives with
+## the signal, then the effect auto-resets. driver_damage_mult is read by the weapon fire
+## paths (like stage3_damage_mult); the speed mult only matters on the authority peer; the
+## heal is applied on the authority peer only.
 var driver_damage_mult: float = 1.0
 var _driver_speed_mult: float = 1.0
 var _driver_heal_rate: float = 0.0   # HP/sec while active (authority only)
@@ -314,9 +314,9 @@ func _spawn_heal_particles() -> void:
 ## player's copy: sets the active mult/heal, starts the timer, spawns matching sparkles.
 ## REPAIR reuses the existing green heal cue — the per-tick health gain triggers it on every
 ## peer automatically (see _process), so no extra particle emitter is needed for it.
-func _on_driver_mode(mode: String) -> void:
+func _on_driver_mode(mode: String, duration: float) -> void:
 	_clear_driver_effect()  # cancel any lingering effect before applying the new one
-	_driver_timer = DRIVER_EFFECT_DURATION
+	_driver_timer = duration
 	match mode:
 		"eco":
 			_driver_speed_mult = 0.5                                # half speed (deutlich stärker)
