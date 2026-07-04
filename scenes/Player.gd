@@ -58,6 +58,12 @@ var element_tier: int = 1
 var is_picking_card: bool = false
 var stage3_damage_mult: float = 1.0
 var _pending_card_picks: int = 0
+## Set when the sub-room weapon choice arrives while a level-up pick is already open;
+## drained in _trigger_pending_card_pick.
+var _pending_weapon_choice: bool = false
+
+## Weapons offered by the sub-room weapon-choice overlay (airbag_shield disabled as a weapon).
+const WEAPON_CHOICE_IDS := ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave"]
 
 ## Driver Mode (CarHUD): team-wide timed effect rolled per sub-room by the host and applied
 ## on every peer via GameEvents.driver_mode. Duration is host-rolled (3-5s) and arrives with
@@ -852,11 +858,8 @@ func _build_card_pool() -> Array:
 	var pool: Array = []
 	var wm: Node = get_node_or_null("WeaponManager")
 	if wm:
-		# Weapon unlocks — exclude already-owned weapons (XP-05). airbag_shield disabled as a weapon.
-		for wid in ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave"]:
-			if not wm.unlocked_weapons.has(wid):
-				if wm.unlocked_weapons.size() < wm.MAX_WEAPONS:
-					pool.append({"type": "weapon_unlock", "weapon_id": wid})
+		# Weapon unlocks removed from the level-up draw — new weapons come exclusively from
+		# the sub-room weapon-choice overlay (_trigger_weapon_choice).
 		# Weapon upgrades — exclude maxed weapons (XP-05)
 		for wid in wm.unlocked_weapons:
 			var lvl: int = wm.weapon_level.get(wid, 1)
@@ -901,9 +904,36 @@ func _trigger_card_pick() -> void:
 
 ## Called by Game._card_pick_complete after clearing is_picking_card, to drain the queue.
 func _trigger_pending_card_pick() -> void:
+	if _pending_weapon_choice:
+		_pending_weapon_choice = false
+		_trigger_weapon_choice()
+		return
 	if _pending_card_picks > 0:
 		_pending_card_picks -= 1
 		_trigger_card_pick()
+
+## Sub-room weapon choice (end of sub-rooms 2 and 4): show 2 random not-yet-owned weapons.
+## Reuses the level-up card flow — same is_picking_card freeze/invuln, same confirm path
+## (Game.confirm_card_pick validates weapon_unlock against the host pool).
+func _trigger_weapon_choice() -> void:
+	if not is_multiplayer_authority():
+		return
+	if is_picking_card:
+		_pending_weapon_choice = true
+		return
+	var wm: Node = get_node_or_null("WeaponManager")
+	if wm == null or wm.unlocked_weapons.size() >= wm.MAX_WEAPONS:
+		return
+	var candidates: Array = []
+	for wid in WEAPON_CHOICE_IDS:
+		if not wm.unlocked_weapons.has(wid):
+			candidates.append({"type": "weapon_unlock", "weapon_id": wid})
+	if candidates.is_empty():
+		return
+	candidates.shuffle()
+	is_picking_card = true
+	if has_node("CardOverlay"):
+		$CardOverlay.show_cards(candidates.slice(0, 2), "NEW WEAPON — PICK ONE")
 
 func _confirm_card_pick() -> void:
 	var selected_index: int = 0

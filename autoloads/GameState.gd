@@ -81,6 +81,8 @@ func _broadcast_game_over() -> void:
 		p.element_tier = 1
 		p.stage3_damage_mult = 1.0
 		p.is_picking_card = false
+		p._pending_weapon_choice = false  # stale sub-room weapon choice must not carry into the next run
+		p._pending_card_picks = 0
 		p.evolution_stage = 1  # direct reset — skip deferred visual swap before scene change
 	# CR-02: reset loop-scoped state before scene change so next run starts at loop 1
 	reset_for_new_run()

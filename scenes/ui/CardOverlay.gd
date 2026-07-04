@@ -14,9 +14,22 @@ const WEAPON_NAMES := {
 	"airbag_shield": "Airbag Shield",
 }
 
-func show_cards(cards: Array) -> void:
+## Placeholder icons — swap PNGs for final art, paths stay.
+## NOTE: must live under assets/active/ (assets/placeholders/ has a .gdignore).
+const ICON_DIR := "res://assets/active/ui/icons/"
+const STAT_ICONS := {
+	"Speed": "icon_stat_speed.png",
+	"Max HP": "icon_stat_maxhp.png",
+	"Damage": "icon_stat_damage.png",
+}
+
+## Optional title lets the sub-room weapon choice reuse this overlay with its own heading.
+func show_cards(cards: Array, title: String = "LEVEL UP — PICK A CARD") -> void:
 	_cards = cards
 	_selected = 0
+	var title_lbl := get_node_or_null("OverlayBackground/OverlayContainer/TitleLabel")
+	if title_lbl:
+		title_lbl.text = title
 	_refresh_display()
 	visible = true
 
@@ -44,6 +57,7 @@ func _refresh_display() -> void:
 		var border := get_node_or_null("OverlayBackground/OverlayContainer/CardsRow/Card%d/Card%dBorder" % [i, i])
 		var type_lbl := get_node_or_null("OverlayBackground/OverlayContainer/CardsRow/Card%d/Card%dBorder/Card%dInner/Card%dTypeLabel" % [i, i, i, i])
 		var name_lbl := get_node_or_null("OverlayBackground/OverlayContainer/CardsRow/Card%d/Card%dBorder/Card%dInner/Card%dNameLabel" % [i, i, i, i])
+		var icon_rect := get_node_or_null("OverlayBackground/OverlayContainer/CardsRow/Card%d/Card%dBorder/Card%dInner/Card%dIcon" % [i, i, i, i])
 		var desc_lbl := get_node_or_null("OverlayBackground/OverlayContainer/CardsRow/Card%d/Card%dBorder/Card%dInner/Card%dDescLabel" % [i, i, i, i])
 		if card_node == null:
 			continue
@@ -51,11 +65,26 @@ func _refresh_display() -> void:
 			card_node.visible = true
 			if type_lbl: type_lbl.text = _card_type_text(_cards[i])
 			if name_lbl: name_lbl.text = _card_name_text(_cards[i])
+			if icon_rect: icon_rect.texture = _card_icon(_cards[i])
 			if desc_lbl: desc_lbl.text = _card_desc_text(_cards[i])
 		else:
 			card_node.visible = false
 		if border:
 			border.color = Color(0.4, 1.0, 0.4, 1) if i == _selected else Color(0.35, 0.35, 0.4, 1)
+
+func _card_icon(card: Dictionary) -> Texture2D:
+	var file := "icon_generic.png"
+	match card.get("type", ""):
+		"weapon_unlock", "weapon_upgrade":
+			file = "icon_%s.png" % card.get("weapon_id", "")
+		"element_upgrade":
+			file = "icon_element.png"
+		"stat_boost":
+			file = STAT_ICONS.get(card.get("stat", ""), "icon_generic.png")
+	var path := ICON_DIR + file
+	if not ResourceLoader.exists(path):
+		path = ICON_DIR + "icon_generic.png"
+	return load(path)
 
 func _card_type_text(card: Dictionary) -> String:
 	match card.get("type", ""):

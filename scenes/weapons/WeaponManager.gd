@@ -6,7 +6,8 @@ extends Node
 ## D-15: Max 6 weapons; add_weapon returns false if full (silent cap, no UI in Phase 4).
 ## D-16: reset() called from game-over path; clears all weapons and airbag charge.
 
-const MAX_WEAPONS: int = 4
+## Weapon cap: start weapon + 2 picked via the sub-room weapon-choice overlay (end of sub-rooms 2 and 4).
+const MAX_WEAPONS: int = 3
 const WEAPON_IDS: Array[String] = [
 	"screws_and_bolts", "exhaust_flames", "spinning_tires",
 	"antenna_beam", "horn_shockwave", "airbag_shield"

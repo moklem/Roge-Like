@@ -19,11 +19,11 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -280.0
-offset_top = -80.0
-offset_right = 280.0
-offset_bottom = 80.0
-theme_override_constants/separation = 8
+offset_left = -310.0
+offset_top = -165.0
+offset_right = 310.0
+offset_bottom = 165.0
+theme_override_constants/separation = 10
 
 [node name="TitleLabel" type="Label" parent="OverlayBackground/OverlayContainer"]
 layout_mode = 2
@@ -36,75 +36,141 @@ theme_override_constants/separation = 24
 alignment = 1
 
 [node name="Card0" type="PanelContainer" parent="OverlayBackground/OverlayContainer/CardsRow"]
-custom_minimum_size = Vector2(160, 64)
+custom_minimum_size = Vector2(180, 250)
 layout_mode = 2
 
 [node name="Card0Border" type="ColorRect" parent="OverlayBackground/OverlayContainer/CardsRow/Card0"]
+layout_mode = 2
 color = Color(0.35, 0.35, 0.4, 1)
 
 [node name="Card0Inner" type="VBoxContainer" parent="OverlayBackground/OverlayContainer/CardsRow/Card0/Card0Border"]
-offset_left = 4.0
-offset_top = 4.0
-offset_right = 156.0
-offset_bottom = 196.0
-theme_override_constants/separation = 4
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+theme_override_constants/separation = 6
 
 [node name="Card0TypeLabel" type="Label" parent="OverlayBackground/OverlayContainer/CardsRow/Card0/Card0Border/Card0Inner"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
 text = ""
+horizontal_alignment = 1
 
 [node name="Card0NameLabel" type="Label" parent="OverlayBackground/OverlayContainer/CardsRow/Card0/Card0Border/Card0Inner"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
 text = ""
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="Card0Icon" type="TextureRect" parent="OverlayBackground/OverlayContainer/CardsRow/Card0/Card0Border/Card0Inner"]
+custom_minimum_size = Vector2(96, 96)
+layout_mode = 2
+size_flags_vertical = 3
+expand_mode = 1
+stretch_mode = 5
 
 [node name="Card0DescLabel" type="Label" parent="OverlayBackground/OverlayContainer/CardsRow/Card0/Card0Border/Card0Inner"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = ""
+horizontal_alignment = 1
 autowrap_mode = 2
 
 [node name="Card1" type="PanelContainer" parent="OverlayBackground/OverlayContainer/CardsRow"]
-custom_minimum_size = Vector2(160, 64)
+custom_minimum_size = Vector2(180, 250)
 layout_mode = 2
 
 [node name="Card1Border" type="ColorRect" parent="OverlayBackground/OverlayContainer/CardsRow/Card1"]
+layout_mode = 2
 color = Color(0.35, 0.35, 0.4, 1)
 
 [node name="Card1Inner" type="VBoxContainer" parent="OverlayBackground/OverlayContainer/CardsRow/Card1/Card1Border"]
-offset_left = 4.0
-offset_top = 4.0
-offset_right = 156.0
-offset_bottom = 196.0
-theme_override_constants/separation = 4
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+theme_override_constants/separation = 6
 
 [node name="Card1TypeLabel" type="Label" parent="OverlayBackground/OverlayContainer/CardsRow/Card1/Card1Border/Card1Inner"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
 text = ""
+horizontal_alignment = 1
 
 [node name="Card1NameLabel" type="Label" parent="OverlayBackground/OverlayContainer/CardsRow/Card1/Card1Border/Card1Inner"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
 text = ""
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="Card1Icon" type="TextureRect" parent="OverlayBackground/OverlayContainer/CardsRow/Card1/Card1Border/Card1Inner"]
+custom_minimum_size = Vector2(96, 96)
+layout_mode = 2
+size_flags_vertical = 3
+expand_mode = 1
+stretch_mode = 5
 
 [node name="Card1DescLabel" type="Label" parent="OverlayBackground/OverlayContainer/CardsRow/Card1/Card1Border/Card1Inner"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = ""
+horizontal_alignment = 1
 autowrap_mode = 2
 
 [node name="Card2" type="PanelContainer" parent="OverlayBackground/OverlayContainer/CardsRow"]
-custom_minimum_size = Vector2(160, 64)
+custom_minimum_size = Vector2(180, 250)
 layout_mode = 2
 
 [node name="Card2Border" type="ColorRect" parent="OverlayBackground/OverlayContainer/CardsRow/Card2"]
+layout_mode = 2
 color = Color(0.35, 0.35, 0.4, 1)
 
 [node name="Card2Inner" type="VBoxContainer" parent="OverlayBackground/OverlayContainer/CardsRow/Card2/Card2Border"]
-offset_left = 4.0
-offset_top = 4.0
-offset_right = 156.0
-offset_bottom = 196.0
-theme_override_constants/separation = 4
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+theme_override_constants/separation = 6
 
 [node name="Card2TypeLabel" type="Label" parent="OverlayBackground/OverlayContainer/CardsRow/Card2/Card2Border/Card2Inner"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
 text = ""
+horizontal_alignment = 1
 
 [node name="Card2NameLabel" type="Label" parent="OverlayBackground/OverlayContainer/CardsRow/Card2/Card2Border/Card2Inner"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
 text = ""
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="Card2Icon" type="TextureRect" parent="OverlayBackground/OverlayContainer/CardsRow/Card2/Card2Border/Card2Inner"]
+custom_minimum_size = Vector2(96, 96)
+layout_mode = 2
+size_flags_vertical = 3
+expand_mode = 1
+stretch_mode = 5
 
 [node name="Card2DescLabel" type="Label" parent="OverlayBackground/OverlayContainer/CardsRow/Card2/Card2Border/Card2Inner"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = ""
+horizontal_alignment = 1
 autowrap_mode = 2
 
 [node name="HintLabel" type="Label" parent="OverlayBackground/OverlayContainer"]

@@ -8,8 +8,9 @@ const PLAYER_SCENE    := preload("res://scenes/Player.tscn")
 const ENEMY_SCENE     := preload("res://scenes/enemies/Enemy.tscn")
 const BULLET_SCENE    := preload("res://scenes/projectiles/Bullet.tscn")
 const ORB_SCENE       := preload("res://scenes/pickups/XpOrb.tscn")
-const CAR_PART_SCENE  := preload("res://scenes/pickups/CarPartPickup.tscn")
-const CAR_PART_IDS    := ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave"]  # airbag_shield disabled as a weapon
+## Weapons are no longer ground drops — unlocked via the sub-room weapon-choice overlay
+## (end of sub-rooms 2 and 4). airbag_shield disabled as a weapon.
+const WEAPON_CHOICE_IDS := ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave"]
 ## Phase 5 Plan 03 (D-14, D-15, D-21): Engineer Heal Drone spawnable scene
 const HEAL_DRONE_SCENE := preload("res://scenes/roles/HealDrone.tscn")
 ## Phase 5 Plan 05 (D-18, ELEM-04): Ice Trail frost zone spawnable scene
@@ -123,7 +124,6 @@ func _ready() -> void:
 	$PickupSpawner.spawn_function = _do_spawn_pickup
 	# P7: Pre-register ALL scenes PickupSpawner may spawn before any enemy dies
 	$PickupSpawner.add_spawnable_scene("res://scenes/pickups/XpOrb.tscn")
-	$PickupSpawner.add_spawnable_scene("res://scenes/pickups/CarPartPickup.tscn")
 	# Phase 5 Plan 03 (D-14, D-21): DroneSpawner for Engineer Heal Drone (P7 pre-register)
 	$DroneSpawner.spawn_function = _do_spawn_drone
 	$DroneSpawner.add_spawnable_scene("res://scenes/roles/HealDrone.tscn")
@@ -409,8 +409,7 @@ func _purge_transient_entities() -> void:
 		if child.is_queued_for_deletion():
 			continue
 		if child.is_in_group("enemies") or child.is_in_group("xp_orbs") \
-				or child.is_in_group("car_parts") or child.is_in_group("bullets") \
-				or child.is_in_group("drones"):
+				or child.is_in_group("bullets") or child.is_in_group("drones"):
 			child.queue_free()
 
 ## Phase 9 (D-08, MAP-02): Host checks if all enemies in current sub-room are dead.
@@ -449,6 +448,11 @@ func _check_sub_room_clear() -> void:
 	else:
 		_current_wave = 1
 		_open_exit_passage.rpc()
+		# Weapon choice at the end of sub-rooms 2 and 4: 2nd weapon after sub-room 2,
+		# 3rd after sub-room 4. No-op on players whose weapon slots are already full,
+		# so repeat triggers in later rooms do nothing once both picks are made.
+		if current_sub_room == 2 or current_sub_room == 4:
+			_start_weapon_choice.rpc()
 
 ## Phase 9 (D-08, MAP-02): Host-authoritative exit passage opening on all peers simultaneously.
 ## Removes the exit wall tiles from the TileMap and replaces them with floor tiles.
@@ -775,16 +779,13 @@ func _do_spawn_enemy(data: Dictionary) -> Node:
 		e.died.connect(_on_enemy_died)
 	return e
 
-## CMBT-08 / WEAP-01: XP orb always drops; 25% chance to also drop a car-part pickup.
+## CMBT-08: XP orb always drops. Car-part weapon drops removed — weapons come from the
+## sub-room weapon-choice overlay instead (see _start_weapon_choice).
 func _on_enemy_died(pos: Vector2) -> void:
 	if not multiplayer.is_server():
 		return
 	# Always drop XP orb — call_deferred prevents "Can't change state while flushing queries"
 	$PickupSpawner.spawn.call_deferred({"type": "xp_orb", "pos": pos})
-	# D-03: 25% drop rate — restored from debug 100% override
-	if randf() < 0.25:
-		var part_id: String = CAR_PART_IDS[randi() % CAR_PART_IDS.size()]
-		$PickupSpawner.spawn.call_deferred({"type": "car_part", "pos": pos + Vector2(10, 0), "weapon_id": part_id})
 	# Immediate respawn removed: conflicted with _check_room_clear (count never reached 0).
 	## Phase 9 (D-08, MAP-02): After each enemy death, check if the current sub-room is cleared.
 	## The old _check_room_clear path is retired — sub-room waves + connector now drive progression.
@@ -798,12 +799,6 @@ func _do_spawn_pickup(data: Dictionary) -> Node:
 			orb.position = data["pos"]
 			orb.name = "XpOrb_%d" % (randi() % 9999)
 			return orb
-		"car_part":
-			var pickup := CAR_PART_SCENE.instantiate()
-			pickup.position = data["pos"]
-			pickup.weapon_id = data["weapon_id"]
-			pickup.name = "CarPart_%d" % (randi() % 9999)
-			return pickup
 	return null
 
 # ==============================================================================
@@ -961,6 +956,17 @@ func _update_revive_bar(target_id: int, progress: float) -> void:
 ## orbit/beam/flame weapons render their visuals on all peers (SpinningTires._physics_process,
 ## AntennaBeam._show_visual), so teammates can now see each other's weapons. Damage stays
 ## host-authoritative inside each weapon. @rpc("authority") so only the host can trigger it.
+## Host broadcasts when sub-room 2 or 4 is cleared: every peer opens the weapon-choice
+## overlay for its OWN player (each player picks independently). Selection flows through
+## the existing confirm_card_pick path — weapon_unlock cards stay valid in the host pool.
+@rpc("authority", "call_local", "reliable")
+func _start_weapon_choice() -> void:
+	var local_id := multiplayer.get_unique_id()
+	for p in get_tree().get_nodes_in_group("players"):
+		if p.peer_id == local_id and p.has_method("_trigger_weapon_choice"):
+			p._trigger_weapon_choice()
+			return
+
 @rpc("authority", "call_local", "reliable")
 func weapon_unlocked(weapon_id: String, collector_peer_id: int) -> void:
 	for p in get_tree().get_nodes_in_group("players"):
@@ -1019,7 +1025,10 @@ func _build_card_pool_for_player(player_node: Node) -> Array:
 	var pool: Array = []
 	var wm: Node = player_node.get_node_or_null("WeaponManager")
 	if wm:
-		for wid in ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave"]:  # airbag_shield disabled
+		# weapon_unlock stays eligible HERE even though it no longer appears in the level-up
+		# draw (Player._build_card_pool) — the weapon-choice overlay confirms through the same
+		# confirm_card_pick path and must pass this validation.
+		for wid in WEAPON_CHOICE_IDS:
 			if not wm.unlocked_weapons.has(wid):
 				if wm.unlocked_weapons.size() < wm.MAX_WEAPONS:
 					pool.append({"type": "weapon_unlock", "weapon_id": wid})
