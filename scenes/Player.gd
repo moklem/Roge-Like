@@ -255,7 +255,8 @@ func _process(_delta: float) -> void:
 	if has_node("LevelUpLabel"):
 		$LevelUpLabel.visible = is_picking_card
 		if is_picking_card:
-			$LevelUpLabel.text = "%s is leveling up!" % role_label
+			# TEAM XP: everyone levels together — label shows who is still choosing
+			$LevelUpLabel.text = "%s is choosing..." % role_label
 	# Driver Mode: count the active effect down on every peer so all mult copies reset in sync.
 	_tick_driver_effect(_delta)
 
@@ -760,31 +761,9 @@ func receive_heal(amount: int) -> void:
 		return
 	health = mini(health + amount, MAX_HP)
 
-## Phase 6 (XP-01, D-05): Receive XP from host after orb collection. Runs on owning peer only.
-## Mirrors receive_heal RPC pattern (lines 439-443). Host calls receive_xp.rpc_id(peer_id, amount).
-@rpc("any_peer", "call_remote", "reliable")
-func receive_xp(amount: int) -> void:
-	if is_downed:
-		return
-	xp += amount
-	# D-02: handle multiple level-ups in one grant (subtract threshold, re-check)
-	var threshold: int = _xp_threshold(level)
-	while xp >= threshold:
-		xp -= threshold
-		level += 1
-		# Card pick + stage check wired in Plans 05/06 — guarded so Plan 01 runs standalone
-		if has_method("_trigger_card_pick"):
-			_trigger_card_pick()
-		if has_method("_check_stage_threshold"):
-			_check_stage_threshold()
-		threshold = _xp_threshold(level)
-	# HUD update wired in Plan 02 — guarded so Plan 01 runs standalone
-	if has_method("_update_xp_hud"):
-		_update_xp_hud()
-
-## D-02: XP required to advance FROM level lvl to lvl+1.
-func _xp_threshold(lvl: int) -> int:
-	return 200 + (lvl - 1) * 100
+## TEAM XP: progression moved to GameState (shared team pool). xp/level on this
+## node mirror the team values — GameState._sync_team_xp writes them on the local
+## player of every peer, and triggers _trigger_card_pick / _check_stage_threshold.
 
 ## Phase 5/6: Set evolution stage (D-04/D-20, D-13, D-22). Called by Phase 6 when XP threshold reached.
 @rpc("any_peer", "call_remote", "reliable")
@@ -841,10 +820,10 @@ func _swap_stage_visual(stage: int) -> void:
 
 func _update_xp_hud() -> void:
 	if has_node("PlayerHUD") and is_multiplayer_authority():
-		$PlayerHUD.update_hud(xp, level, _xp_threshold(level), evolution_stage)
+		$PlayerHUD.update_hud(xp, level, GameState.team_xp_threshold(level), evolution_stage)
 
 ## Phase 6 (D-03, D-04, EVOL-02, EVOL-03): Self-apply stage change after level-up.
-## Option C from RESEARCH: owning peer self-applies since receive_xp is already host-authorized.
+## TEAM XP: level mirrors the team level, so all players evolve together.
 func _check_stage_threshold() -> void:
 	if level >= STAGE2_LEVEL and evolution_stage < 2:
 		set_evolution_stage.rpc(2)
@@ -887,7 +866,8 @@ func _draw_cards(pool: Array) -> Array:
 	return cards
 
 ## Phase 6 (XP-02, D-06, D-07): Show card overlay for this player only.
-## Must only run on owning peer (receive_xp already runs on owning peer).
+## TEAM XP: GameState._sync_team_xp calls this on the LOCAL player of every peer,
+## so all players pick simultaneously — each with their own card pool.
 ## Guards against rapid double level-ups by queuing extra picks.
 func _trigger_card_pick() -> void:
 	if not is_multiplayer_authority():

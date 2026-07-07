@@ -60,7 +60,9 @@
 | Horn Shockwave | 3.0 s | 360° burst, ~150 px |
 | Airbag Shield | passive | Absorbs 1 lethal hit |
 
-**Level Up Cards:** On level-up → choose 1 of 3 cards: weapon unlock / weapon upgrade (lvl 1→3) / element upgrade / stat boost
+**Team XP:** All XP orbs feed one shared team pool — thresholds scale with party size (×1/×2/×3), so 1–3 player runs level at a similar pace.
+
+**Level Up Cards:** On team level-up → ALL players pick simultaneously (each gets their own 1-of-3 cards: weapon unlock / weapon upgrade (lvl 1→3) / element upgrade / stat boost) so the team can discuss builds together
 
 ---
 

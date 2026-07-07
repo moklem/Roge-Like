@@ -7,6 +7,14 @@ var loop_timer: float = 0.0  # seconds remaining; host only writes
 var loop_number: int = 1  # D-16: starts at 1; Phase 8 increments via start_next_loop()
 var revives_used: Dictionary = {}  # peer_id → int (count used this loop)
 
+## TEAM XP: shared progression — every orb feeds one team pool (host-authoritative).
+## Thresholds scale with party size so 1/2/3-player runs level at a similar pace.
+const TEAM_XP_BASE: int = 200
+const TEAM_XP_PER_LEVEL: int = 100
+
+var team_xp: int = 0
+var team_level: int = 1
+
 func _ready() -> void:
 	# D-16 / Pitfall 6: ensure correct base even before peers connect
 	loop_number = 1
@@ -22,6 +30,52 @@ func _process(delta: float) -> void:
 		return  # D-13: only host ticks timer
 	if loop_timer > 0.0:
 		loop_timer -= delta
+
+## XP needed to advance FROM team level lvl to lvl+1.
+## Scaled by party size: more players collect more orbs, so the bar grows with the team.
+func team_xp_threshold(lvl: int) -> int:
+	var party_size: int = maxi(1, get_tree().get_nodes_in_group("players").size())
+	return (TEAM_XP_BASE + (lvl - 1) * TEAM_XP_PER_LEVEL) * party_size
+
+## Host-only: called from XpOrb._request_collect (already host-guarded there).
+## Accumulates team XP, processes level-ups, then broadcasts the state to every peer.
+func add_team_xp(amount: int) -> void:
+	if not multiplayer.has_multiplayer_peer():
+		return
+	if multiplayer.multiplayer_peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
+		return
+	if not multiplayer.is_server():
+		return
+	team_xp += amount
+	var levels_gained: int = 0
+	var threshold: int = team_xp_threshold(team_level)
+	while team_xp >= threshold:
+		team_xp -= threshold
+		team_level += 1
+		levels_gained += 1
+		threshold = team_xp_threshold(team_level)
+	_sync_team_xp.rpc(team_xp, team_level, levels_gained)
+
+## Runs on ALL peers (call_local). Mirrors team values onto the local player
+## (keeps HUD, stage checks, and run-reset code working) and — on level-up —
+## opens the card overlay for EVERYONE at once, each with their own card pool,
+## so the team can discuss picks together.
+@rpc("authority", "call_local", "reliable")
+func _sync_team_xp(xp_value: int, level_value: int, levels_gained: int) -> void:
+	team_xp = xp_value
+	team_level = level_value
+	var local_id := multiplayer.get_unique_id()
+	for p in get_tree().get_nodes_in_group("players"):
+		if p.peer_id == local_id:
+			p.xp = xp_value
+			p.level = level_value
+			for i in range(levels_gained):
+				p._trigger_card_pick()
+			if levels_gained > 0 and p.has_method("_check_stage_threshold"):
+				p._check_stage_threshold()
+			if p.has_method("_update_xp_hud"):
+				p._update_xp_hud()
+			return
 
 ## HLTH-08: Called from Player._enter_downed() — checks if ALL players are downed.
 ## D-14: Immediate game over with no grace period when all are downed.
@@ -65,6 +119,8 @@ func reset_for_new_run() -> void:
 	loop_number = 1
 	loop_timer  = 0.0
 	revives_used = {}
+	team_xp = 0
+	team_level = 1
 
 ## D-14: Broadcast game over to all peers including host (call_local)
 @rpc("authority", "call_local", "reliable")

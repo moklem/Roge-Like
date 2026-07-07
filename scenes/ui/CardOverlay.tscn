@@ -27,7 +27,7 @@ theme_override_constants/separation = 10
 
 [node name="TitleLabel" type="Label" parent="OverlayBackground/OverlayContainer"]
 layout_mode = 2
-text = "LEVEL UP — PICK A CARD"
+text = "TEAM LEVEL UP — PICK A CARD"
 horizontal_alignment = 1
 
 [node name="CardsRow" type="HBoxContainer" parent="OverlayBackground/OverlayContainer"]

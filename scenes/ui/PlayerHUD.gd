@@ -20,7 +20,7 @@ func update_hud(xp_value: int, level_value: int, xp_threshold: int, stage_value:
 	var bar := get_node_or_null("HUDPanel/HUDRow/XPBar")
 	var stg := get_node_or_null("HUDPanel/HUDRow/StageLabel")
 	if lvl:
-		lvl.text = "LVL %d" % level_value           # D-18 copywriting
+		lvl.text = "TEAM LVL %d" % level_value      # TEAM XP: shared level for the whole party
 	if bar:
 		bar.max_value = float(maxi(xp_threshold, 1))
 		bar.value = float(xp_value)
