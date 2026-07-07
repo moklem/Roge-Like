@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://bedkvx7ipjgy2"]
 
 [ext_resource type="Script" uid="uid://gplraj4vfvl1" path="res://scenes/enemies/Enemy.gd" id="1_enemy"]
+[ext_resource type="SpriteFrames" path="res://scenes/enemies/EnemyFrames.tres" id="2_enemy_frames"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_1"]
 radius = 12.0
@@ -32,6 +33,11 @@ offset_top = -14.0
 offset_right = 14.0
 offset_bottom = 14.0
 color = Color(0.8, 0.2, 0.2, 1)
+
+[node name="CharSprite" type="AnimatedSprite2D" parent="." unique_id=1903338390]
+sprite_frames = ExtResource("2_enemy_frames")
+animation = &"enemy_1_idle"
+visible = false
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=62278025]
 shape = SubResource("CapsuleShape2D_1")
