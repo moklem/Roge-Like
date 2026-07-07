@@ -109,9 +109,10 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 				tilemap.set_cell(0, coords, source_id, tile)
 
 	## Step 6: Place wall tiles
-	## ERBA 2.5D: EVERY wall cell shows the brick face — the standard 2-tile perimeter
-	## stacks two face rows and reads as a wall two bricks high (no dark cap "ceiling").
-	## Altstadt keeps the face/cap split. wall_cells tracks wall coords so shadow and
+	## ERBA 2.5D: light comes from above — wall cells show the bright CAP (top-down
+	## slabs); only south edges (no wall below) get one row of the dark brick FACE.
+	## The standard 2-tile perimeter reads as cap row + shadowed front + contact shadow.
+	## Altstadt keeps its face/cap split. wall_cells tracks wall coords so shadow and
 	## face detection cannot mistake a wall for floor (walls are not yet on the map).
 	var wall_tile: Vector2i = layout["wall_tile"]
 	var use_depth: bool = is_erba or is_alt
@@ -128,11 +129,20 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 			for y_off in range(rect.size.y):
 				var coords := Vector2i(rect.position.x + x_off, rect.position.y + y_off)
 				if is_erba:
-					## Macro block: one brick texture covers a 2x2 wall area, so the
-					## standard 2-row perimeter shows one full texture (2.5D wall face).
 					var quad := Vector2i(posmod(coords.x, 2), posmod(coords.y, 2))
-					var pick: int = _cell_hash(coords - quad, 3)
-					var tile: Vector2i = RoomLayouts.ERBA_WALL_FACES[pick % RoomLayouts.ERBA_WALL_FACES.size()] + quad
+					var tile: Vector2i
+					if not wall_cells.has(coords + Vector2i(0, 1)):
+						## South edge: one row of dark brick face. Always the BOTTOM
+						## half of the face texture (its base/moss row meets the grass);
+						## hash per 2-wide column block so both halves agree.
+						var blk := coords - Vector2i(quad.x, 0)
+						var pick: int = _cell_hash(blk, 3)
+						tile = RoomLayouts.ERBA_WALL_FACES[pick % RoomLayouts.ERBA_WALL_FACES.size()] \
+							+ Vector2i(quad.x, 1)
+					else:
+						## Everything else is the bright top-down cap, standard 2x2 macro.
+						var pick: int = _cell_hash(coords - quad, 3)
+						tile = RoomLayouts.ERBA_WALL_CAPS[pick % RoomLayouts.ERBA_WALL_CAPS.size()] + quad
 					tilemap.set_cell(0, coords, RoomLayouts.SRC_ERBA_WALL, tile)
 				elif use_depth:
 					## Altstadt: single wall PNG — face and cap are two sources sharing
@@ -321,7 +331,7 @@ func _register_erba_tiles(tilemap: TileMap) -> void:
 					std.modulate = Color(pair[1], pair[1], pair[1])
 	var wall := tilemap.tile_set.get_source(RoomLayouts.SRC_ERBA_WALL) as TileSetAtlasSource
 	if wall:
-		for base: Vector2i in RoomLayouts.ERBA_WALL_FACES:
+		for base: Vector2i in RoomLayouts.ERBA_WALL_FACES + RoomLayouts.ERBA_WALL_CAPS:
 			for q: Vector2i in QUADS:
 				_ensure_solid_tile(wall, base + q, half)
 	var props := tilemap.tile_set.get_source(RoomLayouts.SRC_ERBA_PROPS) as TileSetAtlasSource

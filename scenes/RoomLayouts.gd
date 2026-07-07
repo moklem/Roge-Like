@@ -78,9 +78,10 @@ const BIT_FLOOR_FILL := Vector2i(0, 4)  ## floor tile variety [ASSUMED]
 ## offset (posmod(x,2), posmod(y,2)) so each texture covers 2x2 cells seamlessly
 ## and the art reads at 32 world px — matching the character scale — while the
 ## 16px collision/layout grid stays untouched.
-##   erba_floor.png — 8 blocks: grass-a/b/c, tufts, flowers, slabs, shadow strong/soft
-##   erba_wall.png  — 2 blocks: face-a, face-b (no caps — one brick texture covers
-##                    the whole 2-cells-wide, 2-rows-high wall segment)
+##   erba_floor.png — 10 blocks: grass-a/b/c, tufts, flowers, slabs, circuit,
+##                    grate, shadow strong/soft
+##   erba_wall.png  — 4 blocks: face-a, face-b (dark brick front, baked ~0.55),
+##                    cap-a, cap-b (bright top-down slabs)
 ##   erba_props.png — 7x2 single tiles: rock pile 2x2, rock single, pebbles, stump /
 ##                    flowers, bush + bench 2x1
 ##   erba_road.png  — 1 block: connector road
@@ -94,18 +95,25 @@ const ERBA_GRASS_PLAIN: Array[Vector2i]  = [
 const ERBA_GRASS_DETAIL: Array[Vector2i] = [
 	Vector2i(6, 0), Vector2i(8, 0),
 ]
+## Rare accent blocks (~1/48 of floor cells each): stone slab patch, cyan
+## circuit line, drain grate — the loud cartoon tiles stay special.
 const ERBA_GRASS_SLABS: Array[Vector2i]  = [
-	Vector2i(10, 0),
+	Vector2i(10, 0), Vector2i(12, 0), Vector2i(14, 0),
 ]
-## Wall contact shadow blocks, two strengths (grass-a dups, dark-modulated at
-## registration). Strong sits directly under the wall, soft extends it with a
-## ragged/diagonal edge. Any atlas coord with x >= ERBA_FLOOR_SHADOW.x is shadow.
-const ERBA_FLOOR_SHADOW      := Vector2i(12, 0)
-const ERBA_FLOOR_SHADOW_SOFT := Vector2i(14, 0)
-## Wall face blocks (erba_wall.png) — every wall cell shows brick face; the standard
-## 2-tile-thick perimeter reads as a wall two bricks high (2.5D feel without a dark cap).
+## Wall contact shadow blocks, two strengths (plain-grass dups, dark-modulated
+## at registration). Strong sits directly under the wall, soft extends it with
+## a ragged/diagonal edge. Any atlas coord with x >= ERBA_FLOOR_SHADOW.x is shadow.
+const ERBA_FLOOR_SHADOW      := Vector2i(16, 0)
+const ERBA_FLOOR_SHADOW_SOFT := Vector2i(18, 0)
+## Wall blocks (erba_wall.png): FACES are the shadowed brick front (baked darker in
+## the atlas), shown as a single row on south edges (floor/void below). CAPS are the
+## bright top-down stone slabs covering every other wall cell — light from above:
+## horizontal surfaces bright, vertical surfaces dark (reference dungeon look).
 const ERBA_WALL_FACES: Array[Vector2i] = [
 	Vector2i(0, 0), Vector2i(2, 0),
+]
+const ERBA_WALL_CAPS: Array[Vector2i] = [
+	Vector2i(4, 0), Vector2i(6, 0),
 ]
 ## Obstacles + deco (erba_props.png): full 2x2 rock piles where they fit inside the
 ## obstacle rect, complete single rocks on leftover edge cells (nothing renders cut off).
