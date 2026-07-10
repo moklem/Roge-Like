@@ -1,101 +1,199 @@
 [gd_scene format=3 uid="uid://kp8m2b16ap4t"]
 
 [ext_resource type="Script" uid="uid://owywhwvt3fdn" path="res://scenes/Game.gd" id="1_game"]
-[ext_resource type="Texture2D" path="res://assets/kenney/roguelike-modern-city/Tilemap/tilemap_packed.png" id="2_tex_modern"]
-[ext_resource type="Texture2D" path="res://assets/kenney/tiny-dungeon/Tilemap/tilemap_packed.png" id="3_tex_dungeon"]
-[ext_resource type="Texture2D" path="res://assets/kenney/1-bit-pack/Tilemap/tileset_legacy.png" id="4_tex_1bit"]
-[ext_resource type="Texture2D" path="res://assets/cainos/TX Tileset Grass.png" id="5_tex_erba_grass"]
-[ext_resource type="Texture2D" path="res://assets/cainos/TX Tileset Wall.png" id="6_tex_erba_wall"]
-[ext_resource type="Texture2D" path="res://assets/cainos/TX Props.png" id="7_tex_erba_props"]
-[ext_resource type="Texture2D" path="res://assets/cainos/TX Tileset Stone Ground.png" id="8_tex_erba_stone"]
-[ext_resource type="Texture2D" path="res://assets/janv2/modern-city/floor-asphalt_atlas-0-13.png" id="9_tex_alt_asphalt"]
-[ext_resource type="Texture2D" path="res://assets/janv2/modern-city/floor-grass_atlas-0-16.png" id="10_tex_alt_grass"]
-[ext_resource type="Texture2D" path="res://assets/janv2/modern-city/floor-connector_atlas-0-15.png" id="11_tex_alt_road"]
-[ext_resource type="Texture2D" path="res://assets/janv2/modern-city/wall_atlas-0-0.png" id="12_tex_alt_wall"]
-[ext_resource type="Texture2D" path="res://assets/janv2/modern-city/obstacle-roof_atlas-3-0.png" id="13_tex_alt_roof"]
 
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_modern"]
-texture = ExtResource("2_tex_modern")
-texture_region_size = Vector2i(16, 16)
+[ext_resource type="Texture2D" path="res://assets/lovableassats/erba/floor-grass-b.png" id="t_e_grass"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/erba/wall-face-b.png" id="t_e_wallface"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/erba/wall-cap-a.png" id="t_e_wallcap_a"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/erba/wall-cap-b.png" id="t_e_wallcap_b"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/erba/floor-connector.png" id="t_e_conn"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/erba/obstacle-rocks.png" id="t_e_rocks"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/erba/flower.png" id="t_e_flower"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/erba/prop-pebbles.png" id="t_e_pebbles"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/altstadt/floor-cobble-b.png" id="t_a_cobble_b"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/altstadt/floor-cobble-c.png" id="t_a_cobble_c"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/altstadt/floor-transition-carpet.png" id="t_a_carpet"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/altstadt/wall-face-a.png" id="t_a_wallface"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/altstadt/wall-cap-a.png" id="t_a_wallcap"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/altstadt/obstacle-roof.png" id="t_a_roof"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/altstadt/floor-grass-patch.png" id="t_a_grasspatch"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/altstadt/prop-barrel.png" id="t_a_barrel"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/altstadt/prop-crate.png" id="t_a_crate"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/altstadt/prop-lantern.png" id="t_a_lantern"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/floor-stone-a.png" id="t_b_stone_a"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/floor-stone-b.png" id="t_b_stone_b"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/floor-stone-c.png" id="t_b_stone_c"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/floor-stone-cracked.png" id="t_b_cracked"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/wall-face-a.png" id="t_b_wallface_a"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/wall-face-b.png" id="t_b_wallface_b"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/wall-cap-a.png" id="t_b_wallcap_a"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/wall-cap-b.png" id="t_b_wallcap_b"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/obstacle-rubble.png" id="t_b_rubble"]
 
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_erba_grass"]
-texture = ExtResource("5_tex_erba_grass")
-texture_region_size = Vector2i(32, 32)
+[sub_resource type="TileSetAtlasSource" id="TSA_e_grass"]
+texture = ExtResource("t_e_grass")
+texture_region_size = Vector2i(256, 256)
 
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_erba_wall"]
-texture = ExtResource("6_tex_erba_wall")
-texture_region_size = Vector2i(32, 32)
+[sub_resource type="TileSetAtlasSource" id="TSA_e_wallface"]
+texture = ExtResource("t_e_wallface")
+texture_region_size = Vector2i(256, 256)
 
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_erba_props"]
-texture = ExtResource("7_tex_erba_props")
-texture_region_size = Vector2i(32, 32)
+[sub_resource type="TileSetAtlasSource" id="TSA_e_wallcap_a"]
+texture = ExtResource("t_e_wallcap_a")
+texture_region_size = Vector2i(256, 256)
 
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_erba_stone"]
-texture = ExtResource("8_tex_erba_stone")
-texture_region_size = Vector2i(32, 32)
+[sub_resource type="TileSetAtlasSource" id="TSA_e_wallcap_b"]
+texture = ExtResource("t_e_wallcap_b")
+texture_region_size = Vector2i(256, 256)
 
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_dungeon"]
-texture = ExtResource("3_tex_dungeon")
-texture_region_size = Vector2i(16, 16)
+[sub_resource type="TileSetAtlasSource" id="TSA_e_conn"]
+texture = ExtResource("t_e_conn")
+texture_region_size = Vector2i(256, 256)
 
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_1bit"]
-texture = ExtResource("4_tex_1bit")
-texture_region_size = Vector2i(17, 17)
+[sub_resource type="TileSetAtlasSource" id="TSA_e_rocks"]
+texture = ExtResource("t_e_rocks")
+texture_region_size = Vector2i(256, 256)
 
-[sub_resource type="TileSet" id="TileSetModern"]
-physics_layer_0/collision_layer = 1
-physics_layer_0/collision_mask = 1
-sources/0 = SubResource("TileSetAtlasSource_modern")
+[sub_resource type="TileSetAtlasSource" id="TSA_e_flower"]
+texture = ExtResource("t_e_flower")
+texture_region_size = Vector2i(384, 384)
 
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_alt_asphalt"]
-texture = ExtResource("9_tex_alt_asphalt")
-texture_region_size = Vector2i(32, 32)
+[sub_resource type="TileSetAtlasSource" id="TSA_e_pebbles"]
+texture = ExtResource("t_e_pebbles")
+texture_region_size = Vector2i(256, 256)
 
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_alt_grass"]
-texture = ExtResource("10_tex_alt_grass")
-texture_region_size = Vector2i(32, 32)
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_alt_road"]
-texture = ExtResource("11_tex_alt_road")
-texture_region_size = Vector2i(32, 32)
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_alt_wall"]
-texture = ExtResource("12_tex_alt_wall")
-texture_region_size = Vector2i(32, 32)
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_alt_wall_cap"]
-texture = ExtResource("12_tex_alt_wall")
-texture_region_size = Vector2i(32, 32)
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_alt_roof"]
-texture = ExtResource("13_tex_alt_roof")
-texture_region_size = Vector2i(32, 32)
-
-[sub_resource type="TileSet" id="TileSetAltstadt"]
-tile_size = Vector2i(32, 32)
-physics_layer_0/collision_layer = 1
-physics_layer_0/collision_mask = 1
-sources/10 = SubResource("TileSetAtlasSource_alt_asphalt")
-sources/11 = SubResource("TileSetAtlasSource_alt_grass")
-sources/12 = SubResource("TileSetAtlasSource_alt_road")
-sources/13 = SubResource("TileSetAtlasSource_alt_wall")
-sources/14 = SubResource("TileSetAtlasSource_alt_roof")
-sources/15 = SubResource("TileSetAtlasSource_alt_wall_cap")
+[sub_resource type="TileSetAtlasSource" id="TSA_e_grass_shadow"]
+texture = ExtResource("t_e_grass")
+texture_region_size = Vector2i(256, 256)
 
 [sub_resource type="TileSet" id="TileSetErba"]
-tile_size = Vector2i(32, 32)
+tile_size = Vector2i(256, 256)
 physics_layer_0/collision_layer = 1
 physics_layer_0/collision_mask = 1
-sources/3 = SubResource("TileSetAtlasSource_erba_grass")
-sources/4 = SubResource("TileSetAtlasSource_erba_wall")
-sources/5 = SubResource("TileSetAtlasSource_erba_props")
-sources/6 = SubResource("TileSetAtlasSource_erba_stone")
+sources/3 = SubResource("TSA_e_grass")
+sources/4 = SubResource("TSA_e_wallface")
+sources/5 = SubResource("TSA_e_wallcap_a")
+sources/6 = SubResource("TSA_e_conn")
+sources/7 = SubResource("TSA_e_wallcap_b")
+sources/8 = SubResource("TSA_e_rocks")
+sources/9 = SubResource("TSA_e_flower")
+sources/10 = SubResource("TSA_e_pebbles")
+sources/11 = SubResource("TSA_e_grass_shadow")
 
-[sub_resource type="TileSet" id="TileSetDungeon"]
+[sub_resource type="TileSetAtlasSource" id="TSA_a_cobble_b"]
+texture = ExtResource("t_a_cobble_b")
+texture_region_size = Vector2i(256, 256)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_a_cobble_c"]
+texture = ExtResource("t_a_cobble_c")
+texture_region_size = Vector2i(256, 256)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_a_carpet"]
+texture = ExtResource("t_a_carpet")
+texture_region_size = Vector2i(256, 256)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_a_wallface"]
+texture = ExtResource("t_a_wallface")
+texture_region_size = Vector2i(256, 256)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_a_roof"]
+texture = ExtResource("t_a_roof")
+texture_region_size = Vector2i(512, 512)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_a_wallcap"]
+texture = ExtResource("t_a_wallcap")
+texture_region_size = Vector2i(256, 256)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_a_grasspatch"]
+texture = ExtResource("t_a_grasspatch")
+texture_region_size = Vector2i(256, 256)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_a_barrel"]
+texture = ExtResource("t_a_barrel")
+texture_region_size = Vector2i(384, 384)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_a_crate"]
+texture = ExtResource("t_a_crate")
+texture_region_size = Vector2i(384, 384)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_a_lantern"]
+texture = ExtResource("t_a_lantern")
+texture_region_size = Vector2i(512, 512)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_a_cobble_shadow"]
+texture = ExtResource("t_a_cobble_b")
+texture_region_size = Vector2i(256, 256)
+
+[sub_resource type="TileSet" id="TileSetAltstadt"]
+tile_size = Vector2i(256, 256)
 physics_layer_0/collision_layer = 1
 physics_layer_0/collision_mask = 1
-sources/1 = SubResource("TileSetAtlasSource_dungeon")
-sources/2 = SubResource("TileSetAtlasSource_1bit")
+sources/10 = SubResource("TSA_a_cobble_b")
+sources/11 = SubResource("TSA_a_cobble_c")
+sources/12 = SubResource("TSA_a_carpet")
+sources/13 = SubResource("TSA_a_wallface")
+sources/14 = SubResource("TSA_a_roof")
+sources/15 = SubResource("TSA_a_wallcap")
+sources/16 = SubResource("TSA_a_grasspatch")
+sources/17 = SubResource("TSA_a_barrel")
+sources/18 = SubResource("TSA_a_crate")
+sources/19 = SubResource("TSA_a_lantern")
+sources/20 = SubResource("TSA_a_cobble_shadow")
+
+[sub_resource type="TileSetAtlasSource" id="TSA_b_stone_a"]
+texture = ExtResource("t_b_stone_a")
+texture_region_size = Vector2i(256, 256)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_b_stone_b"]
+texture = ExtResource("t_b_stone_b")
+texture_region_size = Vector2i(256, 256)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_b_stone_c"]
+texture = ExtResource("t_b_stone_c")
+texture_region_size = Vector2i(256, 256)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_b_cracked"]
+texture = ExtResource("t_b_cracked")
+texture_region_size = Vector2i(256, 256)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_b_wallface_a"]
+texture = ExtResource("t_b_wallface_a")
+texture_region_size = Vector2i(256, 256)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_b_wallface_b"]
+texture = ExtResource("t_b_wallface_b")
+texture_region_size = Vector2i(256, 256)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_b_wallcap_a"]
+texture = ExtResource("t_b_wallcap_a")
+texture_region_size = Vector2i(256, 256)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_b_wallcap_b"]
+texture = ExtResource("t_b_wallcap_b")
+texture_region_size = Vector2i(256, 256)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_b_rubble"]
+texture = ExtResource("t_b_rubble")
+texture_region_size = Vector2i(256, 256)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_b_stone_shadow"]
+texture = ExtResource("t_b_stone_a")
+texture_region_size = Vector2i(256, 256)
+
+[sub_resource type="TileSet" id="TileSetBurg"]
+tile_size = Vector2i(256, 256)
+physics_layer_0/collision_layer = 1
+physics_layer_0/collision_mask = 1
+sources/1 = SubResource("TSA_b_stone_a")
+sources/2 = SubResource("TSA_b_stone_b")
+sources/3 = SubResource("TSA_b_stone_c")
+sources/4 = SubResource("TSA_b_cracked")
+sources/5 = SubResource("TSA_b_wallface_a")
+sources/6 = SubResource("TSA_b_wallface_b")
+sources/7 = SubResource("TSA_b_wallcap_a")
+sources/8 = SubResource("TSA_b_wallcap_b")
+sources/9 = SubResource("TSA_b_rubble")
+sources/10 = SubResource("TSA_b_stone_shadow")
 
 [sub_resource type="NavigationPolygon" id="NavigationPolygon_1"]
 vertices = PackedVector2Array(750.03906, 551.96094, 47, 550.03125, 47, 46, 751.9531, 46)
@@ -121,7 +219,7 @@ script = ExtResource("1_game")
 [node name="Room1" type="Node2D" parent="." unique_id=1319617855]
 
 [node name="TileMap" type="TileMap" parent="Room1" unique_id=1527982491]
-scale = Vector2(0.5, 0.5)
+scale = Vector2(0.125, 0.125)
 tile_set = SubResource("TileSetErba")
 format = 2
 
@@ -169,7 +267,7 @@ position = Vector2(530, 470)
 visible = false
 
 [node name="TileMap" type="TileMap" parent="Room2"]
-scale = Vector2(0.5, 0.5)
+scale = Vector2(0.125, 0.125)
 tile_set = SubResource("TileSetAltstadt")
 format = 2
 
@@ -211,7 +309,8 @@ position = Vector2(400, 80)
 visible = false
 
 [node name="TileMap" type="TileMap" parent="Room3"]
-tile_set = SubResource("TileSetDungeon")
+scale = Vector2(0.125, 0.125)
+tile_set = SubResource("TileSetBurg")
 format = 2
 
 [node name="NavigationRegion2D" type="NavigationRegion2D" parent="Room3"]

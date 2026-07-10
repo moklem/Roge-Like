@@ -139,5 +139,8 @@ func set_player_ready(is_ready: bool) -> void:
 	player_list_changed.emit()
 
 @rpc("authority", "call_local", "reliable")
-func start_game() -> void:
+func start_game(start_room: int = 1) -> void:
+	## Runs on every peer (call_local): the host's room choice arrives as the RPC
+	## argument, so all peers agree on the starting room before Game loads.
+	GameState.start_room = clampi(start_room, 1, 3)
 	get_tree().change_scene_to_file("res://scenes/Game.tscn")

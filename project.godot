@@ -28,6 +28,12 @@ window/size/viewport_width=1352
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[importer_defaults]
+
+texture={
+"mipmaps/generate": true
+}
+
 [input]
 
 ui_left={

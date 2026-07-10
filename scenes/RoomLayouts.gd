@@ -7,103 +7,118 @@
 ## sub_room_id: 1–5 (playable) + 6 (connector) for rooms 1 and 2; 1–5 only for room 3
 ##
 ## All tile coordinates are in tile-grid units (not pixels).
-## Pixel positions (spawn_points, enemy_spawns) = tile_coord * TILE_SIZE (16 px).
-## Atlas coordinates are [ASSUMED] from visual PNG inspection — verify by opening
-## tilemap_packed.png and counting columns/rows (0-indexed) from top-left.
+## Pixel positions (spawn_points, enemy_spawns) are literal pixel values — the
+## "n * 16" expressions are leftovers from the old 16px grid; the resulting pixel
+## positions are unchanged on the 32px grid, so they were kept verbatim.
 class_name RoomLayouts
 extends RefCounted
 
-## Tile size in pixels
-const TILE_SIZE: int = 16
-
-## Tileset asset paths (D-17, D-21) — swap here for custom art
-const TILESET_MODERN_PATH: String = "res://assets/kenney/roguelike-modern-city/Tilemap/tilemap_packed.png"
-const TILESET_DUNGEON_PATH: String = "res://assets/kenney/tiny-dungeon/Tilemap/tilemap_packed.png"
-const TILESET_1BIT_PATH: String = "res://assets/kenney/1-bit-pack/Tilemap/tileset_legacy.png"
-
-## TileSet source IDs (must match TileSetAtlasSource index in TileSet resource)
-const SRC_MODERN: int = 0  ## roguelike-modern-city — room 2
-const SRC_DUNGEON: int = 1  ## tiny-dungeon — room 3
-const SRC_1BIT: int = 2     ## 1-bit-pack — room 3 wall fill fallback
-const SRC_ERBA_GRASS: int = 3  ## cainos TX Tileset Grass — room 1 floors
-const SRC_ERBA_WALL: int = 4   ## cainos TX Tileset Wall — room 1 walls
-const SRC_ERBA_PROPS: int = 5  ## cainos TX Props — room 1 obstacles + deco
-const SRC_ERBA_STONE: int = 6  ## cainos TX Tileset Stone Ground — room 1 connector road
-## Room 2 (Altstadt) — custom janv2 art (assets/janv2/modern-city, one 32px PNG per tile,
-## atlas coord is always (0,0)). Room2/TileMap uses TileSetAltstadt (tile_size 32, scale 0.5).
-const SRC_ALT_ASPHALT: int = 10  ## janv2 floor-asphalt — room 2 base floor
-const SRC_ALT_GRASS: int = 11    ## janv2 floor-grass — room 2 floor mix (~1/10)
-const SRC_ALT_ROAD: int = 12     ## janv2 floor-connector — room 2 connector road
-const SRC_ALT_WALL: int = 13     ## janv2 wall — room 2 wall faces
-const SRC_ALT_ROOF: int = 14     ## janv2 obstacle-roof — room 2 obstacles (layer 1)
-const SRC_ALT_WALL_CAP: int = 15 ## same wall texture, darkened via modulate (2.5D tops)
+## On-screen size of one tile-grid cell in pixels. 32px grid: half the tile counts
+## of the old 16px grid, identical room pixel dimensions — tiles render 2x larger.
+const TILE_SIZE: int = 32
 
 ## ─────────────────────────────────────────────────────────────────────────────
-## Atlas coordinates for Roguelike Modern City (37 cols × 28 rows, 16+1px spacing)
-## ALL COORDINATES [ASSUMED] from visual PNG inspection — verify before shipping.
+## TileSet source IDs (must match the TileSetAtlasSource indices in Game.tscn).
+## All world art lives in assets/lovableassats/<biome>/ as single-tile 256px PNGs
+## — the atlas coord is always (0,0); tile VARIATION switches the SOURCE.
+## Each room's TileMap: tile_size 256 @ node scale 0.125 → 32px per cell.
 ## ─────────────────────────────────────────────────────────────────────────────
-const MC_FLOOR_ASPHALT   := Vector2i(0, 13)  ## dark gray asphalt road (row 13 = confirmed dark road)
-const MC_FLOOR_GRASS     := Vector2i(0, 16)  ## green grass (row 16 col 0 = confirmed green)
-const MC_FLOOR_GRASS_ALT := Vector2i(3, 16)  ## green grass variant (row 16 col 3 = same hue)
-const MC_FLOOR_CRACK     := Vector2i(0, 17)  ## darker green ground variety (row 17 col 0)
-const MC_WALL_BRICK      := Vector2i(0, 0)   ## dark brick building wall (row 0 = confirmed reddish-brown)
-const MC_WALL_BRICK_ALT  := Vector2i(1, 0)   ## lighter brick variant
-const MC_OBSTACLE_ROOF   := Vector2i(3, 0)   ## building rooftop obstacle
-const MC_OBSTACLE_ROOF_ALT := Vector2i(4, 0) ## lighter rooftop variant
-const MC_CONNECTOR_ROAD  := Vector2i(0, 15)  ## pure dark asphalt road surface
-const MC_CONNECTOR_CENTER := Vector2i(5, 15) ## road center marking stripe
+## Room 1 — ERBA (TileSetErba)
+const SRC_ERBA_GRASS: int = 3          ## base grass floor (exit-passage floor)
+const SRC_ERBA_WALL_FACE: int = 4      ## wall front (south-facing cells)
+const SRC_ERBA_WALL_CAP_A: int = 5     ## wall top variant A
+const SRC_ERBA_CONNECTOR: int = 6      ## connector corridor path floor
+const SRC_ERBA_WALL_CAP_B: int = 7     ## wall top variant B
+const SRC_ERBA_ROCKS: int = 8          ## boulder pile obstacle (solid, layer 1)
+const SRC_ERBA_FLOWER: int = 9         ## flower deco (layer 1, no collision)
+const SRC_ERBA_PEBBLES: int = 10       ## pebble deco (layer 1, no collision)
+const SRC_ERBA_GRASS_SHADOW: int = 11  ## grass texture, dark-modulated at registration
+
+## Room 2 — ALTSTADT (TileSetAltstadt)
+const SRC_ALT_COBBLE_B: int = 10       ## base cobblestone floor
+const SRC_ALT_COBBLE_C: int = 11       ## cobble variant (floor mix)
+const SRC_ALT_CARPET: int = 12         ## connector carpet runner (middle row)
+const SRC_ALT_WALL_FACE: int = 13      ## house wall front
+const SRC_ALT_ROOF: int = 14           ## house/roof obstacle (solid, layer 1)
+const SRC_ALT_WALL_CAP: int = 15       ## wall top
+const SRC_ALT_GRASS_PATCH: int = 16    ## mossy grass patch (floor mix)
+const SRC_ALT_BARREL: int = 17         ## barrel deco (layer 1, no collision)
+const SRC_ALT_CRATE: int = 18          ## crate deco (layer 1, no collision)
+const SRC_ALT_LANTERN: int = 19        ## lantern deco (layer 1, no collision)
+const SRC_ALT_COBBLE_SHADOW: int = 20  ## cobble texture, dark-modulated
+
+## Room 3 — BURG ALTENBURG (TileSetBurg)
+const SRC_BURG_STONE_A: int = 1        ## base flagstone floor
+const SRC_BURG_STONE_B: int = 2        ## flagstone variant (floor mix)
+const SRC_BURG_STONE_C: int = 3        ## flagstone variant (floor mix)
+const SRC_BURG_CRACKED: int = 4        ## cracked flagstone (floor mix)
+const SRC_BURG_WALL_FACE_A: int = 5    ## castle wall front variant A
+const SRC_BURG_WALL_FACE_B: int = 6    ## castle wall front variant B
+const SRC_BURG_WALL_CAP_A: int = 7     ## castle wall top variant A
+const SRC_BURG_WALL_CAP_B: int = 8     ## castle wall top variant B
+const SRC_BURG_RUBBLE: int = 9         ## rubble pile obstacle (solid, layer 1)
+const SRC_BURG_STONE_SHADOW: int = 10  ## flagstone texture, dark-modulated
 
 ## ─────────────────────────────────────────────────────────────────────────────
-## Atlas coordinates for Tiny Dungeon (12 cols × 11 rows, 16+1px spacing)
-## Geometry tiles are in top 3 rows only. ALL [ASSUMED] from visual inspection.
+## ROOM_ART — per-room art config consumed by RoomBuilder's unified build path.
+##   floor_src      : base floor source id
+##   floor_mix      : [[src, one_in_n], ...] hash-mixed floor variants
+##   shadow_src     : floor texture darkened via modulate — contact shadow row
+##                    under south-facing wall faces
+##   wall_faces     : source pool for south-facing wall cells (hash pick)
+##   wall_caps      : source pool for wall top cells (hash pick)
+##   obstacle_srcs  : solid obstacle source pool (hash pick per cell, layer 1)
+##   house_src      : solid landmark source for the layout's "houses" cells
+##                    (drawn oversized, collision = 1 cell); -1 = none
+##   deco           : [[src, one_in_n], ...] scatter deco (layer 1, no collision)
+##   connector_src  : connector corridor floor source (-1 = room has no connector)
+##   connector_full : true → whole corridor floor uses connector_src;
+##                    false → only the middle row (carpet runner), rest floor_src
 ## ─────────────────────────────────────────────────────────────────────────────
-const TD_FLOOR_STONE      := Vector2i(0, 1)  ## gray cobblestone floor [ASSUMED]
-const TD_FLOOR_STONE_DARK := Vector2i(1, 1)  ## darker stone variant [ASSUMED]
-const TD_WALL_CASTLE      := Vector2i(0, 0)  ## castle stone wall block [ASSUMED]
-const TD_WALL_CASTLE_ALT  := Vector2i(1, 0)  ## darker wall block [ASSUMED]
-const TD_OBSTACLE_TOWER   := Vector2i(2, 0)  ## tower/turret top [ASSUMED]
-
-## ─────────────────────────────────────────────────────────────────────────────
-## 1-Bit Pack fallback (49 cols × 22 rows) for Room 3 wall variety
-## ─────────────────────────────────────────────────────────────────────────────
-const BIT_WALL_FILL  := Vector2i(2, 0)  ## solid dark fill [ASSUMED]
-const BIT_FLOOR_FILL := Vector2i(0, 4)  ## floor tile variety [ASSUMED]
-
-## ─────────────────────────────────────────────────────────────────────────────
-## Atlas coordinates for the Cainos sheets (room 1, sources 3-6, 32px tiles).
-## Room1/TileMap uses TileSetErba (tile_size 32) at node scale 0.5, so tile-grid
-## coordinates and all pixel positions stay identical to the 16px rooms.
-## Opacity of wall/prop picks verified by sheet scan (all faces/caps 100% opaque).
-## ─────────────────────────────────────────────────────────────────────────────
-## Floor variants (TX Tileset Grass) — weighted pick in RoomBuilder
-const ERBA_GRASS_PLAIN: Array[Vector2i]  = [
-	Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(2, 1), Vector2i(3, 2), Vector2i(2, 3),
-]
-const ERBA_GRASS_DETAIL: Array[Vector2i] = [
-	Vector2i(4, 0), Vector2i(5, 0), Vector2i(6, 0), Vector2i(6, 1), Vector2i(7, 1), Vector2i(4, 1),
-]
-const ERBA_GRASS_SLABS: Array[Vector2i]  = [
-	Vector2i(0, 5), Vector2i(1, 5), Vector2i(1, 6), Vector2i(2, 6),
-]
-const ERBA_FLOOR_SHADOW    := Vector2i(1, 2)  ## plain grass, dark-modulated at registration
-## Wall variants (TX Tileset Wall) — face = south-facing cells, cap = dark-modulated tops
-const ERBA_WALL_FACES: Array[Vector2i] = [
-	Vector2i(1, 7), Vector2i(3, 7), Vector2i(4, 7), Vector2i(6, 7),
-]
-const ERBA_WALL_CAPS: Array[Vector2i]  = [
-	Vector2i(1, 10), Vector2i(2, 10), Vector2i(4, 10), Vector2i(5, 10),
-]
-## Obstacles + deco (TX Props): full 2x2 rock piles where they fit inside the obstacle
-## rect, complete single rocks on leftover edge cells (nothing ever renders cut off).
-const ERBA_ROCK_ORIGIN     := Vector2i(0, 13)  ## top-left of the 2x2 rock pile
-const ERBA_ROCKS_SINGLE: Array[Vector2i] = [
-	Vector2i(4, 15), Vector2i(5, 15), Vector2i(9, 15),
-]
-const ERBA_PEBBLES: Array[Vector2i] = [
-	Vector2i(2, 15), Vector2i(3, 15), Vector2i(7, 15), Vector2i(8, 15),
-]
-## Connector road (TX Tileset Stone Ground)
-const ERBA_CONNECTOR_ROAD  := Vector2i(1, 1)  ## seamless stone slab interior
+const ROOM_ART: Dictionary = {
+	1: {
+		"floor_src": SRC_ERBA_GRASS,
+		"floor_mix": [],
+		"shadow_src": SRC_ERBA_GRASS_SHADOW,
+		"wall_faces": [SRC_ERBA_WALL_FACE],
+		"wall_caps": [SRC_ERBA_WALL_CAP_A, SRC_ERBA_WALL_CAP_B],
+		"obstacle_srcs": [SRC_ERBA_ROCKS],
+		"house_src": -1,
+		"deco": [[SRC_ERBA_FLOWER, 26], [SRC_ERBA_PEBBLES, 31]],
+		"connector_src": SRC_ERBA_CONNECTOR,
+		"connector_full": true,
+	},
+	2: {
+		## Center obstacle rects are a barrel/crate depot (solid); houses are
+		## hand-placed via each sub-room's "houses" cells and drawn at 64px.
+		"floor_src": SRC_ALT_COBBLE_B,
+		"floor_mix": [[SRC_ALT_COBBLE_C, 5], [SRC_ALT_GRASS_PATCH, 11]],
+		"shadow_src": SRC_ALT_COBBLE_SHADOW,
+		"wall_faces": [SRC_ALT_WALL_FACE],
+		"wall_caps": [SRC_ALT_WALL_CAP],
+		"obstacle_srcs": [SRC_ALT_BARREL, SRC_ALT_CRATE],
+		"house_src": SRC_ALT_ROOF,
+		"deco": [[SRC_ALT_LANTERN, 43]],
+		"connector_src": SRC_ALT_CARPET,
+		"connector_full": false,
+	},
+	3: {
+		## Stone-b/c have visibly different block scales than stone-a — mixing them
+		## per cell reads as noise, so the floor is stone-a with rare cracked tiles.
+		## Face/cap pools are weighted by repetition: the metal-plate face (A) and
+		## the plated cap (A) appear ~1 in 5 as an accent, plain brick otherwise.
+		"floor_src": SRC_BURG_STONE_A,
+		"floor_mix": [[SRC_BURG_CRACKED, 13]],
+		"shadow_src": SRC_BURG_STONE_SHADOW,
+		"wall_faces": [SRC_BURG_WALL_FACE_B, SRC_BURG_WALL_FACE_B, SRC_BURG_WALL_FACE_B, SRC_BURG_WALL_FACE_B, SRC_BURG_WALL_FACE_A],
+		"wall_caps": [SRC_BURG_WALL_CAP_B, SRC_BURG_WALL_CAP_B, SRC_BURG_WALL_CAP_B, SRC_BURG_WALL_CAP_B, SRC_BURG_WALL_CAP_A],
+		"obstacle_srcs": [SRC_BURG_RUBBLE],
+		"house_src": -1,
+		"deco": [],
+		"connector_src": -1,
+		"connector_full": false,
+	},
+}
 
 
 ## ─────────────────────────────────────────────────────────────────────────────
@@ -117,11 +132,12 @@ const ERBA_CONNECTOR_ROAD  := Vector2i(1, 1)  ## seamless stone slab interior
 ##   "wall_tile"        : Vector2i        — wall atlas coord
 ##   "obstacle_tile"    : Vector2i        — obstacle atlas coord
 ##   "exit_dir"         : Vector2i        — exit direction (Vector2i(1,0) = right; Vector2i(0,0) = no exit)
-##   "exit_tile_coords" : Array[Vector2i] — the 6 wall tile coords forming the blocked exit passage
-##   "walls"            : Array[Rect2i]   — wall tile fill rectangles (2-tile perimeter)
+##   "exit_tile_coords" : Array[Vector2i] — the wall tile coords forming the blocked exit passage
+##   "walls"            : Array[Rect2i]   — wall tile fill rectangles (1-2 tile perimeter)
 ##   "floor"            : Array[Rect2i]   — floor tile fill rectangles
 ##   "obstacles"        : Array[Rect2i]   — solid obstacle rectangles
-##   "spawn_points"     : Array[Vector2]  — player teleport positions in pixels (tile * TILE_SIZE)
+##   "houses"           : Array[Vector2i] — optional: solid landmark cells (ROOM_ART house_src)
+##   "spawn_points"     : Array[Vector2]  — player teleport positions in pixels
 ##   "enemy_spawns"     : Array[Vector2]  — enemy spawn positions in pixels
 ## ─────────────────────────────────────────────────────────────────────────────
 static var SUB_ROOM_DATA: Dictionary = {
@@ -131,32 +147,31 @@ static var SUB_ROOM_DATA: Dictionary = {
 	## =======================================================================
 	1: {
 		1: {
-			"width_tiles":  52,
-			"height_tiles": 36,
+			"width_tiles":  26,
+			"height_tiles": 18,
 			"tileset_src":  3,
 			"floor_tile":   Vector2i(0, 0),
 			"wall_tile":    Vector2i(1, 7),
 			"obstacle_tile": Vector2i(0, 13),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
-				Vector2i(50, 17), Vector2i(50, 18), Vector2i(50, 19),
-				Vector2i(51, 17), Vector2i(51, 18), Vector2i(51, 19),
+				Vector2i(25, 8), Vector2i(25, 9),
 			],
 			"walls": [
-				Rect2i(0, 0, 52, 2),
-				Rect2i(0, 34, 52, 2),
-				Rect2i(0, 0, 2, 36),
-				Rect2i(50, 0, 2, 36),
-				Rect2i(2, 2, 11, 6),
-				Rect2i(39, 2, 11, 6),
-				Rect2i(2, 28, 11, 6),
-				Rect2i(39, 28, 11, 6),
+				Rect2i(0, 0, 26, 1),
+				Rect2i(0, 17, 26, 1),
+				Rect2i(0, 0, 1, 18),
+				Rect2i(25, 0, 1, 18),
+				Rect2i(1, 1, 6, 3),
+				Rect2i(19, 1, 6, 3),
+				Rect2i(1, 14, 6, 3),
+				Rect2i(19, 14, 6, 3),
 			],
 			"floor": [
-				Rect2i(2, 2, 48, 32),
+				Rect2i(1, 1, 24, 16),
 			],
 			"obstacles": [
-				Rect2i(22, 15, 9, 7),
+				Rect2i(11, 7, 5, 4),
 			],
 			"spawn_points": [
 				Vector2(6 * 16, 12 * 16),
@@ -173,34 +188,33 @@ static var SUB_ROOM_DATA: Dictionary = {
 			],
 		},
 		2: {
-			"width_tiles":  56,
-			"height_tiles": 38,
+			"width_tiles":  28,
+			"height_tiles": 19,
 			"tileset_src":  3,
 			"floor_tile":   Vector2i(0, 0),
 			"wall_tile":    Vector2i(1, 7),
 			"obstacle_tile": Vector2i(0, 13),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
-				Vector2i(54, 18), Vector2i(54, 19), Vector2i(54, 20),
-				Vector2i(55, 18), Vector2i(55, 19), Vector2i(55, 20),
+				Vector2i(27, 9), Vector2i(27, 10),
 			],
 			"walls": [
-				Rect2i(0, 0, 56, 2),
-				Rect2i(0, 36, 56, 2),
-				Rect2i(0, 0, 2, 38),
-				Rect2i(54, 0, 2, 38),
-				Rect2i(2, 2, 12, 7),
-				Rect2i(42, 2, 12, 7),
-				Rect2i(2, 29, 12, 7),
-				Rect2i(42, 29, 12, 7),
-				Rect2i(24, 2, 8, 5),
+				Rect2i(0, 0, 28, 1),
+				Rect2i(0, 18, 28, 1),
+				Rect2i(0, 0, 1, 19),
+				Rect2i(27, 0, 1, 19),
+				Rect2i(1, 1, 6, 4),
+				Rect2i(21, 1, 6, 4),
+				Rect2i(1, 14, 6, 4),
+				Rect2i(21, 14, 6, 4),
+				Rect2i(12, 1, 4, 3),
 			],
 			"floor": [
-				Rect2i(2, 2, 52, 34),
+				Rect2i(1, 1, 26, 17),
 			],
 			"obstacles": [
-				Rect2i(20, 16, 8, 7),
-				Rect2i(34, 18, 8, 7),
+				Rect2i(10, 8, 4, 4),
+				Rect2i(17, 9, 4, 4),
 			],
 			"spawn_points": [
 				Vector2(6 * 16, 13 * 16),
@@ -217,36 +231,35 @@ static var SUB_ROOM_DATA: Dictionary = {
 			],
 		},
 		3: {
-			"width_tiles":  60,
-			"height_tiles": 40,
+			"width_tiles":  30,
+			"height_tiles": 20,
 			"tileset_src":  3,
 			"floor_tile":   Vector2i(0, 0),
 			"wall_tile":    Vector2i(1, 7),
 			"obstacle_tile": Vector2i(0, 13),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
-				Vector2i(58, 19), Vector2i(58, 20), Vector2i(58, 21),
-				Vector2i(59, 19), Vector2i(59, 20), Vector2i(59, 21),
+				Vector2i(29, 9), Vector2i(29, 10),
 			],
 			"walls": [
-				Rect2i(0, 0, 60, 2),
-				Rect2i(0, 38, 60, 2),
-				Rect2i(0, 0, 2, 40),
-				Rect2i(58, 0, 2, 40),
-				Rect2i(2, 2, 13, 7),
-				Rect2i(45, 2, 13, 7),
-				Rect2i(2, 30, 13, 8),
-				Rect2i(45, 30, 13, 8),
-				Rect2i(26, 2, 9, 5),
-				Rect2i(26, 33, 9, 5),
+				Rect2i(0, 0, 30, 1),
+				Rect2i(0, 19, 30, 1),
+				Rect2i(0, 0, 1, 20),
+				Rect2i(29, 0, 1, 20),
+				Rect2i(1, 1, 7, 4),
+				Rect2i(22, 1, 7, 4),
+				Rect2i(1, 15, 7, 4),
+				Rect2i(22, 15, 7, 4),
+				Rect2i(13, 1, 5, 3),
+				Rect2i(13, 16, 5, 3),
 			],
 			"floor": [
-				Rect2i(2, 2, 56, 36),
+				Rect2i(1, 1, 28, 18),
 			],
 			"obstacles": [
-				Rect2i(20, 16, 7, 8),
-				Rect2i(33, 16, 7, 8),
-				Rect2i(46, 17, 5, 6),
+				Rect2i(10, 8, 4, 4),
+				Rect2i(16, 8, 4, 4),
+				Rect2i(23, 8, 3, 4),
 			],
 			"spawn_points": [
 				Vector2(6 * 16, 14 * 16),
@@ -264,36 +277,35 @@ static var SUB_ROOM_DATA: Dictionary = {
 			],
 		},
 		4: {
-			"width_tiles":  62,
-			"height_tiles": 42,
+			"width_tiles":  31,
+			"height_tiles": 21,
 			"tileset_src":  3,
 			"floor_tile":   Vector2i(0, 0),
 			"wall_tile":    Vector2i(1, 7),
 			"obstacle_tile": Vector2i(0, 13),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
-				Vector2i(60, 20), Vector2i(60, 21), Vector2i(60, 22),
-				Vector2i(61, 20), Vector2i(61, 21), Vector2i(61, 22),
+				Vector2i(30, 10), Vector2i(30, 11),
 			],
 			"walls": [
-				Rect2i(0, 0, 62, 2),
-				Rect2i(0, 40, 62, 2),
-				Rect2i(0, 0, 2, 42),
-				Rect2i(60, 0, 2, 42),
-				Rect2i(2, 2, 14, 8),
-				Rect2i(46, 2, 14, 8),
-				Rect2i(2, 31, 14, 9),
-				Rect2i(46, 31, 14, 9),
-				Rect2i(28, 2, 10, 6),
-				Rect2i(20, 34, 10, 6),
+				Rect2i(0, 0, 31, 1),
+				Rect2i(0, 20, 31, 1),
+				Rect2i(0, 0, 1, 21),
+				Rect2i(30, 0, 1, 21),
+				Rect2i(1, 1, 7, 4),
+				Rect2i(23, 1, 7, 4),
+				Rect2i(1, 15, 7, 5),
+				Rect2i(23, 15, 7, 5),
+				Rect2i(14, 1, 5, 3),
+				Rect2i(10, 17, 5, 3),
 			],
 			"floor": [
-				Rect2i(2, 2, 58, 38),
+				Rect2i(1, 1, 29, 19),
 			],
 			"obstacles": [
-				Rect2i(20, 17, 7, 8),
-				Rect2i(34, 17, 7, 8),
-				Rect2i(46, 18, 6, 7),
+				Rect2i(10, 8, 4, 5),
+				Rect2i(17, 8, 4, 5),
+				Rect2i(23, 9, 3, 4),
 			],
 			"spawn_points": [
 				Vector2(6 * 16, 15 * 16),
@@ -311,37 +323,37 @@ static var SUB_ROOM_DATA: Dictionary = {
 			],
 		},
 		5: {
-			"width_tiles":  65,
-			"height_tiles": 44,
+			"width_tiles":  33,
+			"height_tiles": 22,
 			"tileset_src":  3,
 			"floor_tile":   Vector2i(0, 0),
 			"wall_tile":    Vector2i(1, 7),
 			"obstacle_tile": Vector2i(0, 13),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
-				Vector2i(63, 21), Vector2i(63, 22), Vector2i(63, 23),
-				Vector2i(64, 21), Vector2i(64, 22), Vector2i(64, 23),
+				Vector2i(31, 10), Vector2i(31, 11), Vector2i(32, 10),
+				Vector2i(32, 11),
 			],
 			"walls": [
-				Rect2i(0, 0, 65, 2),
-				Rect2i(0, 42, 65, 2),
-				Rect2i(0, 0, 2, 44),
-				Rect2i(63, 0, 2, 44),
-				Rect2i(2, 2, 15, 9),
-				Rect2i(48, 2, 15, 9),
-				Rect2i(2, 32, 15, 10),
-				Rect2i(48, 32, 15, 10),
-				Rect2i(30, 2, 11, 6),
-				Rect2i(24, 36, 11, 6),
-				Rect2i(46, 35, 8, 7),
+				Rect2i(0, 0, 33, 1),
+				Rect2i(0, 21, 33, 1),
+				Rect2i(0, 0, 1, 22),
+				Rect2i(31, 0, 2, 22),
+				Rect2i(1, 1, 8, 5),
+				Rect2i(24, 1, 8, 5),
+				Rect2i(1, 16, 8, 5),
+				Rect2i(24, 16, 8, 5),
+				Rect2i(15, 1, 6, 3),
+				Rect2i(12, 18, 6, 3),
+				Rect2i(23, 17, 4, 4),
 			],
 			"floor": [
-				Rect2i(2, 2, 61, 40),
+				Rect2i(1, 1, 31, 20),
 			],
 			"obstacles": [
-				Rect2i(21, 18, 7, 8),
-				Rect2i(35, 18, 7, 8),
-				Rect2i(49, 19, 6, 7),
+				Rect2i(10, 9, 4, 4),
+				Rect2i(17, 9, 4, 4),
+				Rect2i(24, 9, 4, 4),
 			],
 			"spawn_points": [
 				Vector2(6 * 16, 16 * 16),
@@ -360,20 +372,20 @@ static var SUB_ROOM_DATA: Dictionary = {
 			],
 		},
 		6: {
-			"width_tiles":  80,
-			"height_tiles": 9,
+			"width_tiles":  40,
+			"height_tiles": 5,
 			"tileset_src":  6,
-			"floor_tile":   Vector2i(1, 1),
+			"floor_tile":   Vector2i(0, 0),
 			"wall_tile":    Vector2i(1, 7),
 			"obstacle_tile": Vector2i(0, 13),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [],
 			"walls": [
-				Rect2i(0, 0, 80, 1),
-				Rect2i(0, 8, 80, 1),
+				Rect2i(0, 0, 40, 1),
+				Rect2i(0, 4, 40, 1),
 			],
 			"floor": [
-				Rect2i(0, 1, 80, 7),
+				Rect2i(0, 0, 40, 4),
 			],
 			"obstacles": [],
 			"spawn_points": [
@@ -390,32 +402,36 @@ static var SUB_ROOM_DATA: Dictionary = {
 	## =======================================================================
 	2: {
 		1: {
-			"width_tiles":  55,
-			"height_tiles": 38,
+			"width_tiles":  28,
+			"height_tiles": 19,
 			"tileset_src":  10,
 			"floor_tile":   Vector2i(0, 0),
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(0, 0),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
-				Vector2i(53, 18), Vector2i(53, 19), Vector2i(53, 20),
-				Vector2i(54, 18), Vector2i(54, 19), Vector2i(54, 20),
+				Vector2i(26, 9), Vector2i(26, 10), Vector2i(27, 9),
+				Vector2i(27, 10),
 			],
 			"walls": [
-				Rect2i(0, 0, 55, 2),
-				Rect2i(0, 36, 55, 2),
-				Rect2i(0, 0, 2, 38),
-				Rect2i(53, 0, 2, 38),
-				Rect2i(2, 2, 12, 9),
-				Rect2i(41, 2, 12, 9),
-				Rect2i(2, 27, 12, 9),
-				Rect2i(41, 27, 12, 9),
+				Rect2i(0, 0, 28, 1),
+				Rect2i(0, 18, 28, 1),
+				Rect2i(0, 0, 1, 19),
+				Rect2i(26, 0, 2, 19),
+				Rect2i(1, 1, 6, 5),
+				Rect2i(20, 1, 7, 5),
+				Rect2i(1, 13, 6, 5),
+				Rect2i(20, 13, 7, 5),
 			],
 			"floor": [
-				Rect2i(2, 2, 51, 34),
+				Rect2i(1, 1, 26, 17),
 			],
 			"obstacles": [
-				Rect2i(24, 16, 7, 6),
+				Rect2i(12, 8, 4, 3),
+			],
+			"houses": [
+				Vector2i(8, 3), Vector2i(18, 3),
+				Vector2i(8, 14), Vector2i(18, 14),
 			],
 			"spawn_points": [
 				Vector2(6 * 16, 14 * 16),
@@ -432,34 +448,37 @@ static var SUB_ROOM_DATA: Dictionary = {
 			],
 		},
 		2: {
-			"width_tiles":  56,
-			"height_tiles": 40,
+			"width_tiles":  28,
+			"height_tiles": 20,
 			"tileset_src":  10,
 			"floor_tile":   Vector2i(0, 0),
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(0, 0),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
-				Vector2i(54, 19), Vector2i(54, 20), Vector2i(54, 21),
-				Vector2i(55, 19), Vector2i(55, 20), Vector2i(55, 21),
+				Vector2i(27, 9), Vector2i(27, 10),
 			],
 			"walls": [
-				Rect2i(0, 0, 56, 2),
-				Rect2i(0, 38, 56, 2),
-				Rect2i(0, 0, 2, 40),
-				Rect2i(54, 0, 2, 40),
-				Rect2i(2, 2, 10, 8),
-				Rect2i(44, 2, 10, 8),
-				Rect2i(2, 30, 10, 8),
-				Rect2i(44, 30, 10, 8),
-				Rect2i(20, 2, 16, 7),
-				Rect2i(20, 31, 16, 7),
+				Rect2i(0, 0, 28, 1),
+				Rect2i(0, 19, 28, 1),
+				Rect2i(0, 0, 1, 20),
+				Rect2i(27, 0, 1, 20),
+				Rect2i(1, 1, 5, 4),
+				Rect2i(22, 1, 5, 4),
+				Rect2i(1, 15, 5, 4),
+				Rect2i(22, 15, 5, 4),
+				Rect2i(10, 1, 8, 4),
+				Rect2i(10, 15, 8, 4),
 			],
 			"floor": [
-				Rect2i(2, 2, 52, 36),
+				Rect2i(1, 1, 26, 18),
 			],
 			"obstacles": [
-				Rect2i(24, 17, 8, 6),
+				Rect2i(12, 8, 4, 4),
+			],
+			"houses": [
+				Vector2i(7, 3), Vector2i(20, 3),
+				Vector2i(7, 16), Vector2i(20, 16),
 			],
 			"spawn_points": [
 				Vector2(6 * 16, 15 * 16),
@@ -476,35 +495,38 @@ static var SUB_ROOM_DATA: Dictionary = {
 			],
 		},
 		3: {
-			"width_tiles":  60,
-			"height_tiles": 42,
+			"width_tiles":  30,
+			"height_tiles": 21,
 			"tileset_src":  10,
 			"floor_tile":   Vector2i(0, 0),
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(0, 0),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
-				Vector2i(58, 20), Vector2i(58, 21), Vector2i(58, 22),
-				Vector2i(59, 20), Vector2i(59, 21), Vector2i(59, 22),
+				Vector2i(29, 10), Vector2i(29, 11),
 			],
 			"walls": [
-				Rect2i(0, 0, 60, 2),
-				Rect2i(0, 40, 60, 2),
-				Rect2i(0, 0, 2, 42),
-				Rect2i(58, 0, 2, 42),
-				Rect2i(2, 2, 11, 9),
-				Rect2i(47, 2, 11, 9),
-				Rect2i(2, 31, 11, 9),
-				Rect2i(47, 31, 11, 9),
-				Rect2i(24, 2, 12, 8),
-				Rect2i(24, 32, 12, 8),
+				Rect2i(0, 0, 30, 1),
+				Rect2i(0, 20, 30, 1),
+				Rect2i(0, 0, 1, 21),
+				Rect2i(29, 0, 1, 21),
+				Rect2i(1, 1, 6, 5),
+				Rect2i(23, 1, 6, 5),
+				Rect2i(1, 15, 6, 5),
+				Rect2i(23, 15, 6, 5),
+				Rect2i(12, 1, 6, 4),
+				Rect2i(12, 16, 6, 4),
 			],
 			"floor": [
-				Rect2i(2, 2, 56, 38),
+				Rect2i(1, 1, 28, 19),
 			],
 			"obstacles": [
-				Rect2i(26, 17, 8, 8),
-				Rect2i(42, 18, 6, 7),
+				Rect2i(13, 8, 4, 5),
+				Rect2i(21, 9, 3, 4),
+			],
+			"houses": [
+				Vector2i(9, 3), Vector2i(20, 3),
+				Vector2i(9, 17), Vector2i(20, 17),
 			],
 			"spawn_points": [
 				Vector2(6 * 16, 16 * 16),
@@ -522,35 +544,38 @@ static var SUB_ROOM_DATA: Dictionary = {
 			],
 		},
 		4: {
-			"width_tiles":  62,
-			"height_tiles": 44,
+			"width_tiles":  31,
+			"height_tiles": 22,
 			"tileset_src":  10,
 			"floor_tile":   Vector2i(0, 0),
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(0, 0),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
-				Vector2i(60, 21), Vector2i(60, 22), Vector2i(60, 23),
-				Vector2i(61, 21), Vector2i(61, 22), Vector2i(61, 23),
+				Vector2i(30, 10), Vector2i(30, 11),
 			],
 			"walls": [
-				Rect2i(0, 0, 62, 2),
-				Rect2i(0, 42, 62, 2),
-				Rect2i(0, 0, 2, 44),
-				Rect2i(60, 0, 2, 44),
-				Rect2i(2, 2, 13, 10),
-				Rect2i(47, 2, 13, 10),
-				Rect2i(2, 32, 13, 10),
-				Rect2i(47, 32, 13, 10),
-				Rect2i(20, 2, 12, 9),
-				Rect2i(34, 33, 12, 9),
+				Rect2i(0, 0, 31, 1),
+				Rect2i(0, 21, 31, 1),
+				Rect2i(0, 0, 1, 22),
+				Rect2i(30, 0, 1, 22),
+				Rect2i(1, 1, 7, 5),
+				Rect2i(23, 1, 7, 5),
+				Rect2i(1, 16, 7, 5),
+				Rect2i(23, 16, 7, 5),
+				Rect2i(10, 1, 6, 5),
+				Rect2i(17, 16, 6, 5),
 			],
 			"floor": [
-				Rect2i(2, 2, 58, 40),
+				Rect2i(1, 1, 29, 20),
 			],
 			"obstacles": [
-				Rect2i(24, 18, 7, 8),
-				Rect2i(40, 19, 7, 8),
+				Rect2i(12, 9, 4, 4),
+				Rect2i(20, 9, 4, 5),
+			],
+			"houses": [
+				Vector2i(17, 3), Vector2i(21, 3),
+				Vector2i(10, 17), Vector2i(14, 18),
 			],
 			"spawn_points": [
 				Vector2(6 * 16, 14 * 16),
@@ -568,34 +593,38 @@ static var SUB_ROOM_DATA: Dictionary = {
 			],
 		},
 		5: {
-			"width_tiles":  65,
-			"height_tiles": 46,
+			"width_tiles":  33,
+			"height_tiles": 23,
 			"tileset_src":  10,
 			"floor_tile":   Vector2i(0, 0),
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(0, 0),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
-				Vector2i(63, 22), Vector2i(63, 23), Vector2i(63, 24),
-				Vector2i(64, 22), Vector2i(64, 23), Vector2i(64, 24),
+				Vector2i(31, 11), Vector2i(31, 12), Vector2i(32, 11),
+				Vector2i(32, 12),
 			],
 			"walls": [
-				Rect2i(0, 0, 65, 2),
-				Rect2i(0, 44, 65, 2),
-				Rect2i(0, 0, 2, 46),
-				Rect2i(63, 0, 2, 46),
-				Rect2i(2, 2, 16, 12),
-				Rect2i(47, 2, 16, 12),
-				Rect2i(2, 32, 16, 12),
-				Rect2i(47, 32, 16, 12),
-				Rect2i(28, 2, 12, 7),
-				Rect2i(28, 37, 12, 7),
+				Rect2i(0, 0, 33, 1),
+				Rect2i(0, 22, 33, 1),
+				Rect2i(0, 0, 1, 23),
+				Rect2i(31, 0, 2, 23),
+				Rect2i(1, 1, 8, 6),
+				Rect2i(23, 1, 9, 6),
+				Rect2i(1, 16, 8, 6),
+				Rect2i(23, 16, 9, 6),
+				Rect2i(14, 1, 6, 4),
+				Rect2i(14, 18, 6, 4),
 			],
 			"floor": [
-				Rect2i(2, 2, 61, 42),
+				Rect2i(1, 1, 31, 21),
 			],
 			"obstacles": [
-				Rect2i(30, 19, 8, 8),
+				Rect2i(15, 9, 4, 5),
+			],
+			"houses": [
+				Vector2i(10, 3), Vector2i(21, 3),
+				Vector2i(10, 19), Vector2i(21, 19),
 			],
 			"spawn_points": [
 				Vector2(6 * 16, 17 * 16),
@@ -614,8 +643,8 @@ static var SUB_ROOM_DATA: Dictionary = {
 			],
 		},
 		6: {
-			"width_tiles":  80,
-			"height_tiles": 7,
+			"width_tiles":  40,
+			"height_tiles": 5,
 			"tileset_src":  12,
 			"floor_tile":   Vector2i(0, 0),
 			"wall_tile":    Vector2i(0, 0),
@@ -623,17 +652,17 @@ static var SUB_ROOM_DATA: Dictionary = {
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [],
 			"walls": [
-				Rect2i(0, 0, 80, 1),
-				Rect2i(0, 6, 80, 1),
+				Rect2i(0, 0, 40, 1),
+				Rect2i(0, 4, 40, 1),
 			],
 			"floor": [
-				Rect2i(0, 1, 80, 5),
+				Rect2i(0, 0, 40, 4),
 			],
 			"obstacles": [],
 			"spawn_points": [
-				Vector2(4 * 16, 2 * 16),
 				Vector2(4 * 16, 3 * 16),
 				Vector2(4 * 16, 4 * 16),
+				Vector2(4 * 16, 5 * 16),
 			],
 			"enemy_spawns": [],
 		},
@@ -644,32 +673,32 @@ static var SUB_ROOM_DATA: Dictionary = {
 	## =======================================================================
 	3: {
 		1: {
-			"width_tiles":  55,
-			"height_tiles": 40,
+			"width_tiles":  28,
+			"height_tiles": 20,
 			"tileset_src":  1,
-			"floor_tile":   Vector2i(0, 1),
+			"floor_tile":   Vector2i(0, 0),
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(2, 0),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
-				Vector2i(53, 19), Vector2i(53, 20), Vector2i(53, 21),
-				Vector2i(54, 19), Vector2i(54, 20), Vector2i(54, 21),
+				Vector2i(26, 9), Vector2i(26, 10), Vector2i(27, 9),
+				Vector2i(27, 10),
 			],
 			"walls": [
-				Rect2i(0, 0, 55, 2),
-				Rect2i(0, 38, 55, 2),
-				Rect2i(0, 0, 2, 40),
-				Rect2i(53, 0, 2, 40),
-				Rect2i(2, 2, 10, 8),
-				Rect2i(43, 2, 10, 8),
-				Rect2i(2, 30, 10, 8),
-				Rect2i(43, 30, 10, 8),
+				Rect2i(0, 0, 28, 1),
+				Rect2i(0, 19, 28, 1),
+				Rect2i(0, 0, 1, 20),
+				Rect2i(26, 0, 2, 20),
+				Rect2i(1, 1, 5, 4),
+				Rect2i(21, 1, 6, 4),
+				Rect2i(1, 15, 5, 4),
+				Rect2i(21, 15, 6, 4),
 			],
 			"floor": [
-				Rect2i(2, 2, 51, 36),
+				Rect2i(1, 1, 26, 18),
 			],
 			"obstacles": [
-				Rect2i(25, 17, 6, 6),
+				Rect2i(12, 8, 4, 4),
 			],
 			"spawn_points": [
 				Vector2(6 * 16, 15 * 16),
@@ -686,34 +715,33 @@ static var SUB_ROOM_DATA: Dictionary = {
 			],
 		},
 		2: {
-			"width_tiles":  56,
-			"height_tiles": 40,
+			"width_tiles":  28,
+			"height_tiles": 20,
 			"tileset_src":  1,
-			"floor_tile":   Vector2i(0, 1),
+			"floor_tile":   Vector2i(0, 0),
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(2, 0),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
-				Vector2i(54, 19), Vector2i(54, 20), Vector2i(54, 21),
-				Vector2i(55, 19), Vector2i(55, 20), Vector2i(55, 21),
+				Vector2i(27, 9), Vector2i(27, 10),
 			],
 			"walls": [
-				Rect2i(0, 0, 56, 2),
-				Rect2i(0, 38, 56, 2),
-				Rect2i(0, 0, 2, 40),
-				Rect2i(54, 0, 2, 40),
-				Rect2i(2, 2, 9, 8),
-				Rect2i(45, 2, 9, 8),
-				Rect2i(2, 30, 9, 8),
-				Rect2i(45, 30, 9, 8),
-				Rect2i(20, 2, 16, 11),
-				Rect2i(20, 27, 16, 11),
+				Rect2i(0, 0, 28, 1),
+				Rect2i(0, 19, 28, 1),
+				Rect2i(0, 0, 1, 20),
+				Rect2i(27, 0, 1, 20),
+				Rect2i(1, 1, 5, 4),
+				Rect2i(22, 1, 5, 4),
+				Rect2i(1, 15, 5, 4),
+				Rect2i(22, 15, 5, 4),
+				Rect2i(10, 1, 8, 6),
+				Rect2i(10, 13, 8, 6),
 			],
 			"floor": [
-				Rect2i(2, 2, 52, 36),
+				Rect2i(1, 1, 26, 18),
 			],
 			"obstacles": [
-				Rect2i(40, 18, 5, 5),
+				Rect2i(20, 9, 3, 3),
 			],
 			"spawn_points": [
 				Vector2(6 * 16, 15 * 16),
@@ -730,35 +758,34 @@ static var SUB_ROOM_DATA: Dictionary = {
 			],
 		},
 		3: {
-			"width_tiles":  60,
-			"height_tiles": 42,
+			"width_tiles":  30,
+			"height_tiles": 21,
 			"tileset_src":  1,
-			"floor_tile":   Vector2i(0, 1),
+			"floor_tile":   Vector2i(0, 0),
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(2, 0),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
-				Vector2i(58, 20), Vector2i(58, 21), Vector2i(58, 22),
-				Vector2i(59, 20), Vector2i(59, 21), Vector2i(59, 22),
+				Vector2i(29, 10), Vector2i(29, 11),
 			],
 			"walls": [
-				Rect2i(0, 0, 60, 2),
-				Rect2i(0, 40, 60, 2),
-				Rect2i(0, 0, 2, 42),
-				Rect2i(58, 0, 2, 42),
-				Rect2i(2, 2, 11, 9),
-				Rect2i(47, 2, 11, 9),
-				Rect2i(2, 31, 11, 9),
-				Rect2i(47, 31, 11, 9),
+				Rect2i(0, 0, 30, 1),
+				Rect2i(0, 20, 30, 1),
+				Rect2i(0, 0, 1, 21),
+				Rect2i(29, 0, 1, 21),
+				Rect2i(1, 1, 6, 5),
+				Rect2i(23, 1, 6, 5),
+				Rect2i(1, 15, 6, 5),
+				Rect2i(23, 15, 6, 5),
 			],
 			"floor": [
-				Rect2i(2, 2, 56, 38),
+				Rect2i(1, 1, 28, 19),
 			],
 			"obstacles": [
-				Rect2i(28, 9, 5, 5),
-				Rect2i(28, 28, 5, 5),
-				Rect2i(16, 18, 5, 5),
-				Rect2i(40, 18, 5, 5),
+				Rect2i(14, 4, 3, 3),
+				Rect2i(14, 14, 3, 3),
+				Rect2i(8, 9, 3, 3),
+				Rect2i(20, 9, 3, 3),
 			],
 			"spawn_points": [
 				Vector2(6 * 16, 16 * 16),
@@ -776,38 +803,38 @@ static var SUB_ROOM_DATA: Dictionary = {
 			],
 		},
 		4: {
-			"width_tiles":  65,
-			"height_tiles": 44,
+			"width_tiles":  33,
+			"height_tiles": 22,
 			"tileset_src":  1,
-			"floor_tile":   Vector2i(0, 1),
+			"floor_tile":   Vector2i(0, 0),
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(2, 0),
 			"exit_dir": Vector2i(1, 0),
 			"exit_tile_coords": [
-				Vector2i(63, 21), Vector2i(63, 22), Vector2i(63, 23),
-				Vector2i(64, 21), Vector2i(64, 22), Vector2i(64, 23),
+				Vector2i(31, 10), Vector2i(31, 11), Vector2i(32, 10),
+				Vector2i(32, 11),
 			],
 			"walls": [
-				Rect2i(0, 0, 65, 2),
-				Rect2i(0, 42, 65, 2),
-				Rect2i(0, 0, 2, 44),
-				Rect2i(63, 0, 2, 44),
-				Rect2i(2, 2, 12, 9),
-				Rect2i(51, 2, 12, 9),
-				Rect2i(2, 33, 12, 9),
-				Rect2i(51, 33, 12, 9),
-				Rect2i(28, 2, 10, 7),
-				Rect2i(28, 35, 10, 7),
+				Rect2i(0, 0, 33, 1),
+				Rect2i(0, 21, 33, 1),
+				Rect2i(0, 0, 1, 22),
+				Rect2i(31, 0, 2, 22),
+				Rect2i(1, 1, 6, 5),
+				Rect2i(25, 1, 7, 5),
+				Rect2i(1, 16, 6, 5),
+				Rect2i(25, 16, 7, 5),
+				Rect2i(14, 1, 5, 4),
+				Rect2i(14, 17, 5, 4),
 			],
 			"floor": [
-				Rect2i(2, 2, 61, 40),
+				Rect2i(1, 1, 31, 20),
 			],
 			"obstacles": [
-				Rect2i(18, 18, 5, 5),
-				Rect2i(30, 16, 5, 5),
-				Rect2i(30, 26, 5, 5),
-				Rect2i(42, 18, 5, 5),
-				Rect2i(42, 28, 5, 5),
+				Rect2i(9, 9, 3, 3),
+				Rect2i(15, 8, 3, 3),
+				Rect2i(15, 13, 3, 3),
+				Rect2i(21, 9, 3, 3),
+				Rect2i(21, 14, 3, 3),
 			],
 			"spawn_points": [
 				Vector2(6 * 16, 16 * 16),
@@ -825,36 +852,36 @@ static var SUB_ROOM_DATA: Dictionary = {
 			],
 		},
 		5: {
-			"width_tiles":  70,
-			"height_tiles": 50,
+			"width_tiles":  35,
+			"height_tiles": 25,
 			"tileset_src":  1,
-			"floor_tile":   Vector2i(0, 1),
+			"floor_tile":   Vector2i(0, 0),
 			"wall_tile":    Vector2i(0, 0),
 			"obstacle_tile": Vector2i(2, 0),
 			"exit_dir": Vector2i(0, 0),
 			"exit_tile_coords": [],
 			"walls": [
-				Rect2i(0, 0, 70, 2),
-				Rect2i(0, 48, 70, 2),
-				Rect2i(0, 0, 2, 50),
-				Rect2i(68, 0, 2, 50),
-				Rect2i(2, 2, 3, 46),
-				Rect2i(67, 2, 3, 46),
-				Rect2i(2, 2, 66, 3),
-				Rect2i(2, 47, 66, 3),
-				Rect2i(5, 5, 8, 8),
-				Rect2i(59, 5, 8, 8),
-				Rect2i(5, 39, 8, 8),
-				Rect2i(59, 39, 8, 8),
+				Rect2i(0, 0, 35, 1),
+				Rect2i(0, 24, 35, 1),
+				Rect2i(0, 0, 1, 25),
+				Rect2i(34, 0, 1, 25),
+				Rect2i(1, 1, 2, 23),
+				Rect2i(33, 1, 2, 23),
+				Rect2i(1, 1, 33, 2),
+				Rect2i(1, 23, 33, 2),
+				Rect2i(2, 2, 5, 5),
+				Rect2i(29, 2, 5, 5),
+				Rect2i(2, 19, 5, 5),
+				Rect2i(29, 19, 5, 5),
 			],
 			"floor": [
-				Rect2i(2, 2, 66, 46),
+				Rect2i(1, 1, 33, 23),
 			],
 			"obstacles": [
-				Rect2i(22, 20, 4, 4),
-				Rect2i(46, 20, 4, 4),
-				Rect2i(22, 30, 4, 4),
-				Rect2i(46, 30, 4, 4),
+				Rect2i(11, 10, 2, 2),
+				Rect2i(23, 10, 2, 2),
+				Rect2i(11, 15, 2, 2),
+				Rect2i(23, 15, 2, 2),
 			],
 			"spawn_points": [
 				Vector2(33 * 16, 42 * 16),

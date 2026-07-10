@@ -144,21 +144,30 @@ func _ready() -> void:
 	## Phase 9 (D-07, MAP-09): RoomBuilder replaces the old network-based room generator.
 	## Hardcoded sub-room data is used instead of real-time Overpass API fetches.
 	_room_builder = RoomBuilder.new()
-	## Build sub-room 1 of Room 1 immediately on all peers (deterministic from static data; no RPC needed for first load).
-	var _first_rect: Rect2 = _room_builder.build_sub_room(1, 1, self)
+	## The host picks the starting room in the lobby; every peer received the same
+	## value via Lobby.start_game(start_room) before this scene loaded.
+	current_room = clampi(GameState.start_room, 1, 3)
+	## Build sub-room 1 of the starting room immediately on all peers (deterministic
+	## from static data; no RPC needed for first load).
+	var _first_rect: Rect2 = _room_builder.build_sub_room(current_room, 1, self)
 	_current_sub_room_rect_px = _first_rect
 	## Phase 9 (D-03, MAP-07): Deferred so players are spawned before camera limits are applied.
 	## _spawn_all_players() is called after _ready() completes; call_deferred ensures ordering.
 	call_deferred("_update_all_camera_limits")
 
-	# Phase 8: Disable StaticBody2D collision on hidden rooms at startup.
-	# Room2 and Room3 start visible=false but Godot does NOT disable collision with visibility.
-	# Without this, players immediately collide with invisible walls/blocks from all 3 rooms.
-	for _rid in [2, 3]:
-		var _hidden_room := get_node_or_null("Room%d" % _rid)
-		if _hidden_room:
-			for _body in _hidden_room.find_children("*", "StaticBody2D", true, false):
+	# Phase 8: Show only the starting room; disable StaticBody2D collision on the others.
+	# Hidden rooms start visible=false in the scene but Godot does NOT disable collision
+	# with visibility — without this, players collide with invisible walls from all rooms.
+	for _rid in [1, 2, 3]:
+		var _room := get_node_or_null("Room%d" % _rid)
+		if _room == null:
+			continue
+		_room.visible = _rid == current_room
+		if _rid != current_room:
+			for _body in _room.find_children("*", "StaticBody2D", true, false):
 				_body.set_collision_layer_value(1, false)
+			if _room_builder != null:
+				_room_builder.set_tilemap_collision(_rid, false, self)
 
 	# Bake navigation polygon at runtime so new obstacles are properly carved out
 	call_deferred("_bake_navigation")
@@ -192,7 +201,12 @@ func _run_start_countdown() -> void:
 	label.text = "GO!"
 	countdown_active = false
 	if multiplayer.is_server():
-		_spawn_enemies()
+		# Room 3 (Burg) is the boss arena — a run starting there gets the boss
+		# instead of a normal wave (mirrors _transition_to_room's spawn logic).
+		if current_room == 3:
+			_spawn_boss()
+		else:
+			_spawn_enemies()
 		# Driver Mode: schedule the first roll for a random moment now that combat has begun.
 		_schedule_driver_roll()
 	await get_tree().create_timer(0.6).timeout
@@ -1127,10 +1141,11 @@ func _process(delta: float) -> void:
 		##     is the connector for rooms 1+2; room 3 SR-4 → SR-5 boss arena).
 		##   - connector (6): instant teleport to the next location's SR-1.
 		## _connector_triggered doubles as the "transition in progress" guard (reset on every
-		## transition). For normal sub-rooms the threshold sits inside the 2-tile exit gap so the
+		## transition). For normal sub-rooms the threshold sits inside the exit gap so the
 		## player must actually walk through the opening; the connector uses a wider margin.
+		## Margins are fixed pixel distances (64/32) — same as before the 32px-grid switch.
 		if not _connector_triggered and (current_sub_room == 6 or _exit_open):
-			var edge_margin: int = RoomLayouts.TILE_SIZE * (4 if current_sub_room == 6 else 2)
+			var edge_margin: int = RoomLayouts.TILE_SIZE * (2 if current_sub_room == 6 else 1)
 			var threshold_x: float = _current_sub_room_rect_px.end.x - edge_margin
 			for p in get_tree().get_nodes_in_group("players"):
 				if is_instance_valid(p) and p.global_position.x >= threshold_x:

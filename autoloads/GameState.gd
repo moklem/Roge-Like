@@ -7,6 +7,11 @@ var loop_timer: float = 0.0  # seconds remaining; host only writes
 var loop_number: int = 1  # D-16: starts at 1; Phase 8 increments via start_next_loop()
 var revives_used: Dictionary = {}  # peer_id → int (count used this loop)
 
+## Debug/QoL: which room the run begins in (1 = Erba, 2 = Altstadt, 3 = Burg).
+## Set on every peer via Lobby.start_game(start_room) before the scene change;
+## read once by Game._ready(). Later loops always cycle 1 → 2 → 3 as usual.
+var start_room: int = 1
+
 ## TEAM XP: shared progression — every orb feeds one team pool (host-authoritative).
 ## Thresholds scale with party size so 1/2/3-player runs level at a similar pace.
 const TEAM_XP_BASE: int = 200

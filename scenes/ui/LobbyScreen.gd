@@ -19,6 +19,7 @@ extends Control
 
 var _is_ready: bool = false
 var _is_host: bool = false
+var _room_select: OptionButton = null  ## host-only: which room the run starts in
 
 func _ready() -> void:
 	_is_host = multiplayer.is_server()
@@ -36,6 +37,19 @@ func _ready() -> void:
 		ip_label.text = "Your IP: %s" % Lobby.get_local_ip()
 		start_btn.visible = true
 		copy_btn.visible = true
+		## Host-only start-room picker (debug/QoL): choice travels to all peers as
+		## the start_game RPC argument. Inserted directly above the Start button.
+		_room_select = OptionButton.new()
+		_room_select.add_item("Start: Erba", 1)
+		_room_select.add_item("Start: Altstadt", 2)
+		_room_select.add_item("Start: Burg Altenburg", 3)
+		_room_select.select(0)
+		var bf := UiStyle.button_font()
+		if bf:
+			_room_select.add_theme_font_override("font", bf)
+		var panel := start_btn.get_parent()
+		panel.add_child(_room_select)
+		panel.move_child(_room_select, start_btn.get_index())
 	else:
 		ip_label.text = "Connected to host"
 		copy_btn.visible = false
@@ -93,7 +107,8 @@ func _on_start_pressed() -> void:
 	if not Lobby.all_players_ready():
 		status_label.text = "Waiting for all players to ready up..."
 		return
-	Lobby.start_game.rpc()
+	var room: int = _room_select.get_selected_id() if _room_select else 1
+	Lobby.start_game.rpc(room)
 
 func _set_picks_disabled(disabled: bool) -> void:
 	# D-02: lock/unlock role and element buttons
