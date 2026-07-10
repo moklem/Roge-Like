@@ -28,10 +28,13 @@ Bold readable silhouettes - sprites are displayed very small in game.
 
 ## Asset-Liste
 
+> Update: Die beiden Standard-Gegner haben inzwischen animierte Sprites
+> (`assets/active/enemies/enemy_1_*` / `enemy_2_*`) — es fehlen noch Elite,
+> Boss, Projektil, XP-Orb und Heildrohne.
+
 | Datei | Canvas | Anzeige im Spiel | Perspektive | Prompt (Englisch) | Verwendung |
 |---|---|---|---|---|---|
-| `enemy-basic.png` | 256×256 | ~28 px | Frontal / leichte ¾-Ansicht (wie die Spieler-Bots) | Small hostile scrap robot, boxy body, single red glowing eye, rusty grey-red plating, aggressive stance | Standard-Gegner (aktuell rotes Quadrat); wird per Engine orange (Brand) / blau (Frost) getönt — neutrale Grundfarbe wählen |
-| `enemy-elite.png` | 256×256 | ~48 px | Frontal / leichte ¾-Ansicht | Larger menacing elite scrap robot, spiked shoulder plating, purple glowing core and eyes, heavier silhouette than the basic enemy | Elite-Gegner (aktuell lila Quadrat); spawnt periodisch als Mini-Boss |
+| `enemy-elite.png` | 256×256 | ~48 px | Frontal / leichte ¾-Ansicht (wie die Spieler-Bots) | Larger menacing elite scrap robot, spiked shoulder plating, purple glowing core and eyes, heavier silhouette than the basic enemies | Elite-Gegner (aktuell lila Quadrat); spawnt periodisch als Mini-Boss |
 | `boss.png` | 512×512 | ~96 px | Frontal / leichte ¾-Ansicht | Huge intimidating boss robot, bulky armored chassis, glowing red core, battle damage, dominating silhouette | Endboss in der Burg (aktuell dunkelrotes Quadrat); Phasen werden per Engine rot getönt — Grundfarbe dunkelgrau/rot |
 | `bullet-player.png` | 128×64 | ~8×4 px | Seitlich, Flugrichtung **nach rechts** | Small glowing yellow-orange bolt projectile with a short motion trail, pointing right | Spieler-Projektil (aktuell gelbes Rechteck); wird zur Flugrichtung rotiert |
 | `xp-orb.png` | 128×128 | ~16 px | Top-down / neutral | Small glowing golden screw-nut energy orb, soft yellow glow halo | XP-Drop von Gegnern (aktuell gelbes Quadrat); Roboter-Thema: Schraube/Mutter statt Kugel möglich |
