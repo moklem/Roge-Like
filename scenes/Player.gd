@@ -106,6 +106,8 @@ func _ready() -> void:
 	# Update role label display (MOVE-04)
 	if has_node("RoleLabel"):
 		$RoleLabel.text = role_label
+	# Comic UI pass: comic font + ink outlines on the nameplate and world-space bars
+	UiStyle.style_player_nameplate(self)
 	# Phase 5: Apply role-specific stats and read element from Lobby
 	_apply_role_stats()
 	# Lobby stores the element capitalized ("Fire"/"Ice"/"Earth"); gameplay compares lowercase.

@@ -5,6 +5,10 @@ extends Control
 @onready var return_button: Button = $VBoxContainer/ReturnButton
 
 func _ready() -> void:
+	# Comic UI pass: same background/button/label styling as menu and lobby
+	UiStyle.add_background(self)
+	UiStyle.style_buttons(self)
+	UiStyle.style_labels(self)
 	return_button.pressed.connect(_on_return_pressed)
 	# D-04: auto-return after ~2 seconds
 	await get_tree().create_timer(2.0).timeout

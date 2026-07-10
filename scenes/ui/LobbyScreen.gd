@@ -44,12 +44,11 @@ func _ready() -> void:
 		_room_select.add_item("Start: Altstadt", 2)
 		_room_select.add_item("Start: Burg Altenburg", 3)
 		_room_select.select(0)
-		var bf := UiStyle.button_font()
-		if bf:
-			_room_select.add_theme_font_override("font", bf)
 		var panel := start_btn.get_parent()
 		panel.add_child(_room_select)
 		panel.move_child(_room_select, start_btn.get_index())
+		# Created after the _ready styling pass — restyle so the picker matches the comic buttons.
+		UiStyle.style_buttons(panel)
 	else:
 		ip_label.text = "Connected to host"
 		copy_btn.visible = false

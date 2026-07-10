@@ -6,17 +6,16 @@
 layer = 1
 script = ExtResource("1_hud")
 
-[node name="HUDPanel" type="ColorRect" parent="."]
+[node name="HUDPanel" type="Panel" parent="."]
 anchors_preset = 7
 anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
 offset_left = -400.0
-offset_top = -36.0
+offset_top = -40.0
 offset_right = 0.0
 offset_bottom = -8.0
-color = Color(0.08, 0.08, 0.08, 0.85)
 
 [node name="HUDRow" type="HBoxContainer" parent="HUDPanel"]
 anchors_preset = 15
@@ -36,7 +35,8 @@ text = "LVL 1"
 [node name="XPBar" type="ProgressBar" parent="HUDPanel/HUDRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-custom_minimum_size = Vector2(0, 12)
+size_flags_vertical = 4
+custom_minimum_size = Vector2(0, 16)
 min_value = 0.0
 max_value = 100.0
 value = 0.0

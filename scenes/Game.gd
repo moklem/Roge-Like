@@ -588,21 +588,23 @@ func _setup_player_hud() -> void:
 	panel.offset_right = -210
 	panel.offset_top = 10
 	panel.offset_bottom = 10  # grows with content
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.0, 0.0, 0.0, 0.65)
-	style.set_corner_radius_all(5)
-	style.content_margin_left = 10
-	style.content_margin_right = 10
-	style.content_margin_top = 7
-	style.content_margin_bottom = 7
-	panel.add_theme_stylebox_override("panel", style)
+	# Comic UI pass: paper panel with ink border (matches PlayerHUD/menu styling)
+	panel.add_theme_stylebox_override("panel", UiStyle.comic_box(
+		Color(UiStyle.PAPER.r, UiStyle.PAPER.g, UiStyle.PAPER.b, 0.95)))
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 4)
 	panel.add_child(vbox)
+	var comic_font := UiStyle.button_font()
 	_hud_hp_label = Label.new()
-	_hud_hp_label.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
+	if comic_font:
+		_hud_hp_label.add_theme_font_override("font", comic_font)
+	_hud_hp_label.add_theme_font_size_override("font_size", 20)
+	_hud_hp_label.add_theme_color_override("font_color", Color(0.78, 0.12, 0.10))
 	vbox.add_child(_hud_hp_label)
 	_hud_ability_label = Label.new()
+	if comic_font:
+		_hud_ability_label.add_theme_font_override("font", comic_font)
+	_hud_ability_label.add_theme_font_size_override("font_size", 18)
 	vbox.add_child(_hud_ability_label)
 	# Wave text removed from screen — _hud_wave_label stays null so _update_player_hud
 	# skips it and no "Welle x / y" label is shown.
@@ -629,10 +631,11 @@ func _update_player_hud() -> void:
 	var cd: float = local_player._ability_cooldown
 	if cd <= 0.0:
 		_hud_ability_label.text = "[SPACE]  BEREIT"
-		_hud_ability_label.add_theme_color_override("font_color", Color(0.3, 0.9, 0.4))
+		# darkened for readability on the comic paper panel
+		_hud_ability_label.add_theme_color_override("font_color", Color(0.05, 0.55, 0.20))
 	else:
 		_hud_ability_label.text = "[SPACE]  CD: %.1fs" % cd
-		_hud_ability_label.add_theme_color_override("font_color", Color(0.9, 0.7, 0.2))
+		_hud_ability_label.add_theme_color_override("font_color", Color(0.80, 0.45, 0.02))
 	if _hud_wave_label != null:
 		if current_room < 3:
 			_hud_wave_label.text = "Welle  %d / %d" % [_display_wave, WAVES_PER_ROOM]
