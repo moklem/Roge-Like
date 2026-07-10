@@ -1,4 +1,4 @@
-[gd_resource type="SpriteFrames" load_steps=26 format=3]
+[gd_resource type="SpriteFrames" load_steps=42 format=3]
 
 [ext_resource type="Texture2D" path="res://assets/active/players/tank_1_idle.png" id="1"]
 [ext_resource type="Texture2D" path="res://assets/active/players/tank_1_walk_1.png" id="2"]
@@ -24,7 +24,23 @@
 [ext_resource type="Texture2D" path="res://assets/active/players/engineer_3_walk_1.png" id="22"]
 [ext_resource type="Texture2D" path="res://assets/active/players/engineer_3_walk_2.png" id="23"]
 [ext_resource type="Texture2D" path="res://assets/active/players/engineer_3_walk_3.png" id="24"]
-[ext_resource type="Texture2D" path="res://assets/Speedstar_lvl_1.png" id="25"]
+[ext_resource type="Texture2D" path="res://assets/active/players/speedster_1_idle.png" id="25"]
+[ext_resource type="Texture2D" path="res://assets/active/players/speedster_1_walk_1.png" id="26"]
+[ext_resource type="Texture2D" path="res://assets/active/players/speedster_1_walk_2.png" id="27"]
+[ext_resource type="Texture2D" path="res://assets/active/players/speedster_2_idle.png" id="28"]
+[ext_resource type="Texture2D" path="res://assets/active/players/speedster_2_walk_1.png" id="29"]
+[ext_resource type="Texture2D" path="res://assets/active/players/speedster_2_walk_2.png" id="30"]
+[ext_resource type="Texture2D" path="res://assets/active/players/speedster_2_walk_3.png" id="31"]
+[ext_resource type="Texture2D" path="res://assets/active/players/speedster_2_walk_4.png" id="32"]
+[ext_resource type="Texture2D" path="res://assets/active/players/speedster_3_idle.png" id="33"]
+[ext_resource type="Texture2D" path="res://assets/active/players/speedster_3_walk_1.png" id="34"]
+[ext_resource type="Texture2D" path="res://assets/active/players/speedster_3_walk_2.png" id="35"]
+[ext_resource type="Texture2D" path="res://assets/active/players/speedster_3_walk_3.png" id="36"]
+[ext_resource type="Texture2D" path="res://assets/active/players/speedster_3_walk_4.png" id="37"]
+[ext_resource type="Texture2D" path="res://assets/active/players/speedster_3_walk_5.png" id="38"]
+[ext_resource type="Texture2D" path="res://assets/active/players/speedster_3_walk_6.png" id="39"]
+[ext_resource type="Texture2D" path="res://assets/active/players/speedster_3_walk_7.png" id="40"]
+[ext_resource type="Texture2D" path="res://assets/active/players/speedster_3_walk_8.png" id="41"]
 
 [resource]
 animations = [{
@@ -177,28 +193,81 @@ animations = [{
 "name": &"speedster_1_idle",
 "speed": 5.0
 }, {
-"frames": [{"duration": 1.0, "texture": ExtResource("25")}],
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("26")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("27")
+}],
 "loop": true,
 "name": &"speedster_1_walk",
-"speed": 5.0
+"speed": 8.0
 }, {
-"frames": [{"duration": 1.0, "texture": ExtResource("25")}],
+"frames": [{"duration": 1.0, "texture": ExtResource("28")}],
 "loop": true,
 "name": &"speedster_2_idle",
 "speed": 5.0
 }, {
-"frames": [{"duration": 1.0, "texture": ExtResource("25")}],
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("29")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("30")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("31")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("32")
+}],
 "loop": true,
 "name": &"speedster_2_walk",
-"speed": 5.0
+"speed": 8.0
 }, {
-"frames": [{"duration": 1.0, "texture": ExtResource("25")}],
+"frames": [{"duration": 1.0, "texture": ExtResource("33")}],
 "loop": true,
 "name": &"speedster_3_idle",
 "speed": 5.0
 }, {
-"frames": [{"duration": 1.0, "texture": ExtResource("25")}],
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("34")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("35")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("36")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("37")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("38")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("39")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("40")
+},
+{
+"duration": 1.0,
+"texture": ExtResource("41")
+}],
 "loop": true,
 "name": &"speedster_3_walk",
-"speed": 5.0
+"speed": 10.0
 }]

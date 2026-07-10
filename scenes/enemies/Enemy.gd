@@ -34,6 +34,15 @@ signal died(pos: Vector2)
 ## Tracks last-seen hp so _process can fire a subtle hit cue when it drops (all peers).
 var _last_hp_seen: int = 0
 
+## Animated enemy art (standard enemies only — Elite/Boss scenes have no CharSprite node).
+## Two art variants; the pick derives from the node name, which the MultiplayerSpawner
+## keeps identical on every peer, so all clients show the same variant.
+const ENEMY_TARGET_HEIGHT: float = 42.0  # on-screen height of the drawn character (px)
+var _uses_char_sprite: bool = false
+var _variant: int = 1
+var _last_anim_pos: Vector2 = Vector2.ZERO
+var _move_timer: float = 0.0  # keeps "walk" alive between 20 Hz position syncs on clients
+
 func _ready() -> void:
 	add_to_group("enemies")
 	# WR-03: set current_hp here so any bare instantiation (without _do_spawn_enemy) gets the
@@ -46,6 +55,51 @@ func _ready() -> void:
 	# and player body overlap via body_entered (players on layer 2, enemy CharacterBody2D mask includes layer 2)
 	$HurtboxArea.body_entered.connect(_on_hurtbox_body_entered)
 	$HurtboxArea.body_exited.connect(_on_hurtbox_body_exited)
+	_setup_enemy_sprite()
+
+## Swap the ColorRect placeholder for the animated art and normalize its size: measure the
+## opaque bounding box of the idle frame (same approach as Player._compute_char_fit) so the
+## DRAWN character — not the padded 256px canvas — is ENEMY_TARGET_HEIGHT px tall.
+func _setup_enemy_sprite() -> void:
+	_uses_char_sprite = has_node("CharSprite")
+	if not _uses_char_sprite:
+		return
+	_variant = 1 + (str(name).hash() % 2)
+	if has_node("Sprite"):
+		$Sprite.visible = false
+	var spr: AnimatedSprite2D = $CharSprite
+	spr.visible = true
+	var tex: Texture2D = spr.sprite_frames.get_frame_texture("enemy_%d_idle" % _variant, 0)
+	if tex != null:
+		var img: Image = tex.get_image()
+		if img != null:
+			if img.is_compressed():
+				img.decompress()
+			var used: Rect2i = img.get_used_rect()
+			if used.size.y > 0:
+				var s: float = ENEMY_TARGET_HEIGHT / float(used.size.y)
+				spr.scale = Vector2(s, s)
+				var canvas_center := Vector2(img.get_width(), img.get_height()) * 0.5
+				var used_center := Vector2(used.position) + Vector2(used.size) * 0.5
+				spr.offset = canvas_center - used_center
+	_last_anim_pos = global_position
+	spr.play("enemy_%d_idle" % _variant)
+
+## Drive walk/idle + facing on ALL peers from the replicated position (clients run no AI,
+## so velocity is meaningless there — the synced position delta is the only movement signal).
+func _update_enemy_visual(delta_t: float) -> void:
+	var spr: AnimatedSprite2D = $CharSprite
+	var move_delta: Vector2 = global_position - _last_anim_pos
+	_last_anim_pos = global_position
+	if absf(move_delta.x) > 0.5:
+		spr.flip_h = move_delta.x > 0.0  # art faces left natively
+	if move_delta.length() > 0.5:
+		_move_timer = 0.15
+	else:
+		_move_timer = maxf(0.0, _move_timer - delta_t)
+	var anim := "enemy_%d_%s" % [_variant, "walk" if _move_timer > 0.0 else "idle"]
+	if spr.animation != StringName(anim) or not spr.is_playing():
+		spr.play(anim)
 
 ## WR-003: Health bar update runs on ALL peers so clients see synced current_hp.
 ## _physics_process is disabled on clients (P6 guard), so health bar must live here.
@@ -57,6 +111,8 @@ func _process(_delta: float) -> void:
 	if current_hp < _last_hp_seen:
 		Sfx.hit()
 	_last_hp_seen = current_hp
+	if _uses_char_sprite:
+		_update_enemy_visual(_delta)
 
 func _physics_process(_delta: float) -> void:
 	var target := _find_nearest_player()

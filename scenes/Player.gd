@@ -77,7 +77,7 @@ var _driver_heal_accum: float = 0.0  # fractional-HP carry for integer heal tick
 var _driver_timer: float = 0.0
 var _driver_particles: CPUParticles2D = null
 
-## AUTOBONK character sprites (Tank / Engineer use animated PNG art; Speedster keeps placeholder).
+## AUTOBONK character sprites (Tank / Engineer / Speedster use animated PNG art).
 ## Animation key per role; "" means no art → fall back to ColorRect placeholder.
 var _sprite_key: String = ""
 
@@ -139,12 +139,12 @@ func _setup_draw_layers() -> void:
 
 ## AUTOBONK: Choose the character art set for this role and switch from the ColorRect
 ## placeholder to the AnimatedSprite2D. Runs on all peers (role_label is set before _ready
-## by the spawner). Speedster has no art yet, so it keeps the ColorRect placeholder.
+## by the spawner).
 func _setup_char_sprite() -> void:
 	match role_label:
 		"Tank": _sprite_key = "tank"
 		"Engineer": _sprite_key = "engineer"   # Healer art
-		"Speedster": _sprite_key = "speedster" # single Speedstar_lvl_1.png reused for all stages
+		"Speedster": _sprite_key = "speedster"
 		_: _sprite_key = ""
 	_uses_char_sprite = _sprite_key != "" and has_node("CharSprite")
 	if not _uses_char_sprite:
@@ -165,9 +165,9 @@ func _setup_char_sprite() -> void:
 
 ## Visual size normalization — measure the opaque bounding box of each stage's idle art
 ## and derive scale + centering offset so the DRAWN character (not the padded canvas) is
-## CHAR_TARGET_HEIGHT px tall for every role. The art canvases are uniform (256px, Speedster
-## 2048px) but the character fills 50–95% of them depending on role/stage, which made
-## on-screen sizes wildly inconsistent (Tank even shrank from stage 1 → 2).
+## CHAR_TARGET_HEIGHT px tall for every role. The art canvases are uniform (256px) but the
+## character fills 50–95% of them depending on role/stage, which made on-screen sizes
+## wildly inconsistent (Tank even shrank from stage 1 → 2).
 func _compute_char_fit() -> void:
 	_char_fit.clear()
 	var frames: SpriteFrames = $CharSprite.sprite_frames
@@ -197,7 +197,7 @@ func _compute_char_fit() -> void:
 ## the fit could not be measured (e.g. texture without retrievable image data).
 func _apply_char_fit(stage: int, spr: AnimatedSprite2D) -> void:
 	if not _char_fit.has(stage):
-		spr.scale = Vector2(0.03125, 0.03125) if _sprite_key == "speedster" else Vector2(0.25, 0.25)
+		spr.scale = Vector2(0.25, 0.25)
 		return
 	var fit: Dictionary = _char_fit[stage]
 	spr.scale = fit["scale"]
