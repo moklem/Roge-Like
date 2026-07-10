@@ -69,6 +69,18 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 							break
 				tilemap.set_cell(0, coords, src, ATLAS_ORIGIN)
 
+	## Step 1b: Carpet runner — optional layer-0 floor override rects (e.g. the
+	## ceremonial carpet across the boss arena). Placed after the floor mix so it
+	## always wins; excluded from shadows and deco via the floor_srcs check below.
+	var carpet_src: int = art["carpet_src"]
+	if carpet_src != -1:
+		for carpet_rect in layout.get("carpet", []):
+			var rect: Rect2i = carpet_rect
+			for x_off in range(rect.size.x):
+				for y_off in range(rect.size.y):
+					var coords := Vector2i(rect.position.x + x_off, rect.position.y + y_off)
+					tilemap.set_cell(0, coords, carpet_src, ATLAS_ORIGIN)
+
 	## Step 2: Wall cells — 2.5D look (Enter-the-Gungeon style) in ALL rooms:
 	## wall cells with floor directly below show the wall FACE (front view),
 	## all other wall cells show the CAP (top view). Floor was placed in step 1,
@@ -82,6 +94,7 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 				wall_cells[Vector2i(r.position.x + x_off, r.position.y + y_off)] = true
 	var faces: Array = art["wall_faces"]
 	var caps: Array = art["wall_caps"]
+	var face_cells: Array[Vector2i] = []
 	for coords: Vector2i in wall_cells:
 		var below := coords + Vector2i(0, 1)
 		var below_is_floor: bool = not wall_cells.has(below) \
@@ -90,9 +103,21 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 		var src: int
 		if below_is_floor:
 			src = faces[pick % faces.size()]
+			face_cells.append(coords)
 		else:
 			src = caps[pick % caps.size()]
 		tilemap.set_cell(0, coords, src, ATLAS_ORIGIN)
+
+	## Step 2a: Wall deco — torches/banners overlaid on some south-facing wall
+	## faces (layer 1, purely visual; the wall's collision already blocks).
+	var wall_deco: Array = art["wall_deco"]
+	if not wall_deco.is_empty():
+		for coords: Vector2i in face_cells:
+			for wd_idx in range(wall_deco.size()):
+				var wd: Array = wall_deco[wd_idx]
+				if _cell_hash(coords, 20 + wd_idx) % int(wd[1]) == 0:
+					tilemap.set_cell(1, coords, wd[0], ATLAS_ORIGIN)
+					break
 
 	## Step 2b: Contact shadow — darken the floor row directly under each wall
 	## face (cheap trick that sells the wall height). Only plain/mixed floor
@@ -202,8 +227,12 @@ func _register_room_tiles(tilemap: TileMap, art: Dictionary) -> void:
 		plain.append(mix[0])
 	if int(art["connector_src"]) != -1:
 		plain.append(art["connector_src"])
+	if int(art["carpet_src"]) != -1:
+		plain.append(art["carpet_src"])
 	for deco in art["deco"]:
 		plain.append(deco[0])
+	for wd in art["wall_deco"]:
+		plain.append(wd[0])
 	for sid: int in plain:
 		var src := tilemap.tile_set.get_source(sid) as TileSetAtlasSource
 		if src and not src.has_tile(ATLAS_ORIGIN):

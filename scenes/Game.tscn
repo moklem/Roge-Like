@@ -29,6 +29,10 @@
 [ext_resource type="Texture2D" path="res://assets/lovableassats/burg/wall-cap-a.png" id="t_b_wallcap_a"]
 [ext_resource type="Texture2D" path="res://assets/lovableassats/burg/wall-cap-b.png" id="t_b_wallcap_b"]
 [ext_resource type="Texture2D" path="res://assets/lovableassats/burg/obstacle-rubble.png" id="t_b_rubble"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/prop-torch.png" id="t_b_torch"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/prop-banner.png" id="t_b_banner"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/prop-carpet.png" id="t_b_rug"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/floor-transition-carpet.png" id="t_b_carpet"]
 
 [sub_resource type="TileSetAtlasSource" id="TSA_e_grass"]
 texture = ExtResource("t_e_grass")
@@ -180,6 +184,22 @@ texture_region_size = Vector2i(256, 256)
 texture = ExtResource("t_b_stone_a")
 texture_region_size = Vector2i(256, 256)
 
+[sub_resource type="TileSetAtlasSource" id="TSA_b_torch"]
+texture = ExtResource("t_b_torch")
+texture_region_size = Vector2i(384, 384)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_b_banner"]
+texture = ExtResource("t_b_banner")
+texture_region_size = Vector2i(384, 384)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_b_rug"]
+texture = ExtResource("t_b_rug")
+texture_region_size = Vector2i(384, 384)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_b_carpet"]
+texture = ExtResource("t_b_carpet")
+texture_region_size = Vector2i(256, 256)
+
 [sub_resource type="TileSet" id="TileSetBurg"]
 tile_size = Vector2i(256, 256)
 physics_layer_0/collision_layer = 1
@@ -194,6 +214,10 @@ sources/7 = SubResource("TSA_b_wallcap_a")
 sources/8 = SubResource("TSA_b_wallcap_b")
 sources/9 = SubResource("TSA_b_rubble")
 sources/10 = SubResource("TSA_b_stone_shadow")
+sources/11 = SubResource("TSA_b_torch")
+sources/12 = SubResource("TSA_b_banner")
+sources/13 = SubResource("TSA_b_rug")
+sources/14 = SubResource("TSA_b_carpet")
 
 [sub_resource type="NavigationPolygon" id="NavigationPolygon_1"]
 vertices = PackedVector2Array(750.03906, 551.96094, 47, 550.03125, 47, 46, 751.9531, 46)

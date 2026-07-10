@@ -58,6 +58,10 @@ const SRC_BURG_WALL_CAP_A: int = 7     ## castle wall top variant A
 const SRC_BURG_WALL_CAP_B: int = 8     ## castle wall top variant B
 const SRC_BURG_RUBBLE: int = 9         ## rubble pile obstacle (solid, layer 1)
 const SRC_BURG_STONE_SHADOW: int = 10  ## flagstone texture, dark-modulated
+const SRC_BURG_TORCH: int = 11         ## wall torch, cyan flame (wall deco, layer 1)
+const SRC_BURG_BANNER: int = 12        ## red castle banner (wall deco, layer 1)
+const SRC_BURG_RUG: int = 13           ## small red rug (floor deco, no collision)
+const SRC_BURG_CARPET: int = 14        ## carpet runner floor tile (boss arena row)
 
 ## ─────────────────────────────────────────────────────────────────────────────
 ## ROOM_ART — per-room art config consumed by RoomBuilder's unified build path.
@@ -71,6 +75,10 @@ const SRC_BURG_STONE_SHADOW: int = 10  ## flagstone texture, dark-modulated
 ##   house_src      : solid landmark source for the layout's "houses" cells
 ##                    (drawn oversized, collision = 1 cell); -1 = none
 ##   deco           : [[src, one_in_n], ...] scatter deco (layer 1, no collision)
+##   wall_deco      : [[src, one_in_n], ...] overlay deco on south-facing wall
+##                    FACE cells (torches/banners; layer 1, no extra collision)
+##   carpet_src     : floor source for the layout's optional "carpet" rects
+##                    (layer 0 override, e.g. boss-arena runner); -1 = none
 ##   connector_src  : connector corridor floor source (-1 = room has no connector)
 ##   connector_full : true → whole corridor floor uses connector_src;
 ##                    false → only the middle row (carpet runner), rest floor_src
@@ -85,6 +93,8 @@ const ROOM_ART: Dictionary = {
 		"obstacle_srcs": [SRC_ERBA_ROCKS],
 		"house_src": -1,
 		"deco": [[SRC_ERBA_FLOWER, 26], [SRC_ERBA_PEBBLES, 31]],
+		"wall_deco": [],
+		"carpet_src": -1,
 		"connector_src": SRC_ERBA_CONNECTOR,
 		"connector_full": true,
 	},
@@ -99,6 +109,8 @@ const ROOM_ART: Dictionary = {
 		"obstacle_srcs": [SRC_ALT_BARREL, SRC_ALT_CRATE],
 		"house_src": SRC_ALT_ROOF,
 		"deco": [[SRC_ALT_LANTERN, 43]],
+		"wall_deco": [],
+		"carpet_src": -1,
 		"connector_src": SRC_ALT_CARPET,
 		"connector_full": false,
 	},
@@ -114,7 +126,9 @@ const ROOM_ART: Dictionary = {
 		"wall_caps": [SRC_BURG_WALL_CAP_B, SRC_BURG_WALL_CAP_B, SRC_BURG_WALL_CAP_B, SRC_BURG_WALL_CAP_B, SRC_BURG_WALL_CAP_A],
 		"obstacle_srcs": [SRC_BURG_RUBBLE],
 		"house_src": -1,
-		"deco": [],
+		"deco": [[SRC_BURG_RUG, 199]],
+		"wall_deco": [[SRC_BURG_TORCH, 5], [SRC_BURG_BANNER, 7]],
+		"carpet_src": SRC_BURG_CARPET,
 		"connector_src": -1,
 		"connector_full": false,
 	},
@@ -137,6 +151,7 @@ const ROOM_ART: Dictionary = {
 ##   "floor"            : Array[Rect2i]   — floor tile fill rectangles
 ##   "obstacles"        : Array[Rect2i]   — solid obstacle rectangles
 ##   "houses"           : Array[Vector2i] — optional: solid landmark cells (ROOM_ART house_src)
+##   "carpet"           : Array[Rect2i]   — optional: floor-override rects (ROOM_ART carpet_src)
 ##   "spawn_points"     : Array[Vector2]  — player teleport positions in pixels
 ##   "enemy_spawns"     : Array[Vector2]  — enemy spawn positions in pixels
 ## ─────────────────────────────────────────────────────────────────────────────
@@ -882,6 +897,9 @@ static var SUB_ROOM_DATA: Dictionary = {
 				Rect2i(23, 10, 2, 2),
 				Rect2i(11, 15, 2, 2),
 				Rect2i(23, 15, 2, 2),
+			],
+			"carpet": [
+				Rect2i(7, 12, 22, 1),
 			],
 			"spawn_points": [
 				Vector2(33 * 16, 42 * 16),
