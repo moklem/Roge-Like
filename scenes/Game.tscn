@@ -20,19 +20,17 @@
 [ext_resource type="Texture2D" path="res://assets/lovableassats/altstadt/prop-barrel.png" id="t_a_barrel"]
 [ext_resource type="Texture2D" path="res://assets/lovableassats/altstadt/prop-crate.png" id="t_a_crate"]
 [ext_resource type="Texture2D" path="res://assets/lovableassats/altstadt/prop-lantern.png" id="t_a_lantern"]
-[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/floor-stone-a.png" id="t_b_stone_a"]
-[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/floor-stone-b.png" id="t_b_stone_b"]
-[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/floor-stone-c.png" id="t_b_stone_c"]
-[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/floor-stone-cracked.png" id="t_b_cracked"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/floor-b.png" id="t_b_floor_b"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/floor-a.png" id="t_b_floor_a"]
 [ext_resource type="Texture2D" path="res://assets/lovableassats/burg/wall-face-a.png" id="t_b_wallface_a"]
-[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/wall-face-b.png" id="t_b_wallface_b"]
 [ext_resource type="Texture2D" path="res://assets/lovableassats/burg/wall-cap-a.png" id="t_b_wallcap_a"]
-[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/wall-cap-b.png" id="t_b_wallcap_b"]
-[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/obstacle-rubble.png" id="t_b_rubble"]
 [ext_resource type="Texture2D" path="res://assets/lovableassats/burg/prop-torch.png" id="t_b_torch"]
 [ext_resource type="Texture2D" path="res://assets/lovableassats/burg/prop-banner.png" id="t_b_banner"]
-[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/prop-carpet.png" id="t_b_rug"]
-[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/floor-transition-carpet.png" id="t_b_carpet"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/prop-knight.png" id="t_b_knight"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/prop-shield.png" id="t_b_shield"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/prop-barrel.png" id="t_b_barrel"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/prop-crate.png" id="t_b_crate"]
+[ext_resource type="Texture2D" path="res://assets/lovableassats/burg/prop-chest.png" id="t_b_chest"]
 
 [sub_resource type="TileSetAtlasSource" id="TSA_e_grass"]
 texture = ExtResource("t_e_grass")
@@ -144,44 +142,24 @@ sources/18 = SubResource("TSA_a_crate")
 sources/19 = SubResource("TSA_a_lantern")
 sources/20 = SubResource("TSA_a_cobble_shadow")
 
-[sub_resource type="TileSetAtlasSource" id="TSA_b_stone_a"]
-texture = ExtResource("t_b_stone_a")
+[sub_resource type="TileSetAtlasSource" id="TSA_b_floor_b"]
+texture = ExtResource("t_b_floor_b")
 texture_region_size = Vector2i(256, 256)
 
-[sub_resource type="TileSetAtlasSource" id="TSA_b_stone_b"]
-texture = ExtResource("t_b_stone_b")
-texture_region_size = Vector2i(256, 256)
-
-[sub_resource type="TileSetAtlasSource" id="TSA_b_stone_c"]
-texture = ExtResource("t_b_stone_c")
-texture_region_size = Vector2i(256, 256)
-
-[sub_resource type="TileSetAtlasSource" id="TSA_b_cracked"]
-texture = ExtResource("t_b_cracked")
+[sub_resource type="TileSetAtlasSource" id="TSA_b_floor_a"]
+texture = ExtResource("t_b_floor_a")
 texture_region_size = Vector2i(256, 256)
 
 [sub_resource type="TileSetAtlasSource" id="TSA_b_wallface_a"]
 texture = ExtResource("t_b_wallface_a")
 texture_region_size = Vector2i(256, 256)
 
-[sub_resource type="TileSetAtlasSource" id="TSA_b_wallface_b"]
-texture = ExtResource("t_b_wallface_b")
-texture_region_size = Vector2i(256, 256)
-
 [sub_resource type="TileSetAtlasSource" id="TSA_b_wallcap_a"]
 texture = ExtResource("t_b_wallcap_a")
 texture_region_size = Vector2i(256, 256)
 
-[sub_resource type="TileSetAtlasSource" id="TSA_b_wallcap_b"]
-texture = ExtResource("t_b_wallcap_b")
-texture_region_size = Vector2i(256, 256)
-
-[sub_resource type="TileSetAtlasSource" id="TSA_b_rubble"]
-texture = ExtResource("t_b_rubble")
-texture_region_size = Vector2i(256, 256)
-
-[sub_resource type="TileSetAtlasSource" id="TSA_b_stone_shadow"]
-texture = ExtResource("t_b_stone_a")
+[sub_resource type="TileSetAtlasSource" id="TSA_b_floor_shadow"]
+texture = ExtResource("t_b_floor_b")
 texture_region_size = Vector2i(256, 256)
 
 [sub_resource type="TileSetAtlasSource" id="TSA_b_torch"]
@@ -192,32 +170,42 @@ texture_region_size = Vector2i(384, 384)
 texture = ExtResource("t_b_banner")
 texture_region_size = Vector2i(384, 384)
 
-[sub_resource type="TileSetAtlasSource" id="TSA_b_rug"]
-texture = ExtResource("t_b_rug")
+[sub_resource type="TileSetAtlasSource" id="TSA_b_knight"]
+texture = ExtResource("t_b_knight")
 texture_region_size = Vector2i(384, 384)
 
-[sub_resource type="TileSetAtlasSource" id="TSA_b_carpet"]
-texture = ExtResource("t_b_carpet")
-texture_region_size = Vector2i(256, 256)
+[sub_resource type="TileSetAtlasSource" id="TSA_b_shield"]
+texture = ExtResource("t_b_shield")
+texture_region_size = Vector2i(384, 384)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_b_barrel"]
+texture = ExtResource("t_b_barrel")
+texture_region_size = Vector2i(384, 384)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_b_crate"]
+texture = ExtResource("t_b_crate")
+texture_region_size = Vector2i(384, 384)
+
+[sub_resource type="TileSetAtlasSource" id="TSA_b_chest"]
+texture = ExtResource("t_b_chest")
+texture_region_size = Vector2i(384, 384)
 
 [sub_resource type="TileSet" id="TileSetBurg"]
 tile_size = Vector2i(256, 256)
 physics_layer_0/collision_layer = 1
 physics_layer_0/collision_mask = 1
-sources/1 = SubResource("TSA_b_stone_a")
-sources/2 = SubResource("TSA_b_stone_b")
-sources/3 = SubResource("TSA_b_stone_c")
-sources/4 = SubResource("TSA_b_cracked")
-sources/5 = SubResource("TSA_b_wallface_a")
-sources/6 = SubResource("TSA_b_wallface_b")
-sources/7 = SubResource("TSA_b_wallcap_a")
-sources/8 = SubResource("TSA_b_wallcap_b")
-sources/9 = SubResource("TSA_b_rubble")
-sources/10 = SubResource("TSA_b_stone_shadow")
-sources/11 = SubResource("TSA_b_torch")
-sources/12 = SubResource("TSA_b_banner")
-sources/13 = SubResource("TSA_b_rug")
-sources/14 = SubResource("TSA_b_carpet")
+sources/1 = SubResource("TSA_b_floor_b")
+sources/2 = SubResource("TSA_b_floor_a")
+sources/3 = SubResource("TSA_b_wallface_a")
+sources/4 = SubResource("TSA_b_wallcap_a")
+sources/5 = SubResource("TSA_b_floor_shadow")
+sources/6 = SubResource("TSA_b_torch")
+sources/7 = SubResource("TSA_b_banner")
+sources/8 = SubResource("TSA_b_knight")
+sources/9 = SubResource("TSA_b_shield")
+sources/10 = SubResource("TSA_b_barrel")
+sources/11 = SubResource("TSA_b_crate")
+sources/12 = SubResource("TSA_b_chest")
 
 [sub_resource type="NavigationPolygon" id="NavigationPolygon_1"]
 vertices = PackedVector2Array(750.03906, 551.96094, 47, 550.03125, 47, 46, 751.9531, 46)

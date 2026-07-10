@@ -47,21 +47,19 @@ const SRC_ALT_CRATE: int = 18          ## crate deco (layer 1, no collision)
 const SRC_ALT_LANTERN: int = 19        ## lantern deco (layer 1, no collision)
 const SRC_ALT_COBBLE_SHADOW: int = 20  ## cobble texture, dark-modulated
 
-## Room 3 — BURG ALTENBURG (TileSetBurg)
-const SRC_BURG_STONE_A: int = 1        ## base flagstone floor
-const SRC_BURG_STONE_B: int = 2        ## flagstone variant (floor mix)
-const SRC_BURG_STONE_C: int = 3        ## flagstone variant (floor mix)
-const SRC_BURG_CRACKED: int = 4        ## cracked flagstone (floor mix)
-const SRC_BURG_WALL_FACE_A: int = 5    ## castle wall front variant A
-const SRC_BURG_WALL_FACE_B: int = 6    ## castle wall front variant B
-const SRC_BURG_WALL_CAP_A: int = 7     ## castle wall top variant A
-const SRC_BURG_WALL_CAP_B: int = 8     ## castle wall top variant B
-const SRC_BURG_RUBBLE: int = 9         ## rubble pile obstacle (solid, layer 1)
-const SRC_BURG_STONE_SHADOW: int = 10  ## flagstone texture, dark-modulated
-const SRC_BURG_TORCH: int = 11         ## wall torch, cyan flame (wall deco, layer 1)
-const SRC_BURG_BANNER: int = 12        ## red castle banner (wall deco, layer 1)
-const SRC_BURG_RUG: int = 13           ## small red rug (floor deco, no collision)
-const SRC_BURG_CARPET: int = 14        ## carpet runner floor tile (boss arena row)
+## Room 3 — BURG ALTENBURG (TileSetBurg) — castle set v2 (2026-07)
+const SRC_BURG_FLOOR_B: int = 1        ## base sandstone floor
+const SRC_BURG_FLOOR_A: int = 2        ## sandstone with wood-plank inlay (floor mix)
+const SRC_BURG_WALL_FACE: int = 3      ## castle wall front (gray cracked stone)
+const SRC_BURG_WALL_CAP: int = 4       ## castle wall top (red roof tiles)
+const SRC_BURG_FLOOR_SHADOW: int = 5   ## floor texture, dark-modulated
+const SRC_BURG_TORCH: int = 6          ## wall torch, cyan flame (wall deco, layer 1)
+const SRC_BURG_BANNER: int = 7         ## red lion banner (wall deco, layer 1)
+const SRC_BURG_KNIGHT: int = 8         ## knight armor statue (floor deco scatter, layer 1)
+const SRC_BURG_SHIELD: int = 9         ## lion crest shield (wall deco, layer 1)
+const SRC_BURG_BARREL: int = 10        ## barrel obstacle (solid, layer 1)
+const SRC_BURG_CRATE: int = 11         ## crate obstacle (solid, layer 1)
+const SRC_BURG_CHEST: int = 12         ## chest obstacle (solid, layer 1)
 
 ## ─────────────────────────────────────────────────────────────────────────────
 ## ROOM_ART — per-room art config consumed by RoomBuilder's unified build path.
@@ -115,20 +113,21 @@ const ROOM_ART: Dictionary = {
 		"connector_full": false,
 	},
 	3: {
-		## Stone-b/c have visibly different block scales than stone-a — mixing them
-		## per cell reads as noise, so the floor is stone-a with rare cracked tiles.
-		## Face/cap pools are weighted by repetition: the metal-plate face (A) and
-		## the plated cap (A) appear ~1 in 5 as an accent, plain brick otherwise.
-		"floor_src": SRC_BURG_STONE_A,
-		"floor_mix": [[SRC_BURG_CRACKED, 13]],
-		"shadow_src": SRC_BURG_STONE_SHADOW,
-		"wall_faces": [SRC_BURG_WALL_FACE_B, SRC_BURG_WALL_FACE_B, SRC_BURG_WALL_FACE_B, SRC_BURG_WALL_FACE_B, SRC_BURG_WALL_FACE_A],
-		"wall_caps": [SRC_BURG_WALL_CAP_B, SRC_BURG_WALL_CAP_B, SRC_BURG_WALL_CAP_B, SRC_BURG_WALL_CAP_B, SRC_BURG_WALL_CAP_A],
-		"obstacle_srcs": [SRC_BURG_RUBBLE],
+		## Castle set v2: bright sandstone floor with a rare wood-inlay accent
+		## against red roof-tile caps / gray stone faces. Obstacle rects are supply
+		## depots (barrels/crates, occasional chest). Walls are dressed via
+		## wall_deco (torches, banners, shields); knight statues stand as rare
+		## free deco in the open room.
+		"floor_src": SRC_BURG_FLOOR_B,
+		"floor_mix": [[SRC_BURG_FLOOR_A, 13]],
+		"shadow_src": SRC_BURG_FLOOR_SHADOW,
+		"wall_faces": [SRC_BURG_WALL_FACE],
+		"wall_caps": [SRC_BURG_WALL_CAP],
+		"obstacle_srcs": [SRC_BURG_BARREL, SRC_BURG_CRATE, SRC_BURG_BARREL, SRC_BURG_CRATE, SRC_BURG_CHEST],
 		"house_src": -1,
-		"deco": [[SRC_BURG_RUG, 199]],
-		"wall_deco": [[SRC_BURG_TORCH, 5], [SRC_BURG_BANNER, 7]],
-		"carpet_src": SRC_BURG_CARPET,
+		"deco": [[SRC_BURG_KNIGHT, 131]],
+		"wall_deco": [[SRC_BURG_TORCH, 5], [SRC_BURG_BANNER, 7], [SRC_BURG_SHIELD, 9]],
+		"carpet_src": -1,
 		"connector_src": -1,
 		"connector_full": false,
 	},
