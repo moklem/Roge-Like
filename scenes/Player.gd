@@ -260,16 +260,37 @@ var _afterimage_timer: float = 0.0
 ## ABIL-04/D-20: Tank aura ring pulse — fires once on the shield_active false->true edge.
 var _last_shield_active: bool = false
 
+## COOP-01/COOP-03/D-18: tracks is_downed for the every-peer _process diff so the collapse
+## (rising edge) and success burst + snap-back (falling edge) fire exactly once each.
+var _last_downed: bool = false
+
+## COOP-01/COOP-03/D-18: guards the per-frame downed-tint modulate reset (mirrors
+## _hit_flash_active above) so the collapse desaturate-tween and the revive success
+## snap-back tween own `modulate` for their duration without being stomped every frame.
+var _downed_collapse_active: bool = false
+
+## COOP-02/D-18: world-space revive-progress ring child (lazily created) + its current
+## progress value, read by _draw_revive_ring via the CanvasItem `draw` signal idiom.
+var _revive_ring: Node2D = null
+var _revive_ring_progress: float = 0.0
+
 func _process(_delta: float) -> void:
 	# AUTOBONK: drive animated character art (walk/idle, flip, stage) on all peers
 	if _uses_char_sprite:
 		_update_char_visual(_delta)
-	elif not _hit_flash_active:
+	elif not _hit_flash_active and not _downed_collapse_active:
 		# D-12: downed visual tint runs on ALL peers from synced is_downed value
 		if is_downed:
 			$Sprite.modulate = Color(0.4, 0.4, 0.4)   # grayscale tint
 		else:
 			$Sprite.modulate = Color.WHITE
+	# COOP-01/COOP-03/D-18: is_downed is replicated (D-17), so this diff fires on every peer
+	# with zero new RPC — the collapse and success juice are inherently team-visible.
+	if is_downed and not _last_downed:
+		_play_downed_collapse()
+	elif not is_downed and _last_downed:
+		_play_revive_success()
+	_last_downed = is_downed
 	# HLTH-01: Update health bar from synced health value (all peers)
 	if has_node("HealthBar"):
 		$HealthBar.value = float(health) / float(MAX_HP) * 100.0
@@ -742,6 +763,85 @@ func _spawn_aura_pulse() -> void:
 	tween.parallel().tween_property(ring, "modulate:a", 0.0, 0.4)
 	tween.tween_callback(ring.queue_free)
 
+# ──────────────────────────────────────────────────────────────────────────────
+# COOP-01/COOP-02/COOP-03/D-18 — Downed collapse, revive ring, revive success
+# ──────────────────────────────────────────────────────────────────────────────
+
+## COOP-01/D-18: tip 90 degrees (EASE_OUT) + desaturate toward grey + a dust puff on the
+## is_downed rising edge. Runs from the every-peer _process diff (is_downed replicated —
+## D-17), so the collapse is inherently team-visible with zero new RPC.
+func _play_downed_collapse() -> void:
+	_downed_collapse_active = true
+	var target: CanvasItem = $CharSprite if _uses_char_sprite else $Sprite
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(target, "rotation", deg_to_rad(90.0), 0.3).set_ease(Tween.EASE_OUT)
+	tween.tween_property(target, "modulate", Color(0.55, 0.55, 0.55, 1.0), 0.3).set_ease(Tween.EASE_OUT)
+	tween.chain().tween_callback(func() -> void:
+		_downed_collapse_active = false
+	)
+	_spawn_downed_dust()
+
+## COOP-01/D-18: one-shot brown/grey dust puff at the player's feet. Parented to FxLayer
+## (Pitfall 3/4), never to self, so it survives even if this player node is freed mid-effect.
+func _spawn_downed_dust() -> void:
+	var layer := Juice._fx_layer()
+	if layer == null:
+		return
+	var p := CPUParticles2D.new()
+	p.one_shot = true
+	p.amount = 12
+	p.lifetime = 0.5
+	p.explosiveness = 0.9
+	p.direction = Vector2.UP
+	p.spread = 90.0
+	p.initial_velocity_min = 15.0
+	p.initial_velocity_max = 40.0
+	p.gravity = Vector2(0.0, 40.0)
+	p.scale_amount_min = 2.0
+	p.scale_amount_max = 3.5
+	p.color = Color(0.45, 0.38, 0.28, 0.85)  # brown/grey dust puff (UI-SPEC)
+	p.z_index = 1
+	p.emitting = true
+	layer.add_child(p)
+	p.global_position = global_position + Vector2(0.0, 10.0)  # feet offset
+	p.finished.connect(p.queue_free)
+
+## COOP-03/D-18: green sparkle burst + white ring flash + rotation/modulate snap-back on the
+## is_downed falling edge (successful revive). Runs from the every-peer _process diff
+## (is_downed replicated), so the success feedback is team-visible with zero new RPC.
+func _play_revive_success() -> void:
+	Juice.spawn_burst(global_position, Color(0.4, 1.0, 0.4, 1.0))
+	_spawn_success_ring_flash()
+	_downed_collapse_active = true
+	var target: CanvasItem = $CharSprite if _uses_char_sprite else $Sprite
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(target, "rotation", 0.0, 0.2)
+	tween.tween_property(target, "modulate", Color.WHITE, 0.2)
+	tween.chain().tween_callback(func() -> void:
+		_downed_collapse_active = false
+	)
+
+## COOP-03/D-18: brief white ring flash on successful revive (mirrors _spawn_aura_pulse's
+## scale+fade tween shape). Parented to FxLayer, degrades to a no-op if absent.
+func _spawn_success_ring_flash() -> void:
+	var layer := Juice._fx_layer()
+	if layer == null:
+		return
+	const RADIUS: float = 28.0
+	var ring := ColorRect.new()
+	ring.color = Color(1.0, 1.0, 1.0, 0.9)
+	ring.size = Vector2(RADIUS * 2.0, RADIUS * 2.0)
+	ring.pivot_offset = Vector2(RADIUS, RADIUS)
+	ring.scale = Vector2(0.2, 0.2)
+	layer.add_child(ring)
+	ring.global_position = global_position - Vector2(RADIUS, RADIUS)
+	var tween := ring.create_tween()
+	tween.tween_property(ring, "scale", Vector2(1.8, 1.8), 0.3)
+	tween.parallel().tween_property(ring, "modulate:a", 0.0, 0.3)
+	tween.tween_callback(ring.queue_free)
+
 ## Stage-2 shield reflection — compute reflect amount and route to host.
 ## Pitfall 3: enemy.take_damage() is host-only; must send RPC to host if we're a client.
 func _request_reflect(amount: int, attacker_path: String) -> void:
@@ -955,9 +1055,10 @@ func _update_char_visual(delta_t: float) -> void:
 		spr.play(anim)
 	# Normalized size per stage (also re-applies on evolution and mirrors the offset on flip)
 	_apply_char_fit(stage, spr)
-	# DMG-02: skip the per-frame modulate reset while a hit-flash tween owns it (see
-	# _hit_flash_active doc comment near _process).
-	if not _hit_flash_active:
+	# DMG-02/COOP-01/COOP-03: skip the per-frame modulate reset while a hit-flash tween or the
+	# downed collapse/success tween owns it (see _hit_flash_active / _downed_collapse_active
+	# doc comments near _process).
+	if not _hit_flash_active and not _downed_collapse_active:
 		spr.modulate = Color(0.4, 0.4, 0.4) if is_downed else Color.WHITE
 
 func _swap_stage_visual(stage: int) -> void:
@@ -1120,20 +1221,60 @@ func _enter_downed() -> void:
 	# GameState.track_downed checks if all players are down → game over (added in Plan 05)
 	if GameState.has_method("track_downed"):
 		GameState.track_downed(peer_id)
+	# COOP-01: lights up the previously-scaffolded GameEvents.player_downed signal on every
+	# peer. emit_player_downed is @rpc("authority", ...), so only the host may call .rpc() —
+	# guard to host-authoritative sites only (acceptance criteria, Task 2d).
+	if multiplayer.is_server():
+		GameEvents.emit_player_downed.rpc(peer_id)
 
 ## Called by Game.gd when host confirms revive complete (via receive_revive RPC — see Plan 05)
 func revive() -> void:
 	health = MAX_HP >> 1  # revive with 50% HP (bit-shift avoids int-division warning)
 	is_downed = false
+	# COOP-03: lights up the previously-scaffolded GameEvents.player_revived signal — see the
+	# emit_player_downed guard comment above (host-authoritative sites only).
+	if multiplayer.is_server():
+		GameEvents.emit_player_revived.rpc(peer_id)
 
-## HLTH-06: Update ReviveBar on this player node (called by Game.gd revive accumulator via RPC)
+## HLTH-06/COOP-02/D-18: Update ReviveBar (local UI) AND a world-space blue progress ring
+## drawn on self via draw_arc — team-visible (called by Game.gd revive accumulator via RPC).
 ## progress: 0.0 to 1.0
-## @rpc("any_peer") so host can push update to the owning peer's client (HLTH-06 replication fix)
-@rpc("any_peer", "call_remote", "reliable")
+## Widened any_peer/call_remote -> any_peer/call_local (COOP-02, T-10-22 mitigation): Player
+## nodes are deterministically named Player_%d, so the broadcast resolves the same self node
+## on every peer — the whole team sees the ring, not just the target's own client.
+@rpc("any_peer", "call_local", "reliable")
 func set_revive_progress(progress: float) -> void:
 	if has_node("ReviveBar"):
 		$ReviveBar.visible = progress > 0.0
 		$ReviveBar.value = progress * 100.0
+	_revive_ring_progress = progress
+	_ensure_revive_ring()
+	_revive_ring.queue_redraw()
+
+## COOP-02/D-18: lazily creates the world-space revive-ring child Node2D and wires its
+## `draw` signal — the CanvasItem custom-draw idiom for a plain Node2D: draw_* calls made
+## from a function connected to `draw` apply to that same CanvasItem during its draw phase.
+func _ensure_revive_ring() -> void:
+	if _revive_ring != null:
+		return
+	_revive_ring = Node2D.new()
+	_revive_ring.name = "ReviveRing"
+	_revive_ring.z_index = 3
+	add_child(_revive_ring)
+	_revive_ring.draw.connect(_draw_revive_ring)
+
+## Draws the blue revive-progress ring — radius ~28px, 4px stroke, Color(0.30,0.65,1.0),
+## sweeping 0->360 degrees as _revive_ring_progress goes 0->1 (UI-SPEC). Hidden when <= 0.
+func _draw_revive_ring() -> void:
+	if _revive_ring_progress <= 0.0:
+		return
+	const RADIUS: float = 28.0
+	const THICKNESS: float = 4.0
+	var end_angle: float = TAU * clampf(_revive_ring_progress, 0.0, 1.0)
+	_revive_ring.draw_arc(
+		Vector2.ZERO, RADIUS, -PI / 2.0, -PI / 2.0 + end_angle, 32,
+		Color(0.30, 0.65, 1.0), THICKNESS, true
+	)
 
 ## Called by Game.gd attempt_revive when revive duration is complete.
 ## @rpc("any_peer") allows host (any_peer) to send this to the owning peer.
