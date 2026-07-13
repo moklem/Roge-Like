@@ -41,7 +41,7 @@ layout_mode = 2
 
 [node name="Card0Border" type="ColorRect" parent="OverlayBackground/OverlayContainer/CardsRow/Card0"]
 layout_mode = 2
-color = Color(0.35, 0.35, 0.4, 1)
+color = Color(0, 0, 0, 0)
 
 [node name="Card0Inner" type="VBoxContainer" parent="OverlayBackground/OverlayContainer/CardsRow/Card0/Card0Border"]
 anchors_preset = 15
@@ -87,7 +87,7 @@ layout_mode = 2
 
 [node name="Card1Border" type="ColorRect" parent="OverlayBackground/OverlayContainer/CardsRow/Card1"]
 layout_mode = 2
-color = Color(0.35, 0.35, 0.4, 1)
+color = Color(0, 0, 0, 0)
 
 [node name="Card1Inner" type="VBoxContainer" parent="OverlayBackground/OverlayContainer/CardsRow/Card1/Card1Border"]
 anchors_preset = 15
@@ -133,7 +133,7 @@ layout_mode = 2
 
 [node name="Card2Border" type="ColorRect" parent="OverlayBackground/OverlayContainer/CardsRow/Card2"]
 layout_mode = 2
-color = Color(0.35, 0.35, 0.4, 1)
+color = Color(0, 0, 0, 0)
 
 [node name="Card2Inner" type="VBoxContainer" parent="OverlayBackground/OverlayContainer/CardsRow/Card2/Card2Border"]
 anchors_preset = 15
