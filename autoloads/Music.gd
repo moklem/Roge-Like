@@ -31,7 +31,7 @@ var _volume_db: float = -12.0
 
 func _ready() -> void:
 	_player = AudioStreamPlayer.new()
-	_player.bus = "Master"
+	_player.bus = "Music"
 	add_child(_player)
 	_player.finished.connect(_on_finished)
 

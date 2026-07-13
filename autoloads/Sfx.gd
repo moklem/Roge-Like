@@ -18,7 +18,7 @@ var _hit: AudioStream = null
 func _ready() -> void:
 	for _i in range(POOL_SIZE):
 		var p := AudioStreamPlayer.new()
-		p.bus = "Master"
+		p.bus = "SFX"
 		add_child(p)
 		_players.append(p)
 	_shoot = _try_load("res://assets/audio/sfx/shoot.wav")
