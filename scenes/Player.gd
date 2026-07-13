@@ -235,11 +235,27 @@ func update_camera_limits(sub_room_rect_px: Rect2) -> void:
 ## Tracks last-seen health so _process can fire a heal particle burst when it rises (all peers).
 var _last_health_seen: int = -1
 
+## DMG-04/D-07: Reddish ghost overlay child of $HealthBar, same treatment as Enemy.gd's
+## _health_ghost (Plan 10-03) — spans old→new HP value and shrinks toward the new-value
+## edge while fading to alpha 0 over ~0.4s. Created lazily on first damage frame.
+var _health_ghost: ColorRect = null
+var _health_ghost_tween: Tween = null
+
+## Tracks previous is_picking_card value so _process can fire the level-up burst only on
+## the false→true rising edge (PROG-01/D-13).
+var _last_picking_card: bool = false
+
+## DMG-02: guards the per-frame downed-tint/idle modulate reset below (both the
+## _uses_char_sprite and non-char paths write modulate unconditionally every frame) so it
+## does not fight the Juice.flash tween applied to the same node on a damage frame — without
+## this, the flash color would be overwritten on the very next _process call.
+var _hit_flash_active: bool = false
+
 func _process(_delta: float) -> void:
 	# AUTOBONK: drive animated character art (walk/idle, flip, stage) on all peers
 	if _uses_char_sprite:
 		_update_char_visual(_delta)
-	else:
+	elif not _hit_flash_active:
 		# D-12: downed visual tint runs on ALL peers from synced is_downed value
 		if is_downed:
 			$Sprite.modulate = Color(0.4, 0.4, 0.4)   # grayscale tint
@@ -252,6 +268,18 @@ func _process(_delta: float) -> void:
 	# Mirrors the Enemy.gd _last_hp_seen hit-cue pattern. -1 sentinel skips the first frame.
 	if _last_health_seen >= 0 and health > _last_health_seen:
 		_spawn_heal_particles()
+	# DMG-02/DMG-03/DMG-04 (D-06, D-07, Pitfall 5): damage cue on every peer (hit-flash + HP
+	# ghost-chip react to the already-replicated health value), but screen shake is gated to
+	# the local authority peer's own Camera2D so a teammate's hit never shakes your screen.
+	if _last_health_seen >= 0 and health < _last_health_seen:
+		Juice.flash($CharSprite if _uses_char_sprite else $Sprite, Color(1.0, 0.3, 0.25, 1.0), 0.15)
+		_hit_flash_active = true
+		get_tree().create_timer(0.15).timeout.connect(func() -> void:
+			_hit_flash_active = false
+		)
+		_update_health_ghost(_last_health_seen, health)
+		if is_multiplayer_authority():
+			Juice.add_trauma(0.25)
 	_last_health_seen = health
 	# Phase 6 D-10: LevelUpLabel driven by synced is_picking_card (visible on ALL peers)
 	if has_node("LevelUpLabel"):
@@ -259,6 +287,11 @@ func _process(_delta: float) -> void:
 		if is_picking_card:
 			# TEAM XP: everyone levels together — label shows who is still choosing
 			$LevelUpLabel.text = "%s is choosing..." % role_label
+	# PROG-01/D-13: element-colored level-up burst on the is_picking_card rising edge.
+	# is_picking_card is already replicated, so this fires on every peer with zero new RPC.
+	if is_picking_card and not _last_picking_card:
+		Juice.spawn_burst(global_position, Juice.element_color(element))
+	_last_picking_card = is_picking_card
 	# Driver Mode: count the active effect down on every peer so all mult copies reset in sync.
 	_tick_driver_effect(_delta)
 
@@ -314,6 +347,40 @@ func _spawn_heal_particles() -> void:
 	p.emitting = true
 	add_child(p)
 	p.finished.connect(p.queue_free)
+
+## DMG-04/D-07: Positions the ghost overlay to span the just-lost HP segment (old_hp→new_hp)
+## and tweens it to shrink toward the new-value edge while fading to alpha 0 over ~0.4s. The
+## primary $HealthBar.value already snapped to the new percentage this same frame (above).
+## Mirrors Enemy.gd's _update_health_ghost (Plan 10-03) so both bars read identically.
+func _update_health_ghost(old_hp: int, new_hp: int) -> void:
+	if not has_node("HealthBar"):
+		return
+	if _health_ghost == null:
+		# Created lazily as a child of $HealthBar so its local coordinate space matches the
+		# ProgressBar's 0..size.x == value 0..100 range.
+		_health_ghost = ColorRect.new()
+		_health_ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_health_ghost.visible = false
+		$HealthBar.add_child(_health_ghost)
+	var bar: ProgressBar = $HealthBar
+	var bar_size: Vector2 = bar.size
+	var old_pct: float = clampf(float(old_hp) / float(MAX_HP), 0.0, 1.0)
+	var new_pct: float = clampf(float(new_hp) / float(MAX_HP), 0.0, 1.0)
+	var old_x: float = old_pct * bar_size.x
+	var new_x: float = new_pct * bar_size.x
+	if _health_ghost_tween != null and _health_ghost_tween.is_valid():
+		_health_ghost_tween.kill()
+	_health_ghost.color = Color(1.0, 0.3, 0.25, 0.85)
+	_health_ghost.position = Vector2(new_x, 0.0)
+	_health_ghost.size = Vector2(maxf(old_x - new_x, 0.0), bar_size.y)
+	_health_ghost.visible = true
+	_health_ghost_tween = create_tween()
+	_health_ghost_tween.set_parallel(true)
+	_health_ghost_tween.tween_property(_health_ghost, "size:x", 0.0, 0.4)
+	_health_ghost_tween.tween_property(_health_ghost, "color:a", 0.0, 0.4)
+	_health_ghost_tween.chain().tween_callback(func() -> void:
+		_health_ghost.visible = false
+	)
 
 # ------------------------------------------------------------------------------
 # Driver Mode — per-sub-room team-wide timed effect (CarHUD "Driver Mode: …")
@@ -810,7 +877,10 @@ func _update_char_visual(delta_t: float) -> void:
 		spr.play(anim)
 	# Normalized size per stage (also re-applies on evolution and mirrors the offset on flip)
 	_apply_char_fit(stage, spr)
-	spr.modulate = Color(0.4, 0.4, 0.4) if is_downed else Color.WHITE
+	# DMG-02: skip the per-frame modulate reset while a hit-flash tween owns it (see
+	# _hit_flash_active doc comment near _process).
+	if not _hit_flash_active:
+		spr.modulate = Color(0.4, 0.4, 0.4) if is_downed else Color.WHITE
 
 func _swap_stage_visual(stage: int) -> void:
 	_update_xp_hud()
