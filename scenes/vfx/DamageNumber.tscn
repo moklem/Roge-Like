@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3]
 
-[ext_resource path="res://scenes/vfx/DamageNumber.gd" id="1_dmgnum"]
+[ext_resource type="Script" path="res://scenes/vfx/DamageNumber.gd" id="1_dmgnum"]
 
 [node name="DamageNumber" type="Label"]
 offset_left = -60.0
