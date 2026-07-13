@@ -235,6 +235,12 @@ func update_camera_limits(sub_room_rect_px: Rect2) -> void:
 ## Tracks last-seen health so _process can fire a heal particle burst when it rises (all peers).
 var _last_health_seen: int = -1
 
+## DMG-04/D-07: Reddish ghost overlay child of $HealthBar, same treatment as Enemy.gd's
+## _health_ghost (Plan 10-03) — spans old→new HP value and shrinks toward the new-value
+## edge while fading to alpha 0 over ~0.4s. Created lazily on first damage frame.
+var _health_ghost: ColorRect = null
+var _health_ghost_tween: Tween = null
+
 ## DMG-02: guards the per-frame downed-tint/idle modulate reset below (both the
 ## _uses_char_sprite and non-char paths write modulate unconditionally every frame) so it
 ## does not fight the Juice.flash tween applied to the same node on a damage frame — without
@@ -267,6 +273,7 @@ func _process(_delta: float) -> void:
 		get_tree().create_timer(0.15).timeout.connect(func() -> void:
 			_hit_flash_active = false
 		)
+		_update_health_ghost(_last_health_seen, health)
 		if is_multiplayer_authority():
 			Juice.add_trauma(0.25)
 	_last_health_seen = health
@@ -331,6 +338,40 @@ func _spawn_heal_particles() -> void:
 	p.emitting = true
 	add_child(p)
 	p.finished.connect(p.queue_free)
+
+## DMG-04/D-07: Positions the ghost overlay to span the just-lost HP segment (old_hp→new_hp)
+## and tweens it to shrink toward the new-value edge while fading to alpha 0 over ~0.4s. The
+## primary $HealthBar.value already snapped to the new percentage this same frame (above).
+## Mirrors Enemy.gd's _update_health_ghost (Plan 10-03) so both bars read identically.
+func _update_health_ghost(old_hp: int, new_hp: int) -> void:
+	if not has_node("HealthBar"):
+		return
+	if _health_ghost == null:
+		# Created lazily as a child of $HealthBar so its local coordinate space matches the
+		# ProgressBar's 0..size.x == value 0..100 range.
+		_health_ghost = ColorRect.new()
+		_health_ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_health_ghost.visible = false
+		$HealthBar.add_child(_health_ghost)
+	var bar: ProgressBar = $HealthBar
+	var bar_size: Vector2 = bar.size
+	var old_pct: float = clampf(float(old_hp) / float(MAX_HP), 0.0, 1.0)
+	var new_pct: float = clampf(float(new_hp) / float(MAX_HP), 0.0, 1.0)
+	var old_x: float = old_pct * bar_size.x
+	var new_x: float = new_pct * bar_size.x
+	if _health_ghost_tween != null and _health_ghost_tween.is_valid():
+		_health_ghost_tween.kill()
+	_health_ghost.color = Color(1.0, 0.3, 0.25, 0.85)
+	_health_ghost.position = Vector2(new_x, 0.0)
+	_health_ghost.size = Vector2(maxf(old_x - new_x, 0.0), bar_size.y)
+	_health_ghost.visible = true
+	_health_ghost_tween = create_tween()
+	_health_ghost_tween.set_parallel(true)
+	_health_ghost_tween.tween_property(_health_ghost, "size:x", 0.0, 0.4)
+	_health_ghost_tween.tween_property(_health_ghost, "color:a", 0.0, 0.4)
+	_health_ghost_tween.chain().tween_callback(func() -> void:
+		_health_ghost.visible = false
+	)
 
 # ------------------------------------------------------------------------------
 # Driver Mode — per-sub-room team-wide timed effect (CarHUD "Driver Mode: …")
