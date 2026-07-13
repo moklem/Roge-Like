@@ -251,6 +251,12 @@ var _last_picking_card: bool = false
 ## this, the flash color would be overwritten on the very next _process call.
 var _hit_flash_active: bool = false
 
+## ABIL-02/D-20: Speedster dash afterimage trail — tracks the dash_invincible edge and
+## throttles ghost spawn rate so a single 0.3s dash produces ~3-4 fading ghosts, not one
+## per frame.
+var _last_dash_invincible: bool = false
+var _afterimage_timer: float = 0.0
+
 func _process(_delta: float) -> void:
 	# AUTOBONK: drive animated character art (walk/idle, flip, stage) on all peers
 	if _uses_char_sprite:
@@ -292,6 +298,14 @@ func _process(_delta: float) -> void:
 	if is_picking_card and not _last_picking_card:
 		Juice.spawn_burst(global_position, Juice.element_color(element))
 	_last_picking_card = is_picking_card
+	# ABIL-02/D-20: Speedster dash afterimage trail — dash_invincible is already replicated,
+	# so this fires in the every-peer _process with zero new RPC and shows on all screens.
+	if dash_invincible:
+		_afterimage_timer -= _delta
+		if _afterimage_timer <= 0.0 or not _last_dash_invincible:
+			_afterimage_timer = 0.08  # ~3-4 ghosts over the 0.3s dash
+			_spawn_dash_afterimage()
+	_last_dash_invincible = dash_invincible
 	# Driver Mode: count the active effect down on every peer so all mult copies reset in sync.
 	_tick_driver_effect(_delta)
 
@@ -731,6 +745,38 @@ func _do_dash() -> void:
 		dir = Vector2.RIGHT  # fallback direction when no input held
 	velocity = dir * SPEED * DASH_MULT
 	move_and_slide()  # apply burst immediately
+
+## ABIL-02/D-20: Speedster dash afterimage — a lightweight ghost copy of the current
+## visual, parented to FxLayer (Juice._fx_layer) and faded out over ~0.3s. Runs from the
+## every-peer _process diff on dash_invincible, so every screen sees the trail with no RPC.
+## Degrades to a no-op if FxLayer isn't present yet.
+func _spawn_dash_afterimage() -> void:
+	var layer := Juice._fx_layer()
+	if layer == null:
+		return
+	var ghost: CanvasItem
+	if _uses_char_sprite:
+		var spr: AnimatedSprite2D = $CharSprite
+		var g := Sprite2D.new()
+		g.texture = spr.sprite_frames.get_frame_texture(spr.animation, spr.frame)
+		g.flip_h = spr.flip_h
+		g.scale = spr.scale
+		g.offset = spr.offset
+		ghost = g
+	else:
+		var rect := $Sprite as ColorRect
+		var g2 := ColorRect.new()
+		g2.color = rect.color
+		g2.size = rect.size
+		g2.position = -rect.size / 2.0  # center the rect on the captured position
+		ghost = g2
+	layer.add_child(ghost)
+	ghost.z_index = 1
+	ghost.global_position = global_position
+	ghost.modulate = Color(1.0, 1.0, 1.0, 0.5)
+	var tween := ghost.create_tween()
+	tween.tween_property(ghost, "modulate:a", 0.0, 0.3)
+	tween.tween_callback(ghost.queue_free)
 
 ## Spawn the Speedster Stage-2 shockwave at the landing position.
 ## Visual: yellow expanding ring (clone of HornShockwave._show_visual, RADIUS=80, yellow).
