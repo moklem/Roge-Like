@@ -28,6 +28,14 @@ var _slow_timer: float = 0.0        # counts down slow duration
 var _burn_timer: float = 0.0        # counts down burn duration (max 3 sec)
 var _burn_tick_timer: float = 0.0   # 1-sec interval for burn damage ticks
 
+## Phase 10-08/ABIL-01: Synced via MultiplayerSynchronizer (SceneReplicationConfig
+## properties/3, properties/4). Set/cleared host-only inside apply_burn()/apply_slow()/
+## _tick_status_effects() exactly where the tint used to be written directly — the DoT
+## tick and speed_multiplier math stay host-only; only these flags' VISIBILITY replicates
+## so _process (below, runs on every peer) can react with the tint/element VFX on clients too.
+var is_burning: bool = false
+var is_slowed: bool = false
+
 ## CMBT-08: Signal for Game.gd to spawn XP orb at death position
 signal died(pos: Vector2)
 
@@ -71,6 +79,39 @@ func _ready() -> void:
 		_health_ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_health_ghost.visible = false
 		$HealthBar.add_child(_health_ghost)
+	# ABIL-06/D-19: cosmetic-only materialize telegraph. _ready() is not authority-gated,
+	# so this plays identically on every peer; the enemy is fully active immediately —
+	# zero authoritative gameplay delay.
+	_play_spawn_telegraph()
+
+## ABIL-06/D-19: ~0.4s fade-in (modulate.a 0 -> resting) plus a brief expanding neutral
+## ground ring parented to FxLayer (never to the enemy — Pitfall 3/4). Purely cosmetic:
+## no RPC, no gameplay gating. EliteEnemy/Boss inherit this via super._ready() with no
+## subclass edit required.
+func _play_spawn_telegraph() -> void:
+	var resting_alpha: float = modulate.a
+	modulate.a = 0.0
+	var fade_tween := create_tween()
+	fade_tween.set_ignore_time_scale(true)
+	fade_tween.tween_property(self, "modulate:a", resting_alpha, 0.4)
+	var layer: Node2D = get_node_or_null("/root/Game/FxLayer") as Node2D
+	if layer == null:
+		return
+	const RING_RADIUS: float = 20.0
+	var ring := ColorRect.new()
+	ring.color = Color(1.0, 1.0, 1.0, 0.6)  # neutral/pale — enemy identity isn't meaningful yet (D-19)
+	ring.size = Vector2(RING_RADIUS * 2.0, RING_RADIUS * 2.0)
+	ring.pivot_offset = Vector2(RING_RADIUS, RING_RADIUS)
+	ring.position = global_position - Vector2(RING_RADIUS, RING_RADIUS)
+	ring.scale = Vector2(0.2, 0.2)
+	layer.add_child(ring)
+	var ring_tween := ring.create_tween()
+	ring_tween.set_ignore_time_scale(true)
+	ring_tween.tween_property(ring, "scale", Vector2(1.2, 1.2), 0.25)
+	ring_tween.parallel().tween_property(ring, "modulate:a", 0.3, 0.25)
+	ring_tween.tween_property(ring, "scale", Vector2(1.0, 1.0), 0.15)
+	ring_tween.parallel().tween_property(ring, "modulate:a", 0.0, 0.15)
+	ring_tween.tween_callback(ring.queue_free)
 
 ## Swap the ColorRect placeholder for the animated art and normalize its size: measure the
 ## opaque bounding box of the idle frame (same approach as Player._compute_char_fit) so the
@@ -121,6 +162,18 @@ func _update_enemy_visual(delta_t: float) -> void:
 func _process(_delta: float) -> void:
 	if has_node("HealthBar"):
 		$HealthBar.value = float(current_hp) / float(MAX_HP) * 100.0
+	# ABIL-01 fix: react to the now-replicated is_burning/is_slowed flags. Only the RGB
+	# channels are driven here (alpha is left untouched) so this never fights the spawn-
+	# telegraph fade-in tween (which animates modulate:a) or a HitFlash tween in flight —
+	# both restore/animate the full modulate, and this reasserts the resting tint as soon
+	# as they finish, so the two never end up in a persistent tug-of-war.
+	var status_tint: Color = Color.WHITE
+	if is_burning:
+		status_tint = Color(1.0, 0.6, 0.2)  # orange tint
+	elif is_slowed:
+		status_tint = Color(0.5, 0.7, 1.0)  # blue tint
+	if modulate.r != status_tint.r or modulate.g != status_tint.g or modulate.b != status_tint.b:
+		modulate = Color(status_tint.r, status_tint.g, status_tint.b, modulate.a)
 	# Subtle hit cue on damage. current_hp is replicated, so this fires on every peer
 	# (host applies damage directly; clients see the synced drop) for any damage source.
 	if current_hp < _last_hp_seen:
@@ -130,16 +183,27 @@ func _process(_delta: float) -> void:
 		var dmg: int = _last_hp_seen - current_hp
 		Juice.spawn_damage_number(global_position, dmg, _damage_number_color(), get_instance_id())
 		Juice.flash(self, Color(2, 2, 2, 1), 0.1)
+		# DMG-07/D-05: burst-only (~0.4s) element hit VFX for burning/slowed enemies, reusing
+		# the shared bounded Juice.spawn_burst/FxLayer pool — no second uncapped spawn path.
+		# Reads the now-replicated flags, so this renders identically on host and client.
+		if is_burning or is_slowed:
+			Juice.spawn_burst(global_position, _damage_number_color(), 8, 0.4)
 		# DMG-04/D-07: HP bar ghost chip-away for the segment just lost.
 		_update_health_ghost(_last_hp_seen, current_hp)
 	_last_hp_seen = current_hp
 	if _uses_char_sprite:
 		_update_enemy_visual(_delta)
 
-## Damage-number color hook. Always white for now; Plan 10-08 extends this to read
-## is_burning/is_slowed once those flags are replicated, kept as its own function so that
-## extension is purely additive.
+## Damage-number color hook (DMG-07/D-02). Reads the replicated is_burning/is_slowed flags
+## (ABIL-01) so numbers/bursts are element-colored via the shared Juice.element_color lookup
+## — never a hand-rolled second color table. Earth applies no per-hit enemy status, so an
+## earth-dealt basic hit falls through to neutral white here (earth's green lives at its own
+## ability presentation sites per the locked "no new synced state" constraint).
 func _damage_number_color() -> Color:
+	if is_burning:
+		return Juice.element_color("fire")
+	if is_slowed:
+		return Juice.element_color("ice")
 	return Color.WHITE
 
 ## DMG-04/D-07: Positions the ghost overlay to span the just-lost HP segment (old_hp→new_hp)
@@ -231,14 +295,18 @@ func _exit_tree() -> void:
 	var stop_dur: float = 0.12 if (is_elite or has_method("_enter_phase")) else 0.07
 	Juice.hitstop(stop_dur)
 
-## Phase 5: Status effect tick — called from _physics_process (host-only via P6 guard)
+## Phase 5: Status effect tick — called from _physics_process (host-only via P6 guard).
+## Phase 10-08/ABIL-01: sets/clears the replicated is_burning/is_slowed flags exactly where
+## the tint used to be written directly — the actual tint REACTION now lives in _process
+## (runs on every peer) so clients see it too. This DoT tick / speed_multiplier math stays
+## host-only and untouched.
 func _tick_status_effects(delta: float) -> void:
 	# Ice Slow countdown
 	if _slow_timer > 0.0:
 		_slow_timer -= delta
 		if _slow_timer <= 0.0:
 			speed_multiplier = 1.0
-			modulate = Color.WHITE  # clear blue tint
+			is_slowed = false  # clears the replicated flag; _process reacts on every peer
 	# Burn DoT countdown
 	if _burn_timer > 0.0:
 		_burn_timer -= delta
@@ -247,21 +315,21 @@ func _tick_status_effects(delta: float) -> void:
 			_burn_tick_timer = 1.0
 			take_damage(5)  # 5 damage/sec — D-17; take_damage already has authority guard
 		if _burn_timer <= 0.0:
-			modulate = Color.WHITE  # clear orange tint
+			is_burning = false  # clears the replicated flag; _process reacts on every peer
 
 ## Phase 5: Apply Burn DoT to this enemy (D-17). Called by Bullet.gd on host after proc check.
 ## Burns do not stack — refresh duration (D-17).
 func apply_burn() -> void:
 	_burn_timer = 3.0
 	_burn_tick_timer = 1.0
-	modulate = Color(1.0, 0.6, 0.2)  # orange tint
+	is_burning = true  # ABIL-01: replicated flag; _process (every peer) applies the orange tint
 
 ## Phase 5: Apply Ice Slow to this enemy (D-18). Called by Bullet.gd on host after proc check.
 ## Slows to 50% speed for 2 seconds.
 func apply_slow() -> void:
 	speed_multiplier = 0.5
 	_slow_timer = 2.0
-	modulate = Color(0.5, 0.7, 1.0)  # blue tint
+	is_slowed = true  # ABIL-01: replicated flag; _process (every peer) applies the blue tint
 
 ## D-10: Host-only contact damage — once per contact
 func _on_hurtbox_body_entered(body: Node) -> void:
