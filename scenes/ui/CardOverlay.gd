@@ -1,9 +1,9 @@
 extends CanvasLayer
 ## Phase 6 (XP-02, XP-03, D-06/D-08/D-09): 3-card level-up selection overlay.
 ## Local CanvasLayer — no SceneTree.paused (W4). Driven by Player.gd.
-## Phase 10 (D-12): comic paper/ink restyle. Shared by BOTH the level-up card pick and
-## the sub-room weapon-choice presentation — one component, restyled once, both call
-## sites inherit the look.
+## Phase 10 (D-12): comic paper/ink restyle. Phase 10 (PROG-02): pop/scale-in entrance.
+## Shared by BOTH the level-up card pick and the sub-room weapon-choice presentation —
+## one component, restyled once, both call sites inherit the look and the pop-in.
 
 var _cards: Array = []
 var _selected: int = 0
@@ -75,11 +75,39 @@ func show_cards(cards: Array, title: String = "LEVEL UP — PICK A CARD") -> voi
 	if title_lbl:
 		title_lbl.text = title
 	_refresh_display()
+	_play_pop_in()
+
+## PROG-02/D-12: pop/scale-in entrance — local CanvasLayer Tween only, never a tree pause,
+## no RPC. Both card-pick call sites (level-up + sub-room weapon choice) share this since
+## they both call the single show_cards() above.
+func _play_pop_in() -> void:
+	var bg: ColorRect = get_node_or_null("OverlayBackground")
+	var container: Control = get_node_or_null("OverlayBackground/OverlayContainer")
+	if bg:
+		bg.color.a = 0.0
+	if container:
+		container.pivot_offset = container.size * 0.5
+		container.scale = Vector2(0.7, 0.7)
 	visible = true
+	var tween := create_tween()
+	if bg:
+		tween.tween_property(bg, "color:a", 0.55, 0.15)
+	if container:
+		tween.parallel().tween_property(container, "scale", Vector2(1.05, 1.05), 0.18) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tween.tween_property(container, "scale", Vector2.ONE, 0.07) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func hide_overlay() -> void:
 	visible = false
 	_cards = []
+	# Reset to resting values so the next show_cards() re-triggers a clean pop-in.
+	var bg: ColorRect = get_node_or_null("OverlayBackground")
+	var container: Control = get_node_or_null("OverlayBackground/OverlayContainer")
+	if bg:
+		bg.color.a = 0.55
+	if container:
+		container.scale = Vector2.ONE
 
 func navigate(direction: int) -> void:
 	if _cards.is_empty():
