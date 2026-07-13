@@ -989,13 +989,15 @@ func receive_damage(amount: int, attacker_path: String = "", from_elite: bool = 
 	if from_elite:
 		var game := get_node_or_null("/root/Game")
 		if game and game.has_method("notify_significant_hit"):
+			# COOP-05/D-16: thread global_position through so the team-visible big_hit
+			# broadcast renders at the actual hit location (Open Question 2, 10-RESEARCH.md).
 			if multiplayer.is_server():
 				# Host owns this player: call directly (no self-RPC needed)
-				game.notify_significant_hit()
+				game.notify_significant_hit(global_position)
 			else:
 				# Client owns this player: route to host via rpc_id(1)
 				# Mirrors Enemy.gd lines 135-138 and confirm_card_pick host-routing pattern
-				game.notify_significant_hit.rpc_id(1)
+				game.notify_significant_hit.rpc_id(1, global_position)
 	if health <= 0:
 		health = 0
 		_enter_downed()

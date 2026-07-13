@@ -138,6 +138,9 @@ func _ready() -> void:
 	# NOT inside $HUD — CarHUD is layer=3, must not conflict with existing HUD CanvasLayer
 	var _car_hud := CAR_HUD_SCENE.instantiate()
 	add_child(_car_hud)
+	# COOP-05/D-16: renders the team-visible big-hit cue on every peer (mirrors the
+	# GameEvents.driver_mode.connect precedent in Player.gd:126 / CarHUD.gd:38).
+	GameEvents.big_hit.connect(_on_big_hit)
 	# Phase 7 Plan 03 (D-13): Initialize elite spawn interval; host timer uses randf_range(45, 90)
 	_elite_spawn_interval = randf_range(45.0, 90.0)
 
@@ -941,8 +944,11 @@ func attempt_revive(reviver_id: int, target_id: int) -> void:
 ## Pattern: mirrors confirm_card_pick (any_peer + is_server() guard + host broadcast).
 ## T-07-07: @rpc("any_peer","call_remote","reliable") allows client-owned players to notify
 ## host; host validates by guard and emits the broadcast — clients cannot emit directly.
+## COOP-05/D-16: `pos` threads the hit position through (Open Question 2, 10-RESEARCH.md) so
+## the debounce-gated big_hit broadcast can render at the actual hit location. Defaults to
+## Vector2.INF (no-op sentinel) so any legacy caller without a position stays a safe no-op.
 @rpc("any_peer", "call_remote", "reliable")
-func notify_significant_hit() -> void:
+func notify_significant_hit(pos: Vector2 = Vector2.INF) -> void:
 	if not multiplayer.is_server():
 		return  # host-only guard (T-07-07: client request received, host decides to broadcast)
 	# Debounce: a chasing elite repeatedly exits/re-enters a player's hurtbox, which would
@@ -954,15 +960,27 @@ func notify_significant_hit() -> void:
 	_last_suspension_emit = now
 	# Host is authority for GameEvents.emit_hud (D-07, Pitfall 1 in RESEARCH.md)
 	GameEvents.emit_hud.rpc("suspension")
+	# COOP-05/D-16: team-visible big-hit broadcast at the hit position, still host-authoritative
+	# and still gated by the same debounce (T-10-23 mitigation — clients cannot originate it).
+	if pos != Vector2.INF:
+		GameEvents.emit_big_hit.rpc(pos)
 
-## HLTH-06: Push revive bar update to the owning peer — Player.set_revive_progress is an RPC
+## HLTH-06/COOP-02/D-18: Broadcast revive bar update to EVERY peer — Player.set_revive_progress
+## is now any_peer/call_local (widened Task 2, T-10-22 mitigation: Player nodes are
+## deterministically named Player_%d, so the broadcast resolves the same self node on every
+## peer), so the whole team sees the revive ring, not just the target's own client.
 func _update_revive_bar(target_id: int, progress: float) -> void:
 	for p in get_tree().get_nodes_in_group("players"):
 		if p.peer_id == target_id:
-			# set_revive_progress is @rpc("any_peer", "call_remote", "reliable") on Player.gd.
-			# Host calls it via rpc_id so the update reaches the owning peer's client.
-			p.set_revive_progress.rpc_id(target_id, progress)
+			p.set_revive_progress.rpc(progress)
 			break
+
+## COOP-05/D-16: GameEvents.big_hit fires call_local from the host-authoritative
+## notify_significant_hit debounce — renders the shared cue on every peer at the hit position.
+## Reuses the shared Juice.spawn_burst/ImpactBurst builder (T-10-24 mitigation: bounded,
+## backstop-cleaned FxLayer burst — no new particle factory).
+func _on_big_hit(pos: Vector2) -> void:
+	Juice.spawn_burst(pos, Color(1.0, 1.0, 1.0, 1.0), 20, 0.5)
 
 # ==============================================================================
 # WEAPON UNLOCK (WEAP-02, WEAP-03)
