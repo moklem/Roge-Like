@@ -257,6 +257,9 @@ var _hit_flash_active: bool = false
 var _last_dash_invincible: bool = false
 var _afterimage_timer: float = 0.0
 
+## ABIL-04/D-20: Tank aura ring pulse — fires once on the shield_active false->true edge.
+var _last_shield_active: bool = false
+
 func _process(_delta: float) -> void:
 	# AUTOBONK: drive animated character art (walk/idle, flip, stage) on all peers
 	if _uses_char_sprite:
@@ -306,6 +309,11 @@ func _process(_delta: float) -> void:
 			_afterimage_timer = 0.08  # ~3-4 ghosts over the 0.3s dash
 			_spawn_dash_afterimage()
 	_last_dash_invincible = dash_invincible
+	# ABIL-04/D-20: Tank aura ring pulse — shield_active is already replicated; fires only
+	# on the rising edge (no RPC, no gameplay change).
+	if shield_active and not _last_shield_active:
+		_spawn_aura_pulse()
+	_last_shield_active = shield_active
 	# Driver Mode: count the active effect down on every peer so all mult copies reset in sync.
 	_tick_driver_effect(_delta)
 
@@ -342,7 +350,10 @@ func _physics_process(delta: float) -> void:
 	# HLTH-05: Check revive input (R key) each frame
 	_check_revive(delta)
 
-## One-shot green particle burst at the player — self-frees when finished.
+## ABIL-03/COOP-04/D-20: One-shot green sparkle rise at the player — self-frees when
+## finished. Fired from the every-peer `_process` health-increase diff (never gated behind
+## is_multiplayer_authority()), so every teammate sees the heal, satisfying COOP-04's
+## team-visible healing per D-17.
 func _spawn_heal_particles() -> void:
 	var p := CPUParticles2D.new()
 	p.one_shot = true
@@ -709,6 +720,27 @@ func _show_shield_ring() -> void:
 func _hide_shield_ring() -> void:
 	if _shield_ring and is_instance_valid(_shield_ring):
 		_shield_ring.visible = false
+
+## ABIL-04/D-20: expanding soft ring pulse in the aura's established blue on the
+## shield_active rising edge (mirrors _show_dash_shockwave's scale+fade tween shape).
+## Parented to FxLayer (Juice._fx_layer), not to the player, so it survives the player
+## despawning mid-tween; degrades to a no-op if FxLayer isn't present yet.
+func _spawn_aura_pulse() -> void:
+	var layer := Juice._fx_layer()
+	if layer == null:
+		return
+	const RADIUS: float = 40.0
+	var ring := ColorRect.new()
+	ring.color = Color(0.3, 0.6, 1.0, 0.6)  # aura blue, softer than the solid shield ring
+	ring.size = Vector2(RADIUS * 2.0, RADIUS * 2.0)
+	ring.pivot_offset = Vector2(RADIUS, RADIUS)
+	ring.scale = Vector2(0.3, 0.3)
+	layer.add_child(ring)
+	ring.global_position = global_position - Vector2(RADIUS, RADIUS)
+	var tween := ring.create_tween()
+	tween.tween_property(ring, "scale", Vector2(1.6, 1.6), 0.4)
+	tween.parallel().tween_property(ring, "modulate:a", 0.0, 0.4)
+	tween.tween_callback(ring.queue_free)
 
 ## Stage-2 shield reflection — compute reflect amount and route to host.
 ## Pitfall 3: enemy.take_damage() is host-only; must send RPC to host if we're a client.
