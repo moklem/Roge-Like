@@ -241,6 +241,10 @@ var _last_health_seen: int = -1
 var _health_ghost: ColorRect = null
 var _health_ghost_tween: Tween = null
 
+## Tracks previous is_picking_card value so _process can fire the level-up burst only on
+## the false→true rising edge (PROG-01/D-13).
+var _last_picking_card: bool = false
+
 ## DMG-02: guards the per-frame downed-tint/idle modulate reset below (both the
 ## _uses_char_sprite and non-char paths write modulate unconditionally every frame) so it
 ## does not fight the Juice.flash tween applied to the same node on a damage frame — without
@@ -283,6 +287,11 @@ func _process(_delta: float) -> void:
 		if is_picking_card:
 			# TEAM XP: everyone levels together — label shows who is still choosing
 			$LevelUpLabel.text = "%s is choosing..." % role_label
+	# PROG-01/D-13: element-colored level-up burst on the is_picking_card rising edge.
+	# is_picking_card is already replicated, so this fires on every peer with zero new RPC.
+	if is_picking_card and not _last_picking_card:
+		Juice.spawn_burst(global_position, Juice.element_color(element))
+	_last_picking_card = is_picking_card
 	# Driver Mode: count the active effect down on every peer so all mult copies reset in sync.
 	_tick_driver_effect(_delta)
 
