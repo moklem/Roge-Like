@@ -17,7 +17,7 @@
 | 7 | CarHUD, Loop Timer & Difficulty Scaling | 3/3 | Complete    | 2026-06-19 |
 | 8 | Rooms 2 & 3, Boss | 3/3 | Complete   | 2026-06-22 |
 | 9 | Map Overhaul — TileMap Sub-Rooms | 3/4 | In Progress|  |
-| 10 | Juicy Feedback — Visual & Gameplay Polish | 8/12 | In Progress|  |
+| 10 | Juicy Feedback — Visual & Gameplay Polish | 9/12 | In Progress|  |
 | 11 | Whole-Game Sound Design Pass & Soak-Test Validation | Full sound pass across the entire game (not just Phase 10 juice — most existing actions are currently silent); audio assets depend on human input from the team, this phase wires the trigger-point plumbing; full-loop soak test and multi-peer swarm playtest validate no leaks/no readability breakdown | SFX-01–03 | no |
 
 ---
@@ -599,7 +599,7 @@ Phase numbering continues from Phase 9 (previous milestone's last phase). Consol
 - 20 Hz replication-tick granularity means simultaneous multi-bolt hits landing within one sync tick may under-count as a single merged damage number — accepted scope for this demo, not a bug to chase here
 - Every spawn path across every effect type needs a matching cleanup path plus a defensive backstop timer — orphaned Tween/particle/label nodes accumulate silently over a full 15-minute loop; build this as shared foundational infra in wave 1, don't retrofit per-wave
 
-**Plans:** 8/12 plans executed
+**Plans:** 9/12 plans executed
 
 Plans:
 
@@ -619,7 +619,7 @@ Plans:
 **Wave 3** *(status-fix + elemental/ability — parallel, Enemy vs Player files)*
 
 - [x] 10-08-PLAN.md — Enemy status-sync fix + element hit VFX + spawn telegraph (ABIL-01, DMG-07, ABIL-06)
-- [ ] 10-09-PLAN.md — Ability juice: dash trail, aura pulse, heal sparkle, drone deploy (ABIL-02/03/04/05, COOP-04)
+- [x] 10-09-PLAN.md — Ability juice: dash trail, aura pulse, heal sparkle, drone deploy (ABIL-02/03/04/05, COOP-04)
 
 **Wave 4** *(downed/revive + team broadcast — shares Player.gd with Wave 3)*
 
