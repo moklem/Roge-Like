@@ -17,7 +17,7 @@
 | 7 | CarHUD, Loop Timer & Difficulty Scaling | 3/3 | Complete    | 2026-06-19 |
 | 8 | Rooms 2 & 3, Boss | 3/3 | Complete   | 2026-06-22 |
 | 9 | Map Overhaul — TileMap Sub-Rooms | 3/4 | In Progress|  |
-| 10 | Juicy Feedback — Visual & Gameplay Polish | Full non-sound juice layer — foundational infra, combat feedback, collection/progression feedback, status-fix + elemental/ability juice, downed/revive/team-broadcast juice, and evolution transform closure — as a purely additive presentation layer over the existing core game | SYS-01–03, DMG-01–08, PICK-01–02, PROG-01–03, ABIL-01–06, COOP-01–05 | yes |
+| 10 | Juicy Feedback — Visual & Gameplay Polish | 2/12 | In Progress|  |
 | 11 | Whole-Game Sound Design Pass & Soak-Test Validation | Full sound pass across the entire game (not just Phase 10 juice — most existing actions are currently silent); audio assets depend on human input from the team, this phase wires the trigger-point plumbing; full-loop soak test and multi-peer swarm playtest validate no leaks/no readability breakdown | SFX-01–03 | no |
 
 ---
@@ -535,6 +535,7 @@ Phase numbering continues from Phase 9 (previous milestone's last phase). Consol
 **Goal:** Every player action (combat, collection, progression, abilities, downs/revives, evolution) produces immediate, discernible, satisfying audiovisual feedback across all connected peers — the full non-sound juice layer, implemented as a purely additive presentation layer on top of the already-complete core game with zero changes to authoritative state/logic. This phase covers 27 requirements and is expected to require multiple plans/waves internally (consistent with `coarse` granularity in config.json).
 
 **Suggested internal sequencing (for the planner):**
+
 1. Foundational juice infrastructure — `JuiceManager`/`Juice.gd` autoload, persistent `FxLayer` container, CPUParticles2D-only convention, pooled/capped damage-number spawner and trauma-based shake accumulator, cleanup backstops. No gameplay-file edits in this wave — must exist and be verifiable in isolation before any consuming effect is built.
 2. Combat feedback — floating damage numbers, player hit-flash, capped screen shake, animated HP-bar flash, hit-stop on kill, death particle burst. Lowest-risk, highest-value: almost entirely Pattern-A diff-watch on already-replicated state (`current_hp`/`health`), extending the existing `_last_hp_seen`-style idiom.
 3. Collection & progression feedback — XP orb magnetism (cosmetic ghost-clone flight) + travel-to-bar, level-up burst, and the shared card-overlay pop-in animation (covers both level-up and sub-room weapon-choice presentations, per PROG-02).
@@ -598,14 +599,14 @@ Phase numbering continues from Phase 9 (previous milestone's last phase). Consol
 - 20 Hz replication-tick granularity means simultaneous multi-bolt hits landing within one sync tick may under-count as a single merged damage number — accepted scope for this demo, not a bug to chase here
 - Every spawn path across every effect type needs a matching cleanup path plus a defensive backstop timer — orphaned Tween/particle/label nodes accumulate silently over a full 15-minute loop; build this as shared foundational infra in wave 1, don't retrofit per-wave
 
-**Plans:** 12 plans
+**Plans:** 2/12 plans executed
 
 Plans:
 
 **Wave 1** *(foundational infra)*
 
-- [ ] 10-01-PLAN.md — Juice + Settings autoloads, scenes/vfx/ builders, persistent FxLayer, project.godot registration (SYS-01/02/03)
-- [ ] 10-02-PLAN.md — Music/SFX audio buses (default_bus_layout.tres) + Sfx.gd/Music.gd bus reassignment (DMG-08)
+- [x] 10-01-PLAN.md — Juice + Settings autoloads, scenes/vfx/ builders, persistent FxLayer, project.godot registration (SYS-01/02/03)
+- [x] 10-02-PLAN.md — Music/SFX audio buses (default_bus_layout.tres) + Sfx.gd/Music.gd bus reassignment (DMG-08)
 
 **Wave 2** *(combat + collection/progression, parallel — no file overlap)*
 
@@ -639,6 +640,7 @@ Plans:
 **Goal:** A full sound design pass across the *entire* game, not just the new Phase 10 juice moments — today only two cues exist in the whole project (`shoot()`/`hit()` in `autoloads/Sfx.gd`); the other 5 weapons, role abilities, pickups, UI/menu, room/loop transitions, and boss events are currently silent. **Actual audio asset sourcing/creation depends on human input from the team** — this phase's coding work is the trigger-point plumbing (extending `Sfx.gd`/`Music.gd`, wiring each hook using the existing safe-load pattern so a missing file degrades silently rather than breaking), not authoring audio content. The full milestone is validated with a genuine ~15-minute soak test plus a real multi-peer swarm playtest. This phase is expected to require multiple plans internally (consistent with `coarse` granularity in config.json).
 
 **Suggested internal sequencing (for the planner):**
+
 1. Produce a complete audio-parts checklist covering the whole game (every Phase 10 juice moment PLUS every currently-silent existing action: the other 5 weapons, role abilities, pickups, UI/menu, room/loop transitions, boss phase events) — hand this list to the team so they can source/record/choose the actual sound files; do not fabricate audio content.
 2. Wire the trigger-point plumbing for each cue as files become available, reusing the existing `Sfx.gd` pool-extension + safe-load pattern; onset-only discipline for continuous effects (Fire burn DoT, Earth passive heal tick); reserved/priority voices for must-hear stingers (kill fanfare, evolution, downed/revive), bumping the shared pool size if needed.
 3. Run a full-length (~15-minute) continuous-loop soak test on both host and client roles independently, watching node count for leaks.
