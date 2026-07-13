@@ -791,12 +791,15 @@ func _update_char_visual(delta_t: float) -> void:
 	# Facing: the local player flips by the input direction it is pressing (responds
 	# instantly, even when blocked by a wall). Remote peers have no access to that
 	# input, so they flip by the replicated position delta instead.
+	# Tank stage-2 art is mirrored relative to every other role/stage (drawn facing right,
+	# not left), so its facing flag has to be inverted to match travel direction.
+	var facing_inverted: bool = _sprite_key == "tank" and evolution_stage == 2
 	if is_multiplayer_authority() and not is_downed:
 		var input_dir := Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 		if absf(input_dir.x) > 0.1:
-			spr.flip_h = input_dir.x > 0.0
+			spr.flip_h = (input_dir.x > 0.0) != facing_inverted
 	elif absf(move_delta.x) > 0.5:
-		spr.flip_h = move_delta.x > 0.0
+		spr.flip_h = (move_delta.x > 0.0) != facing_inverted
 	if move_delta.length() > 0.5:
 		_move_timer = 0.15
 	else:

@@ -37,7 +37,7 @@ var _last_hp_seen: int = 0
 ## Animated enemy art (standard enemies only — Elite/Boss scenes have no CharSprite node).
 ## Two art variants; the pick derives from the node name, which the MultiplayerSpawner
 ## keeps identical on every peer, so all clients show the same variant.
-const ENEMY_TARGET_HEIGHT: float = 42.0  # on-screen height of the drawn character (px)
+const ENEMY_TARGET_HEIGHT: float = 50.0  # on-screen height of the drawn character (px)
 var _uses_char_sprite: bool = false
 var _variant: int = 1
 var _last_anim_pos: Vector2 = Vector2.ZERO
