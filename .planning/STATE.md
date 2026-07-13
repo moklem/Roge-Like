@@ -4,9 +4,9 @@ milestone: v1.1
 milestone_name: "Milestone: Juicy Feedback"
 current_phase: 10
 current_phase_name: Juicy Feedback — Visual & Gameplay Polish
-status: planning
-stopped_at: Phase 10 context gathered
-last_updated: "2026-07-13T16:48:32.053Z"
+status: executing
+stopped_at: Phase 10 UI-SPEC approved
+last_updated: "2026-07-13T18:06:43.249Z"
 last_activity: 2026-07-13
 last_activity_desc: "ROADMAP.md revised: v1.1 milestone consolidated from 7 phases down to 2 (Phase 10: all visual/gameplay juice; Phase 11: whole-game sound design pass + soak-test/swarm playtest), per user direction (max 2 phases). REQUIREMENTS.md traceability updated: 30/30 v1.1 requirements mapped (PICK-03 confirmed removed — stale requirement referencing a car-part pickup system that doesn't exist in shipped code; weapon unlocks come from the card overlay, covered by PROG-02). Phase 11 broadened per user correction: sound design covers the whole game, not just Phase 10 juice moments (added SFX-03) — most existing actions are currently silent (only shoot()/hit() exist in Sfx.gd) — and actual audio assets depend on human input from the team; Phase 11's coding work is trigger-point plumbing only."
 progress:
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-07-13)
 
 Phase: 10 of 11 (Juicy Feedback — Visual & Gameplay Polish) — Phase 1 of 2 in v1.1 milestone
 Plan: — (not yet planned)
-Status: Ready to plan
+Status: Ready to execute
 Last activity: 2026-07-13 — ROADMAP.md revised: v1.1 milestone consolidated from 7 phases down to 2 (Phase 10: all visual/gameplay juice; Phase 11: whole-game sound design pass + soak-test/swarm playtest), per user direction (max 2 phases). REQUIREMENTS.md traceability updated: 30/30 v1.1 requirements mapped (PICK-03 confirmed removed — stale requirement referencing a car-part pickup system that doesn't exist in shipped code; weapon unlocks come from the card overlay, covered by PROG-02). Phase 11 broadened per user correction: sound design covers the whole game, not just Phase 10 juice moments (added SFX-03) — most existing actions are currently silent (only shoot()/hit() exist in Sfx.gd) — and actual audio assets depend on human input from the team; Phase 11's coding work is trigger-point plumbing only.
 
 Progress (v1.1 milestone): [░░░░░░░░░░] 0%
@@ -87,6 +87,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-13T16:48:32.036Z
-Stopped at: Phase 10 context gathered
-Resume file: .planning/phases/10-juicy-feedback-visual-gameplay-polish/10-CONTEXT.md
+Last session: 2026-07-13T17:04:27.407Z
+Stopped at: Phase 10 UI-SPEC approved
+Resume file: .planning/phases/10-juicy-feedback-visual-gameplay-polish/10-UI-SPEC.md

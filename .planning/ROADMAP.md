@@ -598,7 +598,39 @@ Phase numbering continues from Phase 9 (previous milestone's last phase). Consol
 - 20 Hz replication-tick granularity means simultaneous multi-bolt hits landing within one sync tick may under-count as a single merged damage number — accepted scope for this demo, not a bug to chase here
 - Every spawn path across every effect type needs a matching cleanup path plus a defensive backstop timer — orphaned Tween/particle/label nodes accumulate silently over a full 15-minute loop; build this as shared foundational infra in wave 1, don't retrofit per-wave
 
-**Plans:** TBD
+**Plans:** 12 plans
+
+Plans:
+
+**Wave 1** *(foundational infra)*
+
+- [ ] 10-01-PLAN.md — Juice + Settings autoloads, scenes/vfx/ builders, persistent FxLayer, project.godot registration (SYS-01/02/03)
+- [ ] 10-02-PLAN.md — Music/SFX audio buses (default_bus_layout.tres) + Sfx.gd/Music.gd bus reassignment (DMG-08)
+
+**Wave 2** *(combat + collection/progression, parallel — no file overlap)*
+
+- [ ] 10-03-PLAN.md — Enemy combat juice: damage numbers, white flash, HP ghost-chip, death burst + kill hit-stop (DMG-01/04/05/06)
+- [ ] 10-04-PLAN.md — Player combat juice: hit-flash, capped self-shake, HP ghost-chip, level-up burst (DMG-02/03/04, PROG-01)
+- [ ] 10-05-PLAN.md — Main Menu Settings sub-panel: shake cycle + Music/SFX sliders (DMG-08)
+- [ ] 10-06-PLAN.md — XP orb magnetism + travel-to-bar arrival-gated increase (PICK-01/02)
+- [ ] 10-07-PLAN.md — CardOverlay comic restyle + pop/scale-in entrance (PROG-02)
+
+**Wave 3** *(status-fix + elemental/ability — parallel, Enemy vs Player files)*
+
+- [ ] 10-08-PLAN.md — Enemy status-sync fix + element hit VFX + spawn telegraph (ABIL-01, DMG-07, ABIL-06)
+- [ ] 10-09-PLAN.md — Ability juice: dash trail, aura pulse, heal sparkle, drone deploy (ABIL-02/03/04/05, COOP-04)
+
+**Wave 4** *(downed/revive + team broadcast — shares Player.gd with Wave 3)*
+
+- [ ] 10-10-PLAN.md — Downed collapse, team-visible revive ring + success, big-hit broadcast; wires GameEvents.player_downed/player_revived (COOP-01/02/03/05)
+
+**Wave 5** *(evolution — shares Player.gd with Wave 4)*
+
+- [ ] 10-11-PLAN.md — Evolution transform closure moment: charge-up then element-colored reveal, non-blocking (PROG-03)
+
+**Wave 6** *(validation gate)*
+
+- [ ] 10-12-PLAN.md — Static discipline sweep + human-verify soak/leak + Settings audible/visual (SYS-02/03; Success Criterion 6)
 
 ---
 
@@ -653,5 +685,5 @@ Phase numbering continues from Phase 9 (previous milestone's last phase). Consol
 | 7. CarHUD, Loop Timer & Difficulty Scaling | 3/3 | Complete | 2026-06-19 |
 | 8. Rooms 2 & 3, Boss | 3/3 | Complete | 2026-06-22 |
 | 9. Map Overhaul — TileMap Sub-Rooms | 3/4 | In progress | — |
-| 10. Juicy Feedback — Visual & Gameplay Polish | 0/TBD | Not started | — |
+| 10. Juicy Feedback — Visual & Gameplay Polish | 0/12 | Not started | — |
 | 11. Whole-Game Sound Design Pass & Soak-Test Validation | 0/TBD | Not started | — |
