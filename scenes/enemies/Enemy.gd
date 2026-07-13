@@ -34,6 +34,13 @@ signal died(pos: Vector2)
 ## Tracks last-seen hp so _process can fire a subtle hit cue when it drops (all peers).
 var _last_hp_seen: int = 0
 
+## DMG-04/D-07: Reddish ghost overlay child of $HealthBar that spans old→new HP value and
+## shrinks toward the new-value edge while fading to alpha 0 over ~0.4s. Created in _ready()
+## so it shares the ProgressBar's local coordinate space (0..size.x maps to value 0..100).
+## Same visual approach is reused for the Player HP bar in Plan 10-04.
+var _health_ghost: ColorRect = null
+var _health_ghost_tween: Tween = null
+
 ## Animated enemy art (standard enemies only — Elite/Boss scenes have no CharSprite node).
 ## Two art variants; the pick derives from the node name, which the MultiplayerSpawner
 ## keeps identical on every peer, so all clients show the same variant.
@@ -56,6 +63,14 @@ func _ready() -> void:
 	$HurtboxArea.body_entered.connect(_on_hurtbox_body_entered)
 	$HurtboxArea.body_exited.connect(_on_hurtbox_body_exited)
 	_setup_enemy_sprite()
+	# DMG-04/D-07: ghost overlay lives as a child of $HealthBar so its local coordinate space
+	# matches the ProgressBar's 0..size.x == value 0..100 range. Hidden until the first hit.
+	if has_node("HealthBar"):
+		_health_ghost = ColorRect.new()
+		_health_ghost.color = Color(1.0, 0.3, 0.25, 0.85)
+		_health_ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_health_ghost.visible = false
+		$HealthBar.add_child(_health_ghost)
 
 ## Swap the ColorRect placeholder for the animated art and normalize its size: measure the
 ## opaque bounding box of the idle frame (same approach as Player._compute_char_fit) so the
@@ -110,9 +125,48 @@ func _process(_delta: float) -> void:
 	# (host applies damage directly; clients see the synced drop) for any damage source.
 	if current_hp < _last_hp_seen:
 		Sfx.hit()
+		# DMG-01/D-04: pooled damage number + white over-bright flash pop. Runs on every peer,
+		# no authority guard, no new RPC — reacts to the already-replicated current_hp diff.
+		var dmg: int = _last_hp_seen - current_hp
+		Juice.spawn_damage_number(global_position, dmg, _damage_number_color(), get_instance_id())
+		Juice.flash(self, Color(2, 2, 2, 1), 0.1)
+		# DMG-04/D-07: HP bar ghost chip-away for the segment just lost.
+		_update_health_ghost(_last_hp_seen, current_hp)
 	_last_hp_seen = current_hp
 	if _uses_char_sprite:
 		_update_enemy_visual(_delta)
+
+## Damage-number color hook. Always white for now; Plan 10-08 extends this to read
+## is_burning/is_slowed once those flags are replicated, kept as its own function so that
+## extension is purely additive.
+func _damage_number_color() -> Color:
+	return Color.WHITE
+
+## DMG-04/D-07: Positions the ghost overlay to span the just-lost HP segment (old_hp→new_hp)
+## and tweens it to shrink toward the new-value edge while fading to alpha 0 over ~0.4s. The
+## primary $HealthBar.value already snapped to the new percentage this same frame (above).
+func _update_health_ghost(old_hp: int, new_hp: int) -> void:
+	if _health_ghost == null:
+		return
+	var bar: ProgressBar = $HealthBar
+	var bar_size: Vector2 = bar.size
+	var old_pct: float = clampf(float(old_hp) / float(MAX_HP), 0.0, 1.0)
+	var new_pct: float = clampf(float(new_hp) / float(MAX_HP), 0.0, 1.0)
+	var old_x: float = old_pct * bar_size.x
+	var new_x: float = new_pct * bar_size.x
+	if _health_ghost_tween != null and _health_ghost_tween.is_valid():
+		_health_ghost_tween.kill()
+	_health_ghost.color = Color(1.0, 0.3, 0.25, 0.85)
+	_health_ghost.position = Vector2(new_x, 0.0)
+	_health_ghost.size = Vector2(maxf(old_x - new_x, 0.0), bar_size.y)
+	_health_ghost.visible = true
+	_health_ghost_tween = create_tween()
+	_health_ghost_tween.set_parallel(true)
+	_health_ghost_tween.tween_property(_health_ghost, "size:x", 0.0, 0.4)
+	_health_ghost_tween.tween_property(_health_ghost, "color:a", 0.0, 0.4)
+	_health_ghost_tween.chain().tween_callback(func() -> void:
+		_health_ghost.visible = false
+	)
 
 func _physics_process(_delta: float) -> void:
 	var target := _find_nearest_player()
