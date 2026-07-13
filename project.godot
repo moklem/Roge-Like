@@ -21,6 +21,7 @@ GameEvents="*res://autoloads/GameEvents.gd"
 GameState="*res://autoloads/GameState.gd"
 Sfx="*res://autoloads/Sfx.gd"
 Music="*res://autoloads/Music.gd"
+Settings="*res://autoloads/Settings.gd"
 
 [display]
 
