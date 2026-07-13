@@ -17,7 +17,7 @@
 | 7 | CarHUD, Loop Timer & Difficulty Scaling | 3/3 | Complete    | 2026-06-19 |
 | 8 | Rooms 2 & 3, Boss | 3/3 | Complete   | 2026-06-22 |
 | 9 | Map Overhaul — TileMap Sub-Rooms | 3/4 | In Progress|  |
-| 10 | Juicy Feedback — Visual & Gameplay Polish | 5/12 | In Progress|  |
+| 10 | Juicy Feedback — Visual & Gameplay Polish | 6/12 | In Progress|  |
 | 11 | Whole-Game Sound Design Pass & Soak-Test Validation | Full sound pass across the entire game (not just Phase 10 juice — most existing actions are currently silent); audio assets depend on human input from the team, this phase wires the trigger-point plumbing; full-loop soak test and multi-peer swarm playtest validate no leaks/no readability breakdown | SFX-01–03 | no |
 
 ---
@@ -599,7 +599,7 @@ Phase numbering continues from Phase 9 (previous milestone's last phase). Consol
 - 20 Hz replication-tick granularity means simultaneous multi-bolt hits landing within one sync tick may under-count as a single merged damage number — accepted scope for this demo, not a bug to chase here
 - Every spawn path across every effect type needs a matching cleanup path plus a defensive backstop timer — orphaned Tween/particle/label nodes accumulate silently over a full 15-minute loop; build this as shared foundational infra in wave 1, don't retrofit per-wave
 
-**Plans:** 5/12 plans executed
+**Plans:** 6/12 plans executed
 
 Plans:
 
@@ -613,7 +613,7 @@ Plans:
 - [x] 10-03-PLAN.md — Enemy combat juice: damage numbers, white flash, HP ghost-chip, death burst + kill hit-stop (DMG-01/04/05/06)
 - [x] 10-04-PLAN.md — Player combat juice: hit-flash, capped self-shake, HP ghost-chip, level-up burst (DMG-02/03/04, PROG-01)
 - [x] 10-05-PLAN.md — Main Menu Settings sub-panel: shake cycle + Music/SFX sliders (DMG-08)
-- [ ] 10-06-PLAN.md — XP orb magnetism + travel-to-bar arrival-gated increase (PICK-01/02)
+- [x] 10-06-PLAN.md — XP orb magnetism + travel-to-bar arrival-gated increase (PICK-01/02)
 - [ ] 10-07-PLAN.md — CardOverlay comic restyle + pop/scale-in entrance (PROG-02)
 
 **Wave 3** *(status-fix + elemental/ability — parallel, Enemy vs Player files)*
