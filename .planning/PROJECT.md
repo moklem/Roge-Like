@@ -1,5 +1,18 @@
 # Roge-Like
 
+## Current Milestone: v1.1 Juicy Feedback
+
+**Goal:** Every player action (combat, collection, progression, abilities, downs/revives) produces immediate, discernible, and satisfying audiovisual feedback — grounded in game-feel/"meaningful play" theory (discernability + integration) — with paired sound on every juice moment, and team-visible broadcast for shared moments (healing, revival, big hits).
+
+**Target features:**
+- Combat feedback: floating damage numbers, hit-flash, screen shake, hit-stop on kills, weapon/element-specific hit VFX
+- Collection feedback: XP orb magnetism (floats toward nearby player) and travel-to-bar (XP value updates only on arrival), pickup pop/bounce/text
+- Progression feedback: level-up burst + card pop-in animation, evolution stage transform as a major multi-sensory "closure" moment
+- Ability feedback: dash trail, aura pulse, heal sparkle, drone deploy
+- Enemy feedback: spawn-in effect, death burst
+- Downed/Revive feedback: collapse animation, revive progress ring + success burst — visible to all players, not just the affected one
+- Full sound design pass — every juice moment above gets a paired sound cue
+
 ## What This Is
 
 A top-down co-op roguelike built in Godot 4 for a CARIAD university project demo. Up to 3 players connect over LAN from separate laptops; one hosts, others join by IP. The game features 3 player roles (Tank, Speedster, Engineer), 3 elemental ability modifiers (Fire, Ice, Earth), and a persistent side-panel Car HUD that simulates CARIAD vehicle sensor outputs in real time — lighting up as players fight through 3 hand-crafted rooms toward a looping boss encounter.
@@ -46,6 +59,18 @@ The CARIAD HUD must always fire convincingly — every major game event (ice att
 - [ ] Mob swarms and boss encounters trigger additional LIDAR HUD indicators
 - [ ] 15-minute loop timer; after loop ends → next loop (harder) or game over on full team wipe
 - [ ] Placeholder art throughout (colored shapes, no sprites required)
+- [ ] Floating damage numbers on enemy hit
+- [ ] Screen shake + player hit-flash + health bar flash on taking damage
+- [ ] Hit-stop (brief freeze-frame) on enemy kill, plus death particle burst
+- [ ] Weapon/element-specific hit VFX (fire scorch, ice shatter, earth crack)
+- [ ] XP orb magnetism toward nearby player + travel-to-bar before XP value updates
+- [ ] Pickup collection pop/bounce/floating text (weapon unlocks, car-part pickups)
+- [ ] Level-up burst + card overlay pop-in animation
+- [ ] Evolution stage transform as a major audiovisual "closure" moment (flash, particles, slow-mo, stinger)
+- [ ] Ability juice: dash trail, aura pulse, heal sparkle, drone deploy effect
+- [ ] Enemy spawn-in effect
+- [ ] Downed/revive juice (collapse animation, revive progress ring, success burst) — broadcast to all players
+- [ ] Sound cue paired with every juice moment above
 
 ### Out of Scope
 
@@ -108,4 +133,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-31 after Phase 4 completion (weapon system, WeaponManager, 5 car-themed weapons validated)*
+*Last updated: 2026-07-13 after starting v1.1 Juicy Feedback milestone*

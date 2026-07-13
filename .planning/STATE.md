@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: UAT in progress
-stopped_at: context exhaustion at 100% (2026-06-24)
-last_updated: "2026-06-24T13:49:28.545Z"
+milestone: v1.1
+milestone_name: Juicy Feedback
+status: planning
+last_updated: "2026-07-13T14:28:45.049Z"
+last_activity: 2026-07-13
 progress:
-  total_phases: 9
-  completed_phases: 9
-  total_plans: 33
-  completed_plans: 33
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Roadmap: Roge-Like
@@ -461,3 +461,10 @@ Wave 4 *(blocked on Wave 3 — needs stage3_damage_mult var wired)*
 
 - [Phase ?]: Boss bullets reuse Bullet.tscn with owner_id=-1 (no BossProjectile.tscn needed)
 - [Phase ?]: Boss overrides take_damage matching Bullet.gd line 55 call pattern
+
+## Current Position
+
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-07-13 — Milestone v1.1 started
