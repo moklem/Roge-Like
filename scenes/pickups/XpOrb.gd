@@ -5,12 +5,48 @@ const PLAYER_SCRIPT = preload("res://scenes/Player.gd")
 ## Collection is host-authoritative (CMBT-09, D-16).
 ## Pitfall 5: _collected flag prevents double-collection race condition.
 
+## PICK-01 (10-RESEARCH.md Code Example): purely cosmetic drift toward the nearest
+## already-replicated player position. Runs identically on every peer — no sync,
+## no RPC. The real collection flow (_on_body_entered / _request_collect / _collected /
+## the body.peer_id authority guard below) is completely untouched by this.
+const MAGNET_RADIUS: float = 90.0
+const MAGNET_SPEED: float = 260.0
+var _magnetized: bool = false
+
 var _collected: bool = false
 
 func _ready() -> void:
 	# Grouped so Game.gd can purge uncollected orbs on sub-room / room transitions.
 	add_to_group("xp_orbs")
 	body_entered.connect(_on_body_entered)
+
+func _process(delta: float) -> void:
+	if _collected:
+		return
+	var nearest: Node = _find_nearest_player()
+	if nearest == null:
+		_magnetized = false
+		return
+	var dist: float = global_position.distance_to(nearest.global_position)
+	if dist <= MAGNET_RADIUS:
+		_magnetized = true
+		global_position = global_position.move_toward(nearest.global_position, MAGNET_SPEED * delta)
+	else:
+		_magnetized = false
+
+## Nearest node in group "players" by already-replicated global_position — no new
+## sync, every peer computes the same drift target independently (T-10-13 mitigation).
+func _find_nearest_player() -> Node:
+	var nearest: Node = null
+	var nearest_dist: float = INF
+	for player in get_tree().get_nodes_in_group("players"):
+		if not (player is Node2D):
+			continue
+		var d: float = global_position.distance_to(player.global_position)
+		if d < nearest_dist:
+			nearest_dist = d
+			nearest = player
+	return nearest
 
 func _on_body_entered(body: Node) -> void:
 	if not body.is_in_group("players"):
