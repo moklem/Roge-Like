@@ -213,6 +213,24 @@ func take_damage(amount: int) -> void:
 		# CMBT-07: queue_free on host propagates to all clients via MultiplayerSpawner
 		queue_free()
 
+## DMG-05/DMG-06/D-04: Death burst + kill hit-stop, fired on every peer with zero new RPC.
+## take_damage() is host-only and calls queue_free() on death; the MultiplayerSpawner
+## propagates that free to every client, so _exit_tree runs identically on every peer
+## (Pitfall 3/4 — never RPC-target a randi()-named Enemy node). Guarded to real deaths only:
+## the group-purge path (Game.gd room-transition cleanup) frees enemies with HP still
+## remaining and must not spawn death VFX.
+func _exit_tree() -> void:
+	if current_hp > 0:
+		return
+	# Read the dying enemy's own live color so normal/Elite/Boss read differently (D-04)
+	# with no per-subclass edit — EliteEnemy/Boss both set their own $Sprite.color.
+	var death_color: Color = $Sprite.color if has_node("Sprite") else Color(0.8, 0.2, 0.2, 1)
+	Juice.spawn_burst(global_position, death_color, 14, 0.6)
+	# Boss overrides _enter_phase (EliteEnemy does not), so has_method is a cheap boss check
+	# alongside is_elite — both get the heavier ~0.12s hit-stop; normal kills stay ~0.07s.
+	var stop_dur: float = 0.12 if (is_elite or has_method("_enter_phase")) else 0.07
+	Juice.hitstop(stop_dur)
+
 ## Phase 5: Status effect tick — called from _physics_process (host-only via P6 guard)
 func _tick_status_effects(delta: float) -> void:
 	# Ice Slow countdown
