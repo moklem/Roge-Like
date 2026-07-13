@@ -235,11 +235,17 @@ func update_camera_limits(sub_room_rect_px: Rect2) -> void:
 ## Tracks last-seen health so _process can fire a heal particle burst when it rises (all peers).
 var _last_health_seen: int = -1
 
+## DMG-02: guards the per-frame downed-tint/idle modulate reset below (both the
+## _uses_char_sprite and non-char paths write modulate unconditionally every frame) so it
+## does not fight the Juice.flash tween applied to the same node on a damage frame — without
+## this, the flash color would be overwritten on the very next _process call.
+var _hit_flash_active: bool = false
+
 func _process(_delta: float) -> void:
 	# AUTOBONK: drive animated character art (walk/idle, flip, stage) on all peers
 	if _uses_char_sprite:
 		_update_char_visual(_delta)
-	else:
+	elif not _hit_flash_active:
 		# D-12: downed visual tint runs on ALL peers from synced is_downed value
 		if is_downed:
 			$Sprite.modulate = Color(0.4, 0.4, 0.4)   # grayscale tint
@@ -252,6 +258,17 @@ func _process(_delta: float) -> void:
 	# Mirrors the Enemy.gd _last_hp_seen hit-cue pattern. -1 sentinel skips the first frame.
 	if _last_health_seen >= 0 and health > _last_health_seen:
 		_spawn_heal_particles()
+	# DMG-02/DMG-03/DMG-04 (D-06, D-07, Pitfall 5): damage cue on every peer (hit-flash + HP
+	# ghost-chip react to the already-replicated health value), but screen shake is gated to
+	# the local authority peer's own Camera2D so a teammate's hit never shakes your screen.
+	if _last_health_seen >= 0 and health < _last_health_seen:
+		Juice.flash($CharSprite if _uses_char_sprite else $Sprite, Color(1.0, 0.3, 0.25, 1.0), 0.15)
+		_hit_flash_active = true
+		get_tree().create_timer(0.15).timeout.connect(func() -> void:
+			_hit_flash_active = false
+		)
+		if is_multiplayer_authority():
+			Juice.add_trauma(0.25)
 	_last_health_seen = health
 	# Phase 6 D-10: LevelUpLabel driven by synced is_picking_card (visible on ALL peers)
 	if has_node("LevelUpLabel"):
@@ -810,7 +827,10 @@ func _update_char_visual(delta_t: float) -> void:
 		spr.play(anim)
 	# Normalized size per stage (also re-applies on evolution and mirrors the offset on flip)
 	_apply_char_fit(stage, spr)
-	spr.modulate = Color(0.4, 0.4, 0.4) if is_downed else Color.WHITE
+	# DMG-02: skip the per-frame modulate reset while a hit-flash tween owns it (see
+	# _hit_flash_active doc comment near _process).
+	if not _hit_flash_active:
+		spr.modulate = Color(0.4, 0.4, 0.4) if is_downed else Color.WHITE
 
 func _swap_stage_visual(stage: int) -> void:
 	_update_xp_hud()
