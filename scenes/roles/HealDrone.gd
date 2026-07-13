@@ -29,6 +29,9 @@ func _ready() -> void:
 	_setup_area()
 	_setup_timer()
 	_draw_visual()
+	# ABIL-05/D-20: one-shot deploy pop-in burst + ring. _ready() runs identically on
+	# every peer (spawner-replicated), so this needs no RPC and shows on all screens.
+	_spawn_deploy_effect()
 
 func _physics_process(delta: float) -> void:
 	if not is_multiplayer_authority():
@@ -82,6 +85,29 @@ func _on_pulse() -> void:
 				p.receive_heal(heal)
 			else:
 				p.receive_heal.rpc_id(p.peer_id, heal)
+
+## ABIL-05/D-20: one-shot pop-in burst + brief expanding ring at the deploy point, captured
+## at spawn global_position. Uses the Juice facade (spawn_burst) for the particle pop plus
+## a _show_dash_shockwave-style ring tween, both parented to FxLayer. Degrades gracefully
+## (no crash) if FxLayer is not yet present — e.g. main menu / very early scene load.
+func _spawn_deploy_effect() -> void:
+	const DEPLOY_COLOR: Color = Color(0.2, 0.9, 0.3, 0.9)  # matches the drone's own green
+	Juice.spawn_burst(global_position, DEPLOY_COLOR, 10, 0.5)
+	var layer := Juice._fx_layer()
+	if layer == null:
+		return
+	const RADIUS: float = 26.0
+	var ring := ColorRect.new()
+	ring.color = Color(DEPLOY_COLOR.r, DEPLOY_COLOR.g, DEPLOY_COLOR.b, 0.7)
+	ring.size = Vector2(RADIUS * 2.0, RADIUS * 2.0)
+	ring.pivot_offset = Vector2(RADIUS, RADIUS)
+	ring.scale = Vector2(0.2, 0.2)
+	layer.add_child(ring)
+	ring.global_position = global_position - Vector2(RADIUS, RADIUS)
+	var tween := ring.create_tween()
+	tween.tween_property(ring, "scale", Vector2(1.4, 1.4), 0.35)
+	tween.parallel().tween_property(ring, "modulate:a", 0.0, 0.35)
+	tween.tween_callback(ring.queue_free)
 
 func _draw_visual() -> void:
 	# Small green ColorRect 20x20 — placeholder visual, distinct from SpinningTires
