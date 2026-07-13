@@ -136,3 +136,7 @@ None - no external service configuration required.
 ---
 *Phase: 10-juicy-feedback-visual-gameplay-polish*
 *Completed: 2026-07-13*
+
+## Self-Check: PASSED
+
+All created files found on disk (autoloads/Settings.gd, autoloads/Juice.gd, scenes/vfx/ImpactBurst.gd, scenes/vfx/HitFlash.gd, scenes/vfx/DamageNumber.gd, scenes/vfx/DamageNumber.tscn, this SUMMARY.md). All task commit hashes (caf36b9, e4b460d, 1ae0ecb) and the summary commit (d3dc32a) confirmed present in git log.
