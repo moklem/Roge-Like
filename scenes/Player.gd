@@ -1052,10 +1052,21 @@ func _play_evolution_transform(stage: int) -> void:
 		_reveal_evolution_stage(stage, target, color)
 	)
 
-## PROG-03/D-14: fires at the end of the charge-up (Task 2 adds the burst + hit-stop here).
+## PROG-03/D-14: fires at the end of the charge-up — sprite swap + element-colored burst +
+## brief cosmetic hit-stop, then restores modulate to normal. `_swap_stage_visual` and
+## `Juice.spawn_burst` both run on every peer (set_evolution_stage broadcasts via RPC), so the
+## reveal is identical for all; `Juice.hitstop` is the local per-peer cosmetic dip only —
+## never Engine.time_scale (T-10-25). Stage stat effects are untouched by this presentation-only
+## composition. Total charge+reveal stays well within the ~1-1.5s cap (roadmap hard constraint).
 func _reveal_evolution_stage(stage: int, target: CanvasItem, color: Color) -> void:
 	call_deferred("_swap_stage_visual", stage)  # D-13: instant, deferred for physics safety
-	_evolution_transform_active = false
+	Juice.spawn_burst(global_position, color, 20, 0.5)
+	Juice.hitstop(0.08)  # brief snappy beat (D-06), local cosmetic dip only — never engine-global
+	var restore := create_tween()
+	restore.tween_property(target, "modulate", Color.WHITE, 0.15)
+	restore.tween_callback(func() -> void:
+		_evolution_transform_active = false
+	)
 
 ## AUTOBONK: Update the animated character sprite each frame on every peer.
 ## Picks walk vs idle from position delta (works for remote peers too, since position is
