@@ -251,6 +251,11 @@ var _last_picking_card: bool = false
 ## this, the flash color would be overwritten on the very next _process call.
 var _hit_flash_active: bool = false
 
+## PROG-03/D-14: guards the per-frame modulate reset (mirrors _hit_flash_active above) while
+## the evolution charge-up/reveal tween owns `modulate` for its ~0.5s+ duration, so the
+## per-frame idle/downed-tint write does not stomp the element-colored glow ramp.
+var _evolution_transform_active: bool = false
+
 ## ABIL-02/D-20: Speedster dash afterimage trail — tracks the dash_invincible edge and
 ## throttles ghost spawn rate so a single 0.3s dash produces ~3-4 fading ghosts, not one
 ## per frame.
@@ -278,7 +283,7 @@ func _process(_delta: float) -> void:
 	# AUTOBONK: drive animated character art (walk/idle, flip, stage) on all peers
 	if _uses_char_sprite:
 		_update_char_visual(_delta)
-	elif not _hit_flash_active and not _downed_collapse_active:
+	elif not _hit_flash_active and not _downed_collapse_active and not _evolution_transform_active:
 		# D-12: downed visual tint runs on ALL peers from synced is_downed value
 		if is_downed:
 			$Sprite.modulate = Color(0.4, 0.4, 0.4)   # grayscale tint
@@ -1018,12 +1023,50 @@ func receive_heal(amount: int) -> void:
 @rpc("any_peer", "call_remote", "reliable")
 func set_evolution_stage(stage: int) -> void:
 	evolution_stage = stage
-	call_deferred("_swap_stage_visual", stage)  # D-13: instant, deferred for physics safety
+	_play_evolution_transform(stage)  # PROG-03/D-14: charge-up, then deferred swap + reveal
 	if stage == 3:
 		# D-22: Stage 3 stat boost — applied once on transition to Full AutoBot
 		stage3_damage_mult = 1.2
 		MAX_HP += 25
 		health = mini(health + 25, MAX_HP)
+
+## PROG-03/D-14: ~0.5s element-colored charge-up glow ramp on the character before the stage
+## reveal (Task 2 wires the reveal itself). `set_evolution_stage` already broadcasts via RPC
+## on every peer (Pattern B), so the glow is visible identically to every peer; the rising
+## shake build-up is gated `is_multiplayer_authority()` so a teammate's transform never shakes
+## your screen (T-10-26). Driven by a plain non-blocking `Tween` — no await/yield, no input
+## disable, no Camera2D change, no tree pause (T-10-25/T-10-26).
+func _play_evolution_transform(stage: int) -> void:
+	var target: CanvasItem = $CharSprite if _uses_char_sprite else $Sprite
+	var color := Juice.element_color(element)
+	_evolution_transform_active = true
+	var charge := create_tween()
+	charge.tween_method(func(t: float) -> void:
+		var glow_scale: float = 1.0 + t * 0.6
+		var c: Color = Color.WHITE.lerp(color, t)
+		target.modulate = Color(c.r * glow_scale, c.g * glow_scale, c.b * glow_scale, 1.0)
+		if is_multiplayer_authority():
+			Juice.add_trauma(0.015)  # rising shake build-up, owner screen only (D-14/T-10-26)
+	, 0.0, 1.0, 0.5)
+	charge.tween_callback(func() -> void:
+		_reveal_evolution_stage(stage, target, color)
+	)
+
+## PROG-03/D-14: fires at the end of the charge-up — sprite swap + element-colored burst +
+## brief cosmetic hit-stop, then restores modulate to normal. `_swap_stage_visual` and
+## `Juice.spawn_burst` both run on every peer (set_evolution_stage broadcasts via RPC), so the
+## reveal is identical for all; `Juice.hitstop` is the local per-peer cosmetic dip only —
+## never Engine.time_scale (T-10-25). Stage stat effects are untouched by this presentation-only
+## composition. Total charge+reveal stays well within the ~1-1.5s cap (roadmap hard constraint).
+func _reveal_evolution_stage(stage: int, target: CanvasItem, color: Color) -> void:
+	call_deferred("_swap_stage_visual", stage)  # D-13: instant, deferred for physics safety
+	Juice.spawn_burst(global_position, color, 20, 0.5)
+	Juice.hitstop(0.08)  # brief snappy beat (D-06), local cosmetic dip only — never engine-global
+	var restore := create_tween()
+	restore.tween_property(target, "modulate", Color.WHITE, 0.15)
+	restore.tween_callback(func() -> void:
+		_evolution_transform_active = false
+	)
 
 ## AUTOBONK: Update the animated character sprite each frame on every peer.
 ## Picks walk vs idle from position delta (works for remote peers too, since position is
@@ -1057,10 +1100,10 @@ func _update_char_visual(delta_t: float) -> void:
 		spr.play(anim)
 	# Normalized size per stage (also re-applies on evolution and mirrors the offset on flip)
 	_apply_char_fit(stage, spr)
-	# DMG-02/COOP-01/COOP-03: skip the per-frame modulate reset while a hit-flash tween or the
-	# downed collapse/success tween owns it (see _hit_flash_active / _downed_collapse_active
-	# doc comments near _process).
-	if not _hit_flash_active and not _downed_collapse_active:
+	# DMG-02/COOP-01/COOP-03/PROG-03: skip the per-frame modulate reset while a hit-flash tween,
+	# the downed collapse/success tween, or the evolution charge-up/reveal tween owns it (see
+	# _hit_flash_active / _downed_collapse_active / _evolution_transform_active doc comments).
+	if not _hit_flash_active and not _downed_collapse_active and not _evolution_transform_active:
 		spr.modulate = Color(0.4, 0.4, 0.4) if is_downed else Color.WHITE
 
 func _swap_stage_visual(stage: int) -> void:
