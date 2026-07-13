@@ -58,9 +58,9 @@
 
 ### Weapons & Items
 
-- [ ] **WEAP-01**: Enemies occasionally drop a car-part item pickup on death (random chance)
-- [ ] **WEAP-02**: Player walking over an item pickup collects it; triggers weapon unlock or upgrade
-- [ ] **WEAP-03**: Collecting a new car-part unlocks the corresponding weapon (added to WeaponManager)
+- [x] **WEAP-01**: ~~Enemies occasionally drop a car-part item pickup on death (random chance)~~ — **Superseded:** weapon drops were removed; weapons are now chosen via the level-up/sub-room card overlay (see `Game.gd` comment at `_on_enemy_died`: "Car-part weapon drops removed — weapons come from the sub-room weapon-choice overlay instead")
+- [x] **WEAP-02**: ~~Player walking over an item pickup collects it; triggers weapon unlock or upgrade~~ — **Superseded:** no world pickup exists for weapons; unlock/upgrade happens entirely through card picks (`CardOverlay.gd`, `_start_weapon_choice` in `Game.gd`)
+- [x] **WEAP-03**: Collecting a new car-part unlocks the corresponding weapon (added to WeaponManager) — **Superseded:** "collecting" replaced by card-pick selection; WeaponManager integration itself still holds
 - [ ] **WEAP-04**: Active weapons fire automatically on independent cooldown timers
 - [ ] **WEAP-05**: Player can hold up to 6 active weapons simultaneously
 - [ ] **WEAP-06**: Minimum weapon set includes at least 5 car-themed weapons (Exhaust Flames, Spinning Tires, Antenna Beam, Horn Shockwave, Airbag Shield)
@@ -153,9 +153,8 @@ Game-feel/"juice" polish layer: immediate, discernible, satisfying audiovisual f
 
 - [ ] **PICK-01**: XP orbs drift toward a player when the player is within pickup range (magnetism)
 - [ ] **PICK-02**: A collected XP orb visually travels to the player's XP bar; the XP bar value only increases once the orb visually arrives
-- [ ] **PICK-03**: Collecting a car-part/weapon pickup shows a pop/bounce animation and floating text (e.g. weapon name)
 - [ ] **PROG-01**: Leveling up triggers a burst effect around the player
-- [ ] **PROG-02**: The card selection overlay animates in with a pop/scale-in rather than appearing instantly
+- [ ] **PROG-02**: The card selection overlay animates in with a pop/scale-in rather than appearing instantly — applies to both level-up card picks and the sub-room weapon-choice overlay (same shared component)
 - [ ] **PROG-03**: Reaching an evolution stage threshold triggers a capped (~1–1.5s), non-blocking multi-sensory transform moment (flash, particles, brief slow-mo-style effect, sound) that does not freeze player input or lock the camera
 
 ### Ability & Elemental Feedback
@@ -177,8 +176,11 @@ Game-feel/"juice" polish layer: immediate, discernible, satisfying audiovisual f
 
 ### Sound Design
 
-- [ ] **SFX-01**: Every juice moment above has a paired sound cue
+Full-game sound design pass — not limited to the new juice moments above. Today the game has only two sound cues total (`shoot()`/`hit()` in `autoloads/Sfx.gd`); most existing actions (the other 5 weapons, role abilities, pickups, UI/menu, room/loop transitions, boss events) are currently silent. Actual audio asset sourcing/creation depends on human input from the team — Claude's part is the trigger-point plumbing (extending `Sfx.gd`/`Music.gd`, wiring each hook, using the existing safe-load pattern so a missing file degrades silently rather than breaking). A full checklist of every audio cue needed (whole game, not just Phase 10 juice) will be produced when this phase is reached, not before.
+
+- [ ] **SFX-01**: Every juice moment from Phase 10 has a paired sound cue
 - [ ] **SFX-02**: Continuous/repeating effects (Fire burn DoT, Earth passive heal tick) play a sound cue only on activation onset, not on every tick
+- [ ] **SFX-03**: Existing gameplay actions across the whole game that currently lack a sound cue (the other 5 weapons beyond screws/bolts, role abilities, pickups, UI/menu interactions, room/loop transitions, boss phase events) receive one, using the same safe-load `Sfx.gd`/`Music.gd` pattern
 
 ### Systemic / Foundational
 
@@ -201,6 +203,7 @@ Game-feel/"juice" polish layer: immediate, discernible, satisfying audiovisual f
 | Fully synced (networked) XP orb magnetism | Cosmetic ghost-clone flight is sufficient; avoids new netcode surface for a purely visual effect |
 | Multi-second evolution cutscene with camera lock/input freeze | Denies agency to teammates still fighting live during co-op session |
 | Per-effect audio "nuisance" budget/ducking system beyond the existing voice pool | Only needed if playtesting reveals the extended Sfx.gd cue set becomes noisy; not required upfront |
+| Car-part/weapon world pickups (former PICK-03) | Removed — weapon drops were already superseded (see WEAP-01/02 above); weapons come exclusively from the level-up/sub-room card overlay, covered by PROG-02 |
 
 ## Traceability
 
@@ -221,19 +224,19 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HUD-01–10 | Phase 7 | Complete |
 | LOOP-01–06 | Phase 7 | Complete |
 | ROOM-01–07 | Phase 8 | Complete |
-| DMG-01–08 | TBD (roadmap) | Pending |
-| PICK-01–03 | TBD (roadmap) | Pending |
-| PROG-01–03 | TBD (roadmap) | Pending |
-| ABIL-01–06 | TBD (roadmap) | Pending |
-| COOP-01–05 | TBD (roadmap) | Pending |
-| SFX-01–02 | TBD (roadmap) | Pending |
-| SYS-01–03 | TBD (roadmap) | Pending |
+| SYS-01–03 | Phase 10 | Pending |
+| DMG-01–08 | Phase 10 | Pending |
+| PICK-01–02 | Phase 10 | Pending |
+| PROG-01–03 | Phase 10 | Pending |
+| ABIL-01–06 | Phase 10 | Pending |
+| COOP-01–05 | Phase 10 | Pending |
+| SFX-01–03 | Phase 11 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 30 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 30 ⚠️ (roadmap creation next)
+- Mapped to phases: 30 (Phase 10: 27 — SYS-01–03, DMG-01–08, PICK-01–02, PROG-01–03, ABIL-01–06, COOP-01–05; Phase 11: 3 — SFX-01–03)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-05*
-*Last updated: 2026-07-13 after v1.1 Juicy Feedback requirements definition*
+*Last updated: 2026-07-13 after roadmap revision — consolidated v1.1 milestone to 2 phases (Phase 10, Phase 11); PICK-03 removed as stale/superseded (weapon drops don't exist in shipped code)*

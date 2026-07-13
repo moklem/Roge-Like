@@ -1,6 +1,6 @@
-cla# Roadmap: Roge-Like
+# Roadmap: Roge-Like
 
-**9 phases** | **84 v1 requirements** | **Granularity:** Coarse
+**11 phases** | **84 v1 requirements + 30 v1.1 requirements** | **Granularity:** Coarse
 
 ---
 
@@ -17,6 +17,8 @@ cla# Roadmap: Roge-Like
 | 7 | CarHUD, Loop Timer & Difficulty Scaling | 3/3 | Complete    | 2026-06-19 |
 | 8 | Rooms 2 & 3, Boss | 3/3 | Complete   | 2026-06-22 |
 | 9 | Map Overhaul — TileMap Sub-Rooms | 3/4 | In Progress|  |
+| 10 | Juicy Feedback — Visual & Gameplay Polish | Full non-sound juice layer — foundational infra, combat feedback, collection/progression feedback, status-fix + elemental/ability juice, downed/revive/team-broadcast juice, and evolution transform closure — as a purely additive presentation layer over the existing core game | SYS-01–03, DMG-01–08, PICK-01–02, PROG-01–03, ABIL-01–06, COOP-01–05 | yes |
+| 11 | Whole-Game Sound Design Pass & Soak-Test Validation | Full sound pass across the entire game (not just Phase 10 juice — most existing actions are currently silent); audio assets depend on human input from the team, this phase wires the trigger-point plumbing; full-loop soak test and multi-peer swarm playtest validate no leaks/no readability breakdown | SFX-01–03 | no |
 
 ---
 
@@ -317,10 +319,10 @@ Wave 3 *(blocked on Wave 2)*
 
 Plans:
 
-- [ ] 06-01-PLAN.md — XP state vars (xp, level, element_tier, is_picking_card, stage3_damage_mult) + receive_xp RPC + XpOrb grant wiring + Player.tscn MultiplayerSynchronizer extension + GameState reset
-- [ ] 06-02-PLAN.md — PlayerHUD.tscn/gd (XP bar CanvasLayer, LevelLabel, StageLabel) + CardOverlay.tscn/gd (3-card selection, A/D navigation, Space confirm)
-- [ ] 06-03-PLAN.md — Card flow wiring (pool build, filter, fallback, confirm_card_pick RPC) + evolution stage logic + Player.tscn stage visual containers + airbag_active→airbag_count migration
-- [ ] 06-04-PLAN.md — All 6 weapon Level 2/3 stat scaling (D-11 table) + stage3_damage_mult reads + Earth element_tier scaling in Game.gd
+- [x] 06-01-PLAN.md — XP state vars (xp, level, element_tier, is_picking_card, stage3_damage_mult) + receive_xp RPC + XpOrb grant wiring + Player.tscn MultiplayerSynchronizer extension + GameState reset
+- [x] 06-02-PLAN.md — PlayerHUD.tscn/gd (XP bar CanvasLayer, LevelLabel, StageLabel) + CardOverlay.tscn/gd (3-card selection, A/D navigation, Space confirm)
+- [x] 06-03-PLAN.md — Card flow wiring (pool build, filter, fallback, confirm_card_pick RPC) + evolution stage logic + Player.tscn stage visual containers + airbag_active→airbag_count migration
+- [x] 06-04-PLAN.md — All 6 weapon Level 2/3 stat scaling (D-11 table) + stage3_damage_mult reads + Earth element_tier scaling in Game.gd
 
 Wave 1 *(autonomous)*
 
@@ -522,6 +524,122 @@ Wave 3 *(blocked on Waves 1 and 2 — camera wiring needs update_camera_limits f
 
 ---
 
+## v1.1 Milestone: Juicy Feedback
+
+**Milestone Goal:** Every player action (combat, collection, progression, abilities, downs/revives) produces immediate, discernible, and satisfying audiovisual feedback — grounded in game-feel/"meaningful play" theory (discernability + integration) — with paired sound on every juice moment, and team-visible broadcast for shared moments (healing, revival, big hits). Purely additive presentation layer — no changes to authoritative game state/logic.
+
+Phase numbering continues from Phase 9 (previous milestone's last phase). Consolidated to 2 phases per user direction (max 2 phases for this milestone) — the original 7-stage research-derived sequencing (foundation infra → combat feedback → collection/progression → status-fix+elemental/ability → downed/revive/broadcast → evolution transform → sound pass+soak test) is preserved as internal waves within these 2 phases rather than as separate roadmap phases. See `.planning/research/SUMMARY.md` for the full research backing this sequencing.
+
+### Phase 10: Juicy Feedback — Visual & Gameplay Polish
+
+**Goal:** Every player action (combat, collection, progression, abilities, downs/revives, evolution) produces immediate, discernible, satisfying audiovisual feedback across all connected peers — the full non-sound juice layer, implemented as a purely additive presentation layer on top of the already-complete core game with zero changes to authoritative state/logic. This phase covers 27 requirements and is expected to require multiple plans/waves internally (consistent with `coarse` granularity in config.json).
+
+**Suggested internal sequencing (for the planner):**
+1. Foundational juice infrastructure — `JuiceManager`/`Juice.gd` autoload, persistent `FxLayer` container, CPUParticles2D-only convention, pooled/capped damage-number spawner and trauma-based shake accumulator, cleanup backstops. No gameplay-file edits in this wave — must exist and be verifiable in isolation before any consuming effect is built.
+2. Combat feedback — floating damage numbers, player hit-flash, capped screen shake, animated HP-bar flash, hit-stop on kill, death particle burst. Lowest-risk, highest-value: almost entirely Pattern-A diff-watch on already-replicated state (`current_hp`/`health`), extending the existing `_last_hp_seen`-style idiom.
+3. Collection & progression feedback — XP orb magnetism (cosmetic ghost-clone flight) + travel-to-bar, level-up burst, and the shared card-overlay pop-in animation (covers both level-up and sub-room weapon-choice presentations, per PROG-02).
+4. Status-effect sync fix + elemental/ability juice — fix the discovered host-only burn/slow visibility bug first, then build element-specific hit VFX and role-ability juice (dash trail, aura pulse, heal sparkle, drone deploy) plus enemy spawn-in telegraph on top of the corrected sync state.
+5. Downed/revive + team-wide broadcast juice — collapse animation, team-visible revive progress ring + success burst, team-visible healing feedback, team-visible big-hit feedback. Wires the already-scaffolded but unused `GameEvents.player_downed`/`player_revived` signals.
+6. Evolution transform closure moment — deliberately sequenced last since it composes hit-stop + shake + particles + sound simultaneously, and carries the highest agency-risk (must not feel like a cutscene; no camera lock or input freeze for the transforming player or teammates still fighting live).
+
+**UI hint:** yes
+
+**Requirements:**
+
+- SYS-01: All new particle effects use `CPUParticles2D` (not `GPUParticles2D`, which silently fails to render under this project's renderer)
+- SYS-02: Damage numbers and screen shake are pooled/capped so high enemy density and rapid multi-weapon fire don't produce unreadable visual clutter
+- SYS-03: Juice effect nodes (tweens, particles, floating text) are cleaned up without leaking over a full 15-minute loop
+- DMG-01: A floating damage number appears over an enemy when it's hit, showing the amount of damage dealt
+- DMG-02: The player's own sprite flashes (tints red/white) briefly when taking damage
+- DMG-03: The screen shakes briefly when the player takes damage; shake magnitude is capped so simultaneous multi-hits don't compound into unreadable chaos
+- DMG-04: The player's health bar flashes and animates down (not snaps instantly) when taking damage
+- DMG-05: A brief hit-stop (freeze-frame) occurs on enemy kill, implemented as a local cosmetic pause — never a global `Engine.time_scale` change
+- DMG-06: Enemy death produces a particle burst at its position
+- DMG-07: Weapon/element-specific hit VFX appear on impact (fire scorch, ice shatter, earth crack) matching the element that dealt the damage
+- DMG-08: Screen shake has a global intensity setting (off/low/normal) so it can be turned down for a live projected demo audience
+- PICK-01: XP orbs drift toward a player when the player is within pickup range (magnetism)
+- PICK-02: A collected XP orb visually travels to the player's XP bar; the XP bar value only increases once the orb visually arrives
+- PROG-01: Leveling up triggers a burst effect around the player
+- PROG-02: The card selection overlay animates in with a pop/scale-in rather than appearing instantly — applies to both level-up card picks and the sub-room weapon-choice overlay (same shared component)
+- PROG-03: Reaching an evolution stage threshold triggers a capped (~1–1.5s), non-blocking multi-sensory transform moment (flash, particles, brief slow-mo-style effect, sound) that does not freeze player input or lock the camera
+- ABIL-01: Enemy burn (Fire) and slow (Ice) status effects are visible on all clients, not just the host (fixes existing sync gap)
+- ABIL-02: Speedster's dash leaves a visible trail/afterimage effect
+- ABIL-03: Engineer's heal produces a visible sparkle/particle effect on the healed player
+- ABIL-04: Tank's aura ability has a visible pulse effect
+- ABIL-05: Engineer's drone deployment has a visible spawn effect
+- ABIL-06: Enemies show a spawn-in telegraph effect when they appear
+- COOP-01: A player entering the downed state shows a visible collapse animation
+- COOP-02: Reviving a downed player shows a visible progress ring, visible to all players (not just the two involved)
+- COOP-03: A successful revive triggers a visible success burst, visible to all players
+- COOP-04: Healing effects (Engineer heal, Earth passive) are visible to all players, not just the healed player
+- COOP-05: A significant/big hit triggers feedback visible to all players, not just the player who was hit
+
+**Success Criteria:**
+
+1. Hitting an enemy shows a pooled/capped floating damage number on host and client alike; taking damage flashes the player's sprite, triggers capped screen shake (adjustable via an off/low/normal setting), and animates the HP bar down rather than snapping it; killing an enemy produces a local cosmetic hit-stop plus a particle burst — all built from `CPUParticles2D`.
+2. Walking near an XP orb makes it visibly drift toward the player before collection, then visually fly to the XP bar (bar value only increases on arrival); leveling up triggers a burst effect around the player; both the level-up card overlay and the sub-room weapon-choice overlay animate in with a pop/scale-in.
+3. Enemy burn (Fire) and slow (Ice) status effects are visible on host and client screens alike (sync gap fixed); hitting an enemy with Fire/Ice/Earth shows the matching element hit VFX; Speedster's dash leaves a trail, Tank's aura pulses, Engineer's heal sparkles and drone deployment has a spawn effect; newly spawned enemies show a brief telegraph before becoming active.
+4. A player entering the downed state shows a collapse animation visible to every connected screen; reviving shows a team-visible progress ring and a team-visible success burst; Engineer/Earth healing and significant hits produce feedback visible to the whole team, not only the player directly involved.
+5. Reaching an evolution stage threshold triggers a capped (~1–1.5s) non-blocking multi-sensory transform visible to every peer, without freezing input or locking any camera for the transforming player or teammates.
+6. A manual test trigger confirms damage numbers and shake stay pooled/capped under simulated swarm volume, and running effects repeatedly for several minutes leaves zero orphaned Tween/particle/label nodes (checked via the remote scene tree inspector).
+
+**Pitfall watch:**
+
+- Never use `Engine.time_scale` or `SceneTree.paused` for hit-stop — implement it as a local, per-peer cosmetic float read only by presentation code, never by movement/AI/cooldown/RPC dispatch (this project's Bullet.gd trusts identical wall-clock deltas across peers; `time_scale` would desync client-simulated bullets from replicated truth)
+- CPUParticles2D only, never GPUParticles2D — this project's gl_compatibility renderer silently fails to render GPUParticles2D with no error; applies to every new particle effect across every wave (hit sparks, death burst, level-up, pickups, ability juice, evolution stinger)
+- Death burst (and any other despawn-adjacent VFX) must fire via an RPC carrying `global_position` before `queue_free()` — never assume a dying Enemy node survives to the next frame; diff-watch alone races the despawn
+- Parent all transient VFX to the persistent `FxLayer` container, never to the triggering node (dying enemy, consumed orb, revived player) — capture `global_position` first
+- Team-visible broadcasts (revive progress, success burst, big-hit feedback) should target Player nodes directly — they have stable, deterministic cross-peer names, unlike Enemy/Bullet's non-deterministic spawner-assigned names; for events with no existing replicated field (e.g. "this was a significant hit"), extend `GameEvents`' existing reliable-broadcast pattern rather than fragmenting into a parallel signal bus
+- Damage numbers and screen shake must be pooled/capped/trauma-accumulated from the start and shared across every wave — later waves (elemental, evolution) must reuse this infra, not add a second, uncapped path
+- Verify the exact mechanism for adding `is_burning`/`is_slowed` to Enemy's MultiplayerSynchronizer replicated set during planning — do not assume it's a one-line addition without checking the current sync configuration
+- XP magnetism is a cosmetic ghost-clone flight only — the real collection RPC and XP value stay untouched; no new networked orb state (revisit only if playtesting shows the ghost-clone feel is unsatisfying)
+- Evolution transform must never feel like a cutscene — no camera lock, no input freeze for the transforming player or teammates, even though it composes hit-stop + shake + particles + sound simultaneously
+- Card pop-in (level-up and sub-room weapon-choice, shared component per PROG-02) must stay local `CanvasLayer` UI, never `SceneTree.paused` (same discipline as Phase 6's W4)
+- 20 Hz replication-tick granularity means simultaneous multi-bolt hits landing within one sync tick may under-count as a single merged damage number — accepted scope for this demo, not a bug to chase here
+- Every spawn path across every effect type needs a matching cleanup path plus a defensive backstop timer — orphaned Tween/particle/label nodes accumulate silently over a full 15-minute loop; build this as shared foundational infra in wave 1, don't retrofit per-wave
+
+**Plans:** TBD
+
+---
+
+### Phase 11: Whole-Game Sound Design Pass & Soak-Test Validation
+
+**Goal:** A full sound design pass across the *entire* game, not just the new Phase 10 juice moments — today only two cues exist in the whole project (`shoot()`/`hit()` in `autoloads/Sfx.gd`); the other 5 weapons, role abilities, pickups, UI/menu, room/loop transitions, and boss events are currently silent. **Actual audio asset sourcing/creation depends on human input from the team** — this phase's coding work is the trigger-point plumbing (extending `Sfx.gd`/`Music.gd`, wiring each hook using the existing safe-load pattern so a missing file degrades silently rather than breaking), not authoring audio content. The full milestone is validated with a genuine ~15-minute soak test plus a real multi-peer swarm playtest. This phase is expected to require multiple plans internally (consistent with `coarse` granularity in config.json).
+
+**Suggested internal sequencing (for the planner):**
+1. Produce a complete audio-parts checklist covering the whole game (every Phase 10 juice moment PLUS every currently-silent existing action: the other 5 weapons, role abilities, pickups, UI/menu, room/loop transitions, boss phase events) — hand this list to the team so they can source/record/choose the actual sound files; do not fabricate audio content.
+2. Wire the trigger-point plumbing for each cue as files become available, reusing the existing `Sfx.gd` pool-extension + safe-load pattern; onset-only discipline for continuous effects (Fire burn DoT, Earth passive heal tick); reserved/priority voices for must-hear stingers (kill fanfare, evolution, downed/revive), bumping the shared pool size if needed.
+3. Run a full-length (~15-minute) continuous-loop soak test on both host and client roles independently, watching node count for leaks.
+4. Run a late-loop 2–3-real-peer swarm playtest checking damage-number/shake readability and audible stingers under heavy simultaneous fire.
+
+**UI hint:** no
+
+**Requirements:**
+
+- SFX-01: Every juice moment from Phase 10 has a paired sound cue
+- SFX-02: Continuous/repeating effects (Fire burn DoT, Earth passive heal tick) play a sound cue only on activation onset, not on every tick
+- SFX-03: Existing gameplay actions across the whole game that currently lack a sound cue (the other 5 weapons beyond screws/bolts, role abilities, pickups, UI/menu interactions, room/loop transitions, boss phase events) receive one, using the same safe-load `Sfx.gd`/`Music.gd` pattern
+
+**Success Criteria:**
+
+1. A complete audio-parts checklist exists covering the whole game (Phase 10 juice moments + previously-silent existing actions), handed off for the team to source actual sound files.
+2. Every juice moment from Phase 10 (damage, hit-flash, kill, death burst, pickup, level-up, evolution, dash, aura, heal, drone, spawn-in, downed, revive, big hit) has an audible, distinct sound cue wired once its file is available.
+3. Continuous/repeating effects (Fire burn DoT, Earth passive heal tick) play their sound cue only once on activation onset, not on every tick.
+4. Previously-silent existing actions (other weapons, abilities, pickups, UI, transitions, boss events) have cues wired using the same safe-load pattern.
+5. A full ~15-minute continuous loop on both host and client roles ends with no visible node-count growth (checked via remote scene tree/profiler) and no dropped must-hear stingers.
+6. A 2–3-real-peer swarm playtest under heavy simultaneous fire keeps damage numbers/shake readable and stingers audible, not silently stolen by the shared voice pool.
+
+**Pitfall watch:**
+
+- This phase's code work is plumbing, not content — actual WAV/audio files depend on human input from the team; the safe-load pattern (`ResourceLoader.exists()` check already established in `Sfx.gd`) means a not-yet-provided file degrades to silence, not a crash, so wiring can proceed ahead of asset delivery
+- Sound cue on onset only, never on every tick of continuous effects (burn DoT, Earth heal aura) — matches SFX-02 exactly and the existing Sfx.gd cue-pairing pattern
+- Reserve/priority voices for must-hear stingers (kill fanfare, evolution, downed/revive) so they aren't stolen by routine hit sounds during busy fights; bump the shared pool size if needed (~18–20 from 12) — decide concretely during this phase rather than leaving it ambiguous
+- Multiplayer-specific pitfalls (time_scale asymmetry, RPC despawn races, per-peer leak differences) are invisible in solo testing — this soak/swarm test must be run with real second/third peers, not solo
+
+**Plans:** TBD
+
+---
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -534,4 +652,6 @@ Wave 3 *(blocked on Waves 1 and 2 — camera wiring needs update_camera_limits f
 | 6. XP, Level-Up Cards & Evolution | 4/4 | Complete | 2026-06-18 |
 | 7. CarHUD, Loop Timer & Difficulty Scaling | 3/3 | Complete | 2026-06-19 |
 | 8. Rooms 2 & 3, Boss | 3/3 | Complete | 2026-06-22 |
-| 9. Map Overhaul — TileMap Sub-Rooms | 0/4 | Not started | — |
+| 9. Map Overhaul — TileMap Sub-Rooms | 3/4 | In progress | — |
+| 10. Juicy Feedback — Visual & Gameplay Polish | 0/TBD | Not started | — |
+| 11. Whole-Game Sound Design Pass & Soak-Test Validation | 0/TBD | Not started | — |
