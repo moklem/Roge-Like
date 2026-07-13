@@ -1,6 +1,9 @@
 extends CanvasLayer
 ## Phase 6 (XP-02, XP-03, D-06/D-08/D-09): 3-card level-up selection overlay.
 ## Local CanvasLayer — no SceneTree.paused (W4). Driven by Player.gd.
+## Phase 10 (D-12): comic paper/ink restyle. Shared by BOTH the level-up card pick and
+## the sub-room weapon-choice presentation — one component, restyled once, both call
+## sites inherit the look.
 
 var _cards: Array = []
 var _selected: int = 0
@@ -22,6 +25,47 @@ const STAT_ICONS := {
 	"Max HP": "icon_stat_maxhp.png",
 	"Damage": "icon_stat_damage.png",
 }
+
+func _ready() -> void:
+	_apply_comic_style()
+
+## Comic UI pass (D-12): paper/ink comic_box on each card, Bangers font + ink text on the
+## title/hint/card labels. Called once at _ready; the selected-vs-unselected accent-box
+## swap itself lives in _refresh_display below (runs every navigate()/show_cards()).
+func _apply_comic_style() -> void:
+	var f := UiStyle.button_font()
+	var title_lbl: Label = get_node_or_null("OverlayBackground/OverlayContainer/TitleLabel")
+	if title_lbl:
+		if f:
+			title_lbl.add_theme_font_override("font", f)
+		title_lbl.add_theme_font_size_override("font_size", 28)  # Heading tier
+		title_lbl.add_theme_color_override("font_color", UiStyle.INK)
+	var hint_lbl: Label = get_node_or_null("OverlayBackground/OverlayContainer/HintLabel")
+	if hint_lbl:
+		if f:
+			hint_lbl.add_theme_font_override("font", f)
+		hint_lbl.add_theme_color_override("font_color", UiStyle.INK)
+	for i in range(3):
+		var card_node: PanelContainer = get_node_or_null("OverlayBackground/OverlayContainer/CardsRow/Card%d" % i)
+		var border: ColorRect = get_node_or_null("OverlayBackground/OverlayContainer/CardsRow/Card%d/Card%dBorder" % [i, i])
+		var type_lbl: Label = get_node_or_null("OverlayBackground/OverlayContainer/CardsRow/Card%d/Card%dBorder/Card%dInner/Card%dTypeLabel" % [i, i, i, i])
+		var name_lbl: Label = get_node_or_null("OverlayBackground/OverlayContainer/CardsRow/Card%d/Card%dBorder/Card%dInner/Card%dNameLabel" % [i, i, i, i])
+		var desc_lbl: Label = get_node_or_null("OverlayBackground/OverlayContainer/CardsRow/Card%d/Card%dBorder/Card%dInner/Card%dDescLabel" % [i, i, i, i])
+		if card_node:
+			card_node.add_theme_stylebox_override("panel", UiStyle.comic_box(UiStyle.PAPER))
+		if border:
+			# The comic_box stylebox on the PanelContainer above now draws the paper
+			# background + ink border + shadow; the old flat-color ColorRect goes
+			# transparent so it no longer paints over it. Selection swap moves to the
+			# PanelContainer's "panel" stylebox override in _refresh_display.
+			border.color = Color(0, 0, 0, 0)
+		for lbl in [type_lbl, name_lbl, desc_lbl]:
+			if lbl:
+				if f:
+					lbl.add_theme_font_override("font", f)
+				lbl.add_theme_color_override("font_color", UiStyle.INK)
+		if desc_lbl:
+			desc_lbl.add_theme_font_size_override("font_size", 16)  # Body tier (was 12px)
 
 ## Optional title lets the sub-room weapon choice reuse this overlay with its own heading.
 func show_cards(cards: Array, title: String = "LEVEL UP — PICK A CARD") -> void:
@@ -54,7 +98,6 @@ func get_selected_card() -> Dictionary:
 func _refresh_display() -> void:
 	for i in range(3):
 		var card_node := get_node_or_null("OverlayBackground/OverlayContainer/CardsRow/Card%d" % i)
-		var border := get_node_or_null("OverlayBackground/OverlayContainer/CardsRow/Card%d/Card%dBorder" % [i, i])
 		var type_lbl := get_node_or_null("OverlayBackground/OverlayContainer/CardsRow/Card%d/Card%dBorder/Card%dInner/Card%dTypeLabel" % [i, i, i, i])
 		var name_lbl := get_node_or_null("OverlayBackground/OverlayContainer/CardsRow/Card%d/Card%dBorder/Card%dInner/Card%dNameLabel" % [i, i, i, i])
 		var icon_rect := get_node_or_null("OverlayBackground/OverlayContainer/CardsRow/Card%d/Card%dBorder/Card%dInner/Card%dIcon" % [i, i, i, i])
@@ -69,8 +112,9 @@ func _refresh_display() -> void:
 			if desc_lbl: desc_lbl.text = _card_desc_text(_cards[i])
 		else:
 			card_node.visible = false
-		if border:
-			border.color = Color(0.4, 1.0, 0.4, 1) if i == _selected else Color(0.35, 0.35, 0.4, 1)
+		# D-12: accent comic_box marks the selected card; unselected cards stay plain paper.
+		card_node.add_theme_stylebox_override("panel",
+			UiStyle.comic_box(Color(1.0, 0.84, 0.25)) if i == _selected else UiStyle.comic_box(UiStyle.PAPER))
 
 func _card_icon(card: Dictionary) -> Texture2D:
 	var file := "icon_generic.png"
