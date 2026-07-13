@@ -79,6 +79,39 @@ func _ready() -> void:
 		_health_ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_health_ghost.visible = false
 		$HealthBar.add_child(_health_ghost)
+	# ABIL-06/D-19: cosmetic-only materialize telegraph. _ready() is not authority-gated,
+	# so this plays identically on every peer; the enemy is fully active immediately —
+	# zero authoritative gameplay delay.
+	_play_spawn_telegraph()
+
+## ABIL-06/D-19: ~0.4s fade-in (modulate.a 0 -> resting) plus a brief expanding neutral
+## ground ring parented to FxLayer (never to the enemy — Pitfall 3/4). Purely cosmetic:
+## no RPC, no gameplay gating. EliteEnemy/Boss inherit this via super._ready() with no
+## subclass edit required.
+func _play_spawn_telegraph() -> void:
+	var resting_alpha: float = modulate.a
+	modulate.a = 0.0
+	var fade_tween := create_tween()
+	fade_tween.set_ignore_time_scale(true)
+	fade_tween.tween_property(self, "modulate:a", resting_alpha, 0.4)
+	var layer: Node2D = get_node_or_null("/root/Game/FxLayer") as Node2D
+	if layer == null:
+		return
+	const RING_RADIUS: float = 20.0
+	var ring := ColorRect.new()
+	ring.color = Color(1.0, 1.0, 1.0, 0.6)  # neutral/pale — enemy identity isn't meaningful yet (D-19)
+	ring.size = Vector2(RING_RADIUS * 2.0, RING_RADIUS * 2.0)
+	ring.pivot_offset = Vector2(RING_RADIUS, RING_RADIUS)
+	ring.position = global_position - Vector2(RING_RADIUS, RING_RADIUS)
+	ring.scale = Vector2(0.2, 0.2)
+	layer.add_child(ring)
+	var ring_tween := ring.create_tween()
+	ring_tween.set_ignore_time_scale(true)
+	ring_tween.tween_property(ring, "scale", Vector2(1.2, 1.2), 0.25)
+	ring_tween.parallel().tween_property(ring, "modulate:a", 0.3, 0.25)
+	ring_tween.tween_property(ring, "scale", Vector2(1.0, 1.0), 0.15)
+	ring_tween.parallel().tween_property(ring, "modulate:a", 0.0, 0.15)
+	ring_tween.tween_callback(ring.queue_free)
 
 ## Swap the ColorRect placeholder for the animated art and normalize its size: measure the
 ## opaque bounding box of the idle frame (same approach as Player._compute_char_fit) so the
