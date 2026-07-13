@@ -150,16 +150,27 @@ func _process(_delta: float) -> void:
 		var dmg: int = _last_hp_seen - current_hp
 		Juice.spawn_damage_number(global_position, dmg, _damage_number_color(), get_instance_id())
 		Juice.flash(self, Color(2, 2, 2, 1), 0.1)
+		# DMG-07/D-05: burst-only (~0.4s) element hit VFX for burning/slowed enemies, reusing
+		# the shared bounded Juice.spawn_burst/FxLayer pool — no second uncapped spawn path.
+		# Reads the now-replicated flags, so this renders identically on host and client.
+		if is_burning or is_slowed:
+			Juice.spawn_burst(global_position, _damage_number_color(), 8, 0.4)
 		# DMG-04/D-07: HP bar ghost chip-away for the segment just lost.
 		_update_health_ghost(_last_hp_seen, current_hp)
 	_last_hp_seen = current_hp
 	if _uses_char_sprite:
 		_update_enemy_visual(_delta)
 
-## Damage-number color hook. Always white for now; Plan 10-08 extends this to read
-## is_burning/is_slowed once those flags are replicated, kept as its own function so that
-## extension is purely additive.
+## Damage-number color hook (DMG-07/D-02). Reads the replicated is_burning/is_slowed flags
+## (ABIL-01) so numbers/bursts are element-colored via the shared Juice.element_color lookup
+## — never a hand-rolled second color table. Earth applies no per-hit enemy status, so an
+## earth-dealt basic hit falls through to neutral white here (earth's green lives at its own
+## ability presentation sites per the locked "no new synced state" constraint).
 func _damage_number_color() -> Color:
+	if is_burning:
+		return Juice.element_color("fire")
+	if is_slowed:
+		return Juice.element_color("ice")
 	return Color.WHITE
 
 ## DMG-04/D-07: Positions the ghost overlay to span the just-lost HP segment (old_hp→new_hp)
