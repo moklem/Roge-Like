@@ -20,7 +20,7 @@ const DRONE_TEXTURES := {
 ## rather than as a second character. Stage 2 is the SMALLER of the two on purpose:
 ## it flies right next to the Engineer, so it must not crowd or upstage him, while
 ## Stage 1 is a planted ground unit standing on its own.
-const DRONE_TARGET_HEIGHT := {1: 40.0, 2: 28.0}
+const DRONE_TARGET_HEIGHT := {1: 32.0, 2: 28.0}
 ## Used only when the texture's image data cannot be read (256px art → ~41px on screen).
 const FALLBACK_SCALE: float = 0.16
 
