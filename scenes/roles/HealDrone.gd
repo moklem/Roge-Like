@@ -15,12 +15,25 @@ const DRONE_TEXTURES := {
 	1: preload("res://assets/active/roles/heal_drone_1.png"),
 	2: preload("res://assets/active/roles/heal_drone_2.png"),
 }
-## Target on-screen height (px) per stage — kept below the player's 56-68px
+## Target on-screen height (px) per stage — well below the player's 56-68px
 ## (Player.CHAR_TARGET_HEIGHT) so the drone reads as the Engineer's equipment
-## rather than as a second character.
-const DRONE_TARGET_HEIGHT := {1: 40.0, 2: 46.0}
+## rather than as a second character. Stage 2 is the SMALLER of the two on purpose:
+## it flies right next to the Engineer, so it must not crowd or upstage him, while
+## Stage 1 is a planted ground unit standing on its own.
+const DRONE_TARGET_HEIGHT := {1: 40.0, 2: 28.0}
 ## Used only when the texture's image data cannot be read (256px art → ~41px on screen).
 const FALLBACK_SCALE: float = 0.16
+
+## D-15 Stage-2 follow: the drone flies diagonally above-and-right of the Engineer
+## instead of sitting inside him. Y is negative because Godot's +Y points down.
+const FOLLOW_OFFSET := Vector2(30.0, -34.0)
+## Exponential smoothing rate for the follow — the drone drifts after the Engineer
+## rather than snapping onto him, which is what makes it read as flying alongside.
+const FOLLOW_SMOOTHING: float = 9.0
+
+## Cosmetic hover bob (Stage 2 only — Stage 1 stands on legs and must not float).
+const BOB_AMPLITUDE: float = 2.5
+const BOB_SPEED: float = 3.0
 
 const PULSE_INTERVAL: float = 3.0
 const LIFETIME: float = 10.0          # drone despawns after 10s
@@ -34,6 +47,8 @@ const PULSE_RADIUS_S2: float = 200.0
 var _pulse_timer: Timer = null
 var _area: Area2D = null
 var _lifetime_elapsed: float = 0.0
+var _sprite: Sprite2D = null
+var _bob_t: float = 0.0
 
 func _ready() -> void:
 	# CRITICAL (Pitfall 2): drone authority stays with host (default).
@@ -55,12 +70,16 @@ func _physics_process(delta: float) -> void:
 	if _lifetime_elapsed >= LIFETIME:
 		queue_free()
 		return
-	# Stage-2: follow owning Engineer position
+	# Stage-2: fly alongside the owning Engineer (D-15). Offset diagonally up-and-right
+	# so the drone sits BESIDE him, not on top of him, and ease toward that point instead
+	# of snapping to it — the lag is what sells it as a flying companion.
 	if stage < 2:
 		return
 	for p in get_tree().get_nodes_in_group("players"):
 		if p.peer_id == owning_peer:
-			global_position = p.global_position
+			var target: Vector2 = p.global_position + FOLLOW_OFFSET
+			# Frame-rate-independent exponential smoothing (physics tick can vary).
+			global_position = global_position.lerp(target, 1.0 - exp(-FOLLOW_SMOOTHING * delta))
 			break
 
 func _setup_area() -> void:
@@ -130,6 +149,17 @@ func _draw_visual() -> void:
 	spr.texture = tex
 	_fit_sprite(spr, tex, DRONE_TARGET_HEIGHT[s])
 	add_child(spr)
+	_sprite = spr
+
+## Cosmetic hover bob for the flying Stage-2 unit. Runs on every peer (presentation only)
+## and drives the SPRITE's local position, never `global_position` — that one is replicated
+## and is also what the heal pulse measures from, so bobbing it would jitter both the
+## network state and the heal range.
+func _process(delta: float) -> void:
+	if stage < 2 or _sprite == null:
+		return
+	_bob_t += delta * BOB_SPEED
+	_sprite.position = Vector2(0.0, sin(_bob_t) * BOB_AMPLITUDE)
 
 ## Scale and centre the sprite on its opaque pixels, mirroring the `_compute_char_fit`
 ## idiom in Player.gd. The art is a 256x256 canvas with wide transparent margins, so
