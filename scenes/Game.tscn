@@ -172,7 +172,7 @@ texture_region_size = Vector2i(384, 384)
 
 [sub_resource type="TileSetAtlasSource" id="TSA_b_knight"]
 texture = ExtResource("t_b_knight")
-texture_region_size = Vector2i(384, 384)
+texture_region_size = Vector2i(576, 576)
 
 [sub_resource type="TileSetAtlasSource" id="TSA_b_shield"]
 texture = ExtResource("t_b_shield")

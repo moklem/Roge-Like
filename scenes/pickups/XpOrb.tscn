@@ -13,7 +13,7 @@ script = ExtResource("1_orb")
 
 [node name="Sprite" type="Sprite2D" parent="."]
 texture = ExtResource("2_orbtex")
-scale = Vector2(0.136, 0.136)
+scale = Vector2(0.1043, 0.1043)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_1")

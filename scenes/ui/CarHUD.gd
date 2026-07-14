@@ -26,9 +26,19 @@ const DRIVER_MODE_DISPLAY: Dictionary = {
 	"overdrive": ["Driver Mode: OVERDRIVE", Color(0.45, 0.18, 0.7, 1)],
 }
 
+## Comic restyle (matches MainMenu/LobbyScreen/PlayerHUD). Only the LOOK changes here — every
+## indicator still lights on its own hud_event and fades on its own tween, exactly as before.
+## An unlit indicator is a dim page; a lit one keeps its saturated signal color, which is what
+## carries the meaning, so the lit palette is deliberately left alone.
+const IDLE_BG: Color = Color(0.86, 0.83, 0.74, 1.0)   # muted paper, so a lit panel pops off it
+const IDLE_TEXT: Color = Color(0.08, 0.07, 0.10, 0.5)  # ink at half strength
+const LIT_TEXT: Color = Color(1.0, 1.0, 1.0, 1.0)
+
 func _ready() -> void:
 	# Mirror Game.gd line 106: connect to hud_event signal so CarHUD reacts on all peers.
 	GameEvents.hud_event.connect(_on_hud_event)
+
+	_apply_comic_style()
 
 	# Build indicator dictionary — get node references and create per-indicator StyleBoxFlats.
 	_build_indicators()
@@ -42,6 +52,38 @@ func _ready() -> void:
 	_last_loop_number = GameState.loop_number
 	if _loop_label:
 		_loop_label.text = "Loop: %d" % _last_loop_number
+
+## Comic panel + comic font on every label. The indicator labels carry emoji (❄️🔥🌿⚡🔴) which
+## Bangers has no glyphs for — they survive because FontFile.allow_system_fallback is on, so the
+## system emoji face fills them in. Verified: the emoji resolve to real glyph widths, not tofu.
+func _apply_comic_style() -> void:
+	var panel: Panel = get_node_or_null("CarHUDPanel")
+	if panel != null:
+		panel.add_theme_stylebox_override("panel", UiStyle.comic_box(
+			Color(UiStyle.PAPER.r, UiStyle.PAPER.g, UiStyle.PAPER.b, 0.93)))
+	var f := UiStyle.button_font()
+	for lbl in _all_labels():
+		if f:
+			lbl.add_theme_font_override("font", f)
+		lbl.add_theme_font_size_override("font_size", 17)
+		lbl.add_theme_color_override("font_color", IDLE_TEXT)
+	var loop: Label = get_node_or_null("CarHUDPanel/CarHUDContainer/LoopLabel")
+	if loop != null:
+		loop.add_theme_font_size_override("font_size", 22)
+		loop.add_theme_color_override("font_color", UiStyle.INK)
+
+func _all_labels() -> Array:
+	var out: Array = []
+	var container := get_node_or_null("CarHUDPanel/CarHUDContainer")
+	if container == null:
+		return out
+	for child in container.get_children():
+		if child is Label:
+			out.append(child)
+		for sub in child.get_children():
+			if sub is Label:
+				out.append(sub)
+	return out
 
 func _process(_delta: float) -> void:
 	# Polling pattern: update loop label only when loop_number changes (RESEARCH.md OQ4).
@@ -70,9 +112,10 @@ func _build_indicators() -> void:
 		if panel == null or lbl == null:
 			push_warning("CarHUD: missing node for indicator '%s'" % def["key"])
 			continue
-		# Create a per-indicator StyleBoxFlat set to idle background (D-04 / UI-SPEC).
-		var style := StyleBoxFlat.new()
-		style.bg_color = Color(0.10, 0.10, 0.10, 1)  # idle bg (#1A1A1A)
+		# Per-indicator comic panel, starting idle (D-04 / UI-SPEC). comic_box() hands back a
+		# StyleBoxFlat, so the lit/idle transitions below still just swap bg_color and the
+		# ink border and drop shadow ride along untouched.
+		var style := UiStyle.comic_box(IDLE_BG)
 		panel.add_theme_stylebox_override("panel", style)
 		_indicators[def["key"]] = {
 			"panel":     panel,
@@ -102,10 +145,12 @@ func _activate_indicator(event_name: String) -> void:
 	if existing_tween != null and existing_tween.is_valid():
 		existing_tween.kill()
 
-	# Apply lit state: bright background, white text with outline (UI-SPEC Component States).
+	# Apply lit state: bright background, white text with a heavy ink outline (comic pass —
+	# the outline has to carry the text over the saturated signal colors).
 	style.bg_color = lit_color
-	lbl.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1))
-	lbl.add_theme_constant_override("outline_size", 1)
+	lbl.add_theme_color_override("font_color", LIT_TEXT)
+	lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+	lbl.add_theme_constant_override("outline_size", 5)
 	panel.modulate.a = 1.0
 
 	# Tween: hold 2.0s → fade modulate:a to 0.0 over 0.5s → restore idle in callback.
@@ -127,10 +172,9 @@ func _restore_idle(event_name: String) -> void:
 
 	# Reset panel alpha first so idle style is fully visible.
 	panel.modulate.a = 1.0
-	# Restore idle StyleBoxFlat background (D-04 idle color).
-	style.bg_color = Color(0.10, 0.10, 0.10, 1)
-	# Restore dim idle label text (UI-SPEC indicator idle label text #595959).
-	lbl.add_theme_color_override("font_color", Color(0.35, 0.35, 0.35, 1))
+	# Back to the dim page (D-04 idle state, comic palette).
+	style.bg_color = IDLE_BG
+	lbl.add_theme_color_override("font_color", IDLE_TEXT)
 	lbl.add_theme_constant_override("outline_size", 0)
 
 # ------------------------------------------------------------------------------
@@ -144,8 +188,7 @@ func _build_driver_indicator() -> void:
 	if _driver_panel == null or _driver_label == null:
 		push_warning("CarHUD: missing Driver Mode nodes")
 		return
-	_driver_style = StyleBoxFlat.new()
-	_driver_style.bg_color = Color(0.10, 0.10, 0.10, 1)  # idle bg
+	_driver_style = UiStyle.comic_box(IDLE_BG)
 	_driver_panel.add_theme_stylebox_override("panel", _driver_style)
 
 ## GameEvents.driver_mode fires on all peers. Show the active mode brightly for the host-rolled
@@ -158,8 +201,9 @@ func _on_driver_mode(mode: String, duration: float) -> void:
 	var info: Array = DRIVER_MODE_DISPLAY[mode]
 	_driver_label.text = info[0]
 	_driver_style.bg_color = info[1]
-	_driver_label.add_theme_color_override("font_color", Color(1, 1, 1, 1))
-	_driver_label.add_theme_constant_override("outline_size", 1)
+	_driver_label.add_theme_color_override("font_color", LIT_TEXT)
+	_driver_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+	_driver_label.add_theme_constant_override("outline_size", 5)
 	_driver_panel.modulate.a = 1.0
 	# Hold for the effect duration, fade out, then reset to idle.
 	_driver_tween = _driver_panel.create_tween()
@@ -171,7 +215,7 @@ func _restore_driver_idle() -> void:
 	if _driver_panel == null:
 		return
 	_driver_panel.modulate.a = 1.0
-	_driver_style.bg_color = Color(0.10, 0.10, 0.10, 1)
+	_driver_style.bg_color = IDLE_BG
 	_driver_label.text = "Driver Mode:"
-	_driver_label.add_theme_color_override("font_color", Color(0.35, 0.35, 0.35, 1))
+	_driver_label.add_theme_color_override("font_color", IDLE_TEXT)
 	_driver_label.add_theme_constant_override("outline_size", 0)
