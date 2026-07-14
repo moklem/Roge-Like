@@ -20,6 +20,16 @@ const TEAM_XP_PER_LEVEL: int = 100
 var team_xp: int = 0
 var team_level: int = 1
 
+## Handed to GameOver.tscn across the scene change — this autoload outlives the swap, so
+## it is the only channel that survives it. `final_*` are snapshotted before
+## reset_for_new_run() clears the live values, since the screen only renders afterwards.
+const REASON_WIPE := "wipe"
+const REASON_HOST_LEFT := "host_left"
+
+var game_over_reason: String = REASON_WIPE
+var final_loop: int = 1
+var final_level: int = 1
+
 func _ready() -> void:
 	# D-16 / Pitfall 6: ensure correct base even before peers connect
 	loop_number = 1
@@ -145,6 +155,11 @@ func _broadcast_game_over() -> void:
 		p._pending_weapon_choice = false  # stale sub-room weapon choice must not carry into the next run
 		p._pending_card_picks = 0
 		p.evolution_stage = 1  # direct reset — skip deferred visual swap before scene change
+	# Snapshot what the run reached BEFORE reset_for_new_run() wipes it — the GameOver
+	# screen builds itself after the scene change, by which point the live values are gone.
+	game_over_reason = REASON_WIPE
+	final_loop = loop_number
+	final_level = team_level
 	# CR-02: reset loop-scoped state before scene change so next run starts at loop 1
 	reset_for_new_run()
 	get_tree().call_deferred("change_scene_to_file", "res://scenes/ui/GameOver.tscn")

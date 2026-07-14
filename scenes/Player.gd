@@ -314,8 +314,17 @@ func _process(_delta: float) -> void:
 		)
 		_update_health_ghost(_last_health_seen, health)
 		if is_multiplayer_authority():
-			Juice.add_trauma(0.25)
+			# Shake and vignette both scale with how hard the hit landed, so an Elite/Boss
+			# blow reads as heavier than a chip of contact damage without needing to know
+			# who dealt it — the replicated health drop already carries that.
+			var bite: float = clampf(float(_last_health_seen - health) / 30.0, 0.0, 1.0)
+			Juice.add_trauma(lerpf(0.5, 0.95, bite))
+			Juice.vignette_pulse(lerpf(0.55, 1.0, bite))
 	_last_health_seen = health
+	# The persistent low-HP tint is fed only by the owning peer, and only while it can still
+	# act — once downed, the collapse desaturate owns the screen and this fades itself out.
+	if is_multiplayer_authority() and not is_downed:
+		Juice.set_low_hp_ratio(float(health) / float(MAX_HP))
 	# Phase 6 D-10: LevelUpLabel driven by synced is_picking_card (visible on ALL peers)
 	if has_node("LevelUpLabel"):
 		$LevelUpLabel.visible = is_picking_card

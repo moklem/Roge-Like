@@ -82,6 +82,10 @@ static func style_buttons(root: Node) -> void:
 		b.add_theme_color_override("font_color", INK)
 		b.add_theme_color_override("font_hover_color", INK)
 		b.add_theme_color_override("font_pressed_color", INK)
+		# A focused button defaults to near-WHITE text, which vanishes on the paper face —
+		# it bites the moment anything calls grab_focus() or the user tabs through.
+		b.add_theme_color_override("font_focus_color", INK)
+		b.add_theme_color_override("font_hover_pressed_color", INK)
 		b.add_theme_color_override("font_disabled_color", Color(INK.r, INK.g, INK.b, 0.45))
 		b.add_theme_stylebox_override("normal",  comic_box(PAPER))
 		b.add_theme_stylebox_override("hover",   comic_box(Color(1.0, 0.84, 0.25)))

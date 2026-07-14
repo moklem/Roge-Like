@@ -53,12 +53,14 @@ func _on_peer_disconnected(id: int) -> void:
 	players.erase(id)
 	# D-16 / P9: if host (id==1) disconnected, all clients return to main menu
 	if id == 1:
+		GameState.game_over_reason = GameState.REASON_HOST_LEFT
 		get_tree().change_scene_to_file("res://scenes/ui/GameOver.tscn")
 	else:
 		player_list_changed.emit()
 
 func _on_server_disconnected() -> void:
 	# Called on client when host disappears (fires before peer_disconnected)
+	GameState.game_over_reason = GameState.REASON_HOST_LEFT
 	get_tree().change_scene_to_file("res://scenes/ui/GameOver.tscn")
 
 # D-14/P1: All @rpc functions have IDENTICAL annotation + signature on both host and client.
