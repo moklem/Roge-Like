@@ -8,6 +8,20 @@ extends Node2D
 @export var owning_peer: int = 0
 @export var stage: int = 1
 
+## Drone art — deliberately mapped to what each stage actually DOES:
+## Stage 1 is the planted, legged unit (D-14: stays fixed at the deploy position).
+## Stage 2 is the hovering unit with grabber arms (D-15: follows the Engineer).
+const DRONE_TEXTURES := {
+	1: preload("res://assets/active/roles/heal_drone_1.png"),
+	2: preload("res://assets/active/roles/heal_drone_2.png"),
+}
+## Target on-screen height (px) per stage — kept below the player's 56-68px
+## (Player.CHAR_TARGET_HEIGHT) so the drone reads as the Engineer's equipment
+## rather than as a second character.
+const DRONE_TARGET_HEIGHT := {1: 40.0, 2: 46.0}
+## Used only when the texture's image data cannot be read (256px art → ~41px on screen).
+const FALLBACK_SCALE: float = 0.16
+
 const PULSE_INTERVAL: float = 3.0
 const LIFETIME: float = 10.0          # drone despawns after 10s
 ## Stage-1 stats (D-14)
@@ -110,13 +124,31 @@ func _spawn_deploy_effect() -> void:
 	tween.tween_callback(ring.queue_free)
 
 func _draw_visual() -> void:
-	# Small green ColorRect 20x20 — placeholder visual, distinct from SpinningTires
-	var rect := ColorRect.new()
-	rect.color = Color(0.2, 0.9, 0.3, 0.9)
-	rect.size = Vector2(20.0, 20.0)
-	rect.pivot_offset = Vector2(10.0, 10.0)
-	rect.position = Vector2(-10.0, -10.0)
-	add_child(rect)
+	var s: int = 2 if stage >= 2 else 1
+	var tex: Texture2D = DRONE_TEXTURES[s]
+	var spr := Sprite2D.new()
+	spr.texture = tex
+	_fit_sprite(spr, tex, DRONE_TARGET_HEIGHT[s])
+	add_child(spr)
+
+## Scale and centre the sprite on its opaque pixels, mirroring the `_compute_char_fit`
+## idiom in Player.gd. The art is a 256x256 canvas with wide transparent margins, so
+## scaling against the raw texture size would render the drone both too small and
+## visibly off its own origin (the heal ring in _draw() is centred on that origin).
+func _fit_sprite(spr: Sprite2D, tex: Texture2D, target_height: float) -> void:
+	var img: Image = tex.get_image()
+	if img == null:
+		spr.scale = Vector2(FALLBACK_SCALE, FALLBACK_SCALE)
+		return
+	var used: Rect2i = img.get_used_rect()
+	if used.size.y <= 0:
+		spr.scale = Vector2(FALLBACK_SCALE, FALLBACK_SCALE)
+		return
+	var s: float = target_height / float(used.size.y)
+	spr.scale = Vector2(s, s)
+	var canvas_center := Vector2(img.get_width(), img.get_height()) * 0.5
+	var used_center := Vector2(used.position) + Vector2(used.size) * 0.5
+	spr.offset = canvas_center - used_center
 
 ## Heal radius indicator — runs on all peers so everyone sees the drone's reach.
 ## Drawn below the drone rect; stage is set by the spawner before add_child, so the
