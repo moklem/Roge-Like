@@ -264,6 +264,10 @@ func _transition_to_room(next_room: int) -> void:
 	_connector_triggered = false
 	_exit_open = false
 	_wave_advancing = false
+	## Entering a new location IS entering its sub-room 1, so the per-sub-room revive limit resets
+	## here too — _transition_to_sub_room is not called on this path, so it would otherwise carry
+	## over from the last sub-room of the previous location.
+	_reset_revive_limits()
 
 	## Phase 9: Build sub-room 1 of the new location on all peers (call_local context).
 	if _room_builder != null:
@@ -327,13 +331,25 @@ func _check_room_clear() -> void:
 # SUB-ROOM PROGRESSION (Phase 9 — MAP-01, MAP-02, MAP-03, D-08, D-10, D-11, D-12)
 # ==============================================================================
 
-## Phase 9 (D-03, MAP-07): Updates Camera2D.limit_* on all players to match the current sub-room bounds.
+## Phase 9 (D-03, MAP-07): Hands every player the current sub-room's bounds — the shared camera
+## clamps itself against them so it never scrolls past a wall.
 ## Called on all peers after every sub-room build (call_local context — no RPC needed).
 ## Must be called AFTER _current_sub_room_rect_px is set.
 func _update_all_camera_limits() -> void:
 	for p in get_tree().get_nodes_in_group("players"):
 		if is_instance_valid(p) and p.has_method("update_camera_limits"):
 			p.update_camera_limits(_current_sub_room_rect_px)
+
+## D-22: one revive per player per sub-room. Both transition RPCs are call_local, so this runs on
+## every peer: the host clears its own gate dict, and each peer clears the flag on the player it
+## owns, which replicates the reset outward. Player.revive_used is the client-visible mirror of
+## that gate — the shared camera (MAP-07) reads it to decide whether a downed player still holds
+## the frame, so the two must never drift apart.
+func _reset_revive_limits() -> void:
+	GameState.revives_used.clear()
+	for p in get_tree().get_nodes_in_group("players"):
+		if is_instance_valid(p) and p.is_multiplayer_authority():
+			p.revive_used = false
 
 ## Driver Mode: host schedules a random team-wide effect to fire at a RANDOM moment inside the
 ## sub-room (not on entry). Each call bumps _driver_roll_token; after the delay the roll only
@@ -374,7 +390,7 @@ func _transition_to_sub_room(next: int) -> void:
 	_exit_open = false
 	# Revive limit is now per sub-room (was per loop): clear the per-player revive counter on
 	# every sub-room entry so each player can be revived once again in the new sub-room.
-	GameState.revives_used.clear()
+	_reset_revive_limits()
 	var rect: Rect2
 	if next == 6:
 		## Phase 9 (D-11, D-13): Connector sub-room — no enemies, pure walking corridor.

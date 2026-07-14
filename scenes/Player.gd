@@ -41,6 +41,13 @@ const STAGE3_LEVEL: int = 10         # D-04: Full AutoBot at Level 10 (cumulativ
 var health: int = MAX_HP
 var is_downed: bool = false
 
+## MAP-07: mirrors the host's revive gate (GameState.revives_used — one revive per player per
+## sub-room) so every peer, not just the host, knows whether a downed player can still be picked
+## up. The shared camera needs that answer locally: a downed player who can still be revived
+## holds the frame, one whose revive is spent does not. Replicated like health/is_downed —
+## written on the owning peer inside revive(), reset by Game._reset_revive_limits().
+var revive_used: bool = false
+
 ## Phase 5: Role/element/ability state
 var evolution_stage: int = 1        # D-04: Phase 6 sets via RPC when XP threshold reached
 var element: String = ""            # D-03: "fire" | "ice" | "earth" | ""
@@ -117,8 +124,7 @@ func _ready() -> void:
 	_fire_burst_timer = 4.0
 	## Phase 9 (D-01, MAP-07): Camera2D enabled only for the local authority player.
 	## Non-authority peers keep the camera disabled — never sync camera position over network.
-	if has_node("Camera2D"):
-		$Camera2D.enabled = is_multiplayer_authority()
+	_setup_camera()
 	# AUTOBONK: swap ColorRect placeholder for animated character art when available
 	_setup_char_sprite()
 	_setup_draw_layers()
@@ -207,30 +213,137 @@ func _apply_char_fit(stage: int, spr: AnimatedSprite2D) -> void:
 	# flip_h mirrors the art inside its canvas, so the centering shift mirrors with it
 	spr.offset = Vector2(-off.x if spr.flip_h else off.x, off.y)
 
-## Phase 9 (D-03, MAP-07): Called by Game.gd after each sub-room is built.
-## Sets Camera2D limit bounds to the sub-room's pixel bounding box.
-## sub_room_rect_px: Rect2 = Rect2(origin_x_px, origin_y_px, width_px, height_px)
-## Called on all peers locally (camera is not networked — each peer sets its own limits).
-func update_camera_limits(sub_room_rect_px: Rect2) -> void:
+# ──────────────────────────────────────────────────────────────────────────────
+# MAP-07: shared co-op camera — one frame for the whole team, Mario-style.
+#
+# Every peer draws the same rect: the bounding box of the players that still matter. The player
+# who runs ahead pushes the frame, the one at the back holds it, and nobody can leave it —
+# _clamp_to_camera_leash() stops the leader at the edge instead of letting the team split. The
+# camera is never networked; each peer derives it locally from the replicated positions.
+# ──────────────────────────────────────────────────────────────────────────────
+
+## Zoomed in far enough that the play area is SMALLER than every sub-room. Below ~1.63 the whole
+## room fits on screen and the camera has nothing left to scroll — which is exactly what it did
+## before this change.
+const CAMERA_ZOOM: float = 1.6
+## The CarHUD panel is opaque and covers the right 200 screen px, so that strip is not play area.
+## Both the framing and the leash subtract it — otherwise the leading player gets walled at a
+## boundary he cannot see, behind the dashboard.
+const HUD_PANEL_WIDTH: float = 200.0
+## Keeps the sprite and its nameplate clear of the screen edge when the leash bites.
+const CAMERA_EDGE_MARGIN: float = 24.0
+
+## Pixel bounds of the sub-room the camera may show — set by Game.gd on every (sub-)room
+## transition, on every peer.
+var _room_rect_px: Rect2 = Rect2()
+
+func _setup_camera() -> void:
 	if not has_node("Camera2D"):
 		return
 	var cam: Camera2D = $Camera2D
-	## Rooms can be SMALLER than the camera view (zoomed out for the room-overview feel).
-	## Camera2D pins to limit_left/top when limits are tighter than the view, which would
-	## glue small rooms to the top-left corner — grow the limit rect to at least the view
-	## size, centered on the room, so it sits centered with void margins instead.
-	var view: Vector2 = get_viewport_rect().size / cam.zoom
-	var rect := sub_room_rect_px
-	if rect.size.x < view.x:
-		rect.position.x -= (view.x - rect.size.x) * 0.5
-		rect.size.x = view.x
-	if rect.size.y < view.y:
-		rect.position.y -= (view.y - rect.size.y) * 0.5
-		rect.size.y = view.y
-	cam.limit_left   = int(rect.position.x)
-	cam.limit_top    = int(rect.position.y)
-	cam.limit_right  = int(rect.end.x)
-	cam.limit_bottom = int(rect.end.y)
+	cam.enabled = is_multiplayer_authority()
+	cam.zoom = Vector2(CAMERA_ZOOM, CAMERA_ZOOM)
+	## The camera frames the GROUP, not this player, so it must not ride along with its parent.
+	cam.top_level = true
+	## Position is recomputed from the group's bounding box every frame. Smoothing would let the
+	## frame lag behind the leash and draw players outside the box we just walled them into.
+	cam.position_smoothing_enabled = false
+	## Shift the view right by half the HUD width so the UNCOVERED part of the screen — the part
+	## the player actually plays in — ends up centred on the group. Written once, not per frame:
+	## Juice.gd caches this as the base offset it adds screen shake on top of (Juice.gd:47).
+	cam.offset = Vector2(HUD_PANEL_WIDTH * 0.5 / CAMERA_ZOOM, 0.0)
+	## Camera2D.limit_* is deliberately unused: it clamps the FULL view, so the camera would stop
+	## while the room's right edge was still hidden behind the HUD panel. _shared_camera_center()
+	## clamps the play area instead.
+	cam.limit_left = -100000000
+	cam.limit_top = -100000000
+	cam.limit_right = 100000000
+	cam.limit_bottom = 100000000
+
+## World-space size of the part of the screen a player can actually see and use: viewport minus
+## the HUD strip, divided by the zoom. (Stretch mode is canvas_items, so the viewport stays at its
+## base size and the 200px HUD panel lives in that same coordinate space.)
+func _play_area_size() -> Vector2:
+	var view: Vector2 = get_viewport_rect().size / CAMERA_ZOOM
+	return Vector2(view.x - HUD_PANEL_WIDTH / CAMERA_ZOOM, view.y)
+
+## The players the camera must keep on screen: everyone still standing, plus downed players who
+## can still be picked up. A downed player whose revive is already spent (D-22: one per sub-room)
+## drops out of the frame, so the team may leave him behind instead of being locked to his body.
+func _framing_players() -> Array:
+	var framed: Array = []
+	for p in get_tree().get_nodes_in_group("players"):
+		if not is_instance_valid(p):
+			continue
+		if p.is_downed and p.revive_used:
+			continue
+		framed.append(p)
+	return framed
+
+## Centre of the group's bounding box, pulled back so the play area never leaves the sub-room.
+## A room smaller than the play area on an axis (the connector corridor is 5 tiles high) is
+## centred on that axis instead of clamped, or it would stick to the top-left corner.
+func _shared_camera_center(framed: Array) -> Vector2:
+	var mn: Vector2 = framed[0].global_position
+	var mx: Vector2 = mn
+	for p in framed:
+		mn.x = minf(mn.x, p.global_position.x)
+		mn.y = minf(mn.y, p.global_position.y)
+		mx.x = maxf(mx.x, p.global_position.x)
+		mx.y = maxf(mx.y, p.global_position.y)
+	var c: Vector2 = (mn + mx) * 0.5
+	if _room_rect_px.size == Vector2.ZERO:
+		return c   # no room bounds yet (first frame after spawn) — frame the group unclamped
+	var half: Vector2 = _play_area_size() * 0.5
+	for axis in [Vector2.AXIS_X, Vector2.AXIS_Y]:
+		if _room_rect_px.size[axis] > half[axis] * 2.0:
+			c[axis] = clampf(c[axis], _room_rect_px.position[axis] + half[axis], _room_rect_px.end[axis] - half[axis])
+		else:
+			c[axis] = _room_rect_px.position[axis] + _room_rect_px.size[axis] * 0.5
+	return c
+
+## Frame the group. Runs every physics frame on the authority peer — including the frames where
+## this player is frozen (countdown, card pick) or downed, so the camera keeps following the team
+## when he himself cannot move.
+func _update_shared_camera() -> void:
+	if not has_node("Camera2D"):
+		return
+	var cam: Camera2D = $Camera2D
+	if not cam.enabled:
+		return
+	var framed: Array = _framing_players()
+	if framed.is_empty():
+		framed = [self]   # whole team down and spent: game over is already on its way
+	cam.global_position = _shared_camera_center(framed)
+
+## The Mario co-op rule: the team can never spread wider than the frame. Whoever runs ahead is
+## stopped at the edge rather than dragging the camera off his team-mates — that is what forces
+## the team to move together. Clamps the SPREAD, not the distance to the camera: clamping against
+## the camera would let the leader creep forward at half speed, since the frame follows the
+## midpoint and would keep sliding after him.
+##
+## Runs at the very end of the frame so it also catches the Speedster dash, which does its own
+## move_and_slide() inside _tick_ability (_do_dash) and would otherwise burst through the edge.
+func _clamp_to_camera_leash() -> void:
+	var max_spread: Vector2 = _play_area_size() - Vector2(CAMERA_EDGE_MARGIN, CAMERA_EDGE_MARGIN) * 2.0
+	var others_min: Vector2 = Vector2.INF
+	var others_max: Vector2 = -Vector2.INF
+	for p in _framing_players():
+		if p == self:
+			continue
+		others_min.x = minf(others_min.x, p.global_position.x)
+		others_min.y = minf(others_min.y, p.global_position.y)
+		others_max.x = maxf(others_max.x, p.global_position.x)
+		others_max.y = maxf(others_max.y, p.global_position.y)
+	if is_inf(others_min.x):
+		return   # solo run, or the only one the camera still frames — nothing to stay near
+	global_position.x = clampf(global_position.x, others_max.x - max_spread.x, others_min.x + max_spread.x)
+	global_position.y = clampf(global_position.y, others_max.y - max_spread.y, others_min.y + max_spread.y)
+
+## Phase 9 (D-03, MAP-07): Called by Game.gd on every peer after each sub-room is built.
+## sub_room_rect_px: Rect2 = Rect2(origin_x_px, origin_y_px, width_px, height_px)
+func update_camera_limits(sub_room_rect_px: Rect2) -> void:
+	_room_rect_px = sub_room_rect_px
 
 ## Tracks last-seen health so _process can fire a heal particle burst when it rises (all peers).
 var _last_health_seen: int = -1
@@ -356,6 +469,9 @@ func _physics_process(delta: float) -> void:
 	# P3: Only the authority peer reads input and moves
 	if not is_multiplayer_authority():
 		return
+	# MAP-07: frame the team first — the camera has to keep tracking them through every early
+	# return below (countdown, downed, card pick), or it freezes while the others fight on.
+	_update_shared_camera()
 	# Start countdown gate — no movement, weapons, or abilities until GO
 	var game := get_node_or_null("/root/Game")
 	if game != null and game.get("countdown_active") == true:
@@ -384,6 +500,8 @@ func _physics_process(delta: float) -> void:
 	_tick_element(delta)
 	# HLTH-05: Check revive input (R key) each frame
 	_check_revive(delta)
+	# MAP-07: last thing in the frame, after the dash's own move_and_slide — hold the leash.
+	_clamp_to_camera_leash()
 
 ## ABIL-03/COOP-04/D-20: One-shot green sparkle rise at the player — self-frees when
 ## finished. Fired from the every-peer `_process` health-increase diff (never gated behind
@@ -1294,6 +1412,9 @@ func _enter_downed() -> void:
 func revive() -> void:
 	health = MAX_HP >> 1  # revive with 50% HP (bit-shift avoids int-division warning)
 	is_downed = false
+	# MAP-07: this player's one revive for the sub-room is now spent. Runs on the owning peer
+	# (receive_revive targets the authority), so the flag replicates outward from here.
+	revive_used = true
 	# COOP-03: lights up the previously-scaffolded GameEvents.player_revived signal — see the
 	# emit_player_downed guard comment above (host-authoritative sites only).
 	if multiplayer.is_server():
