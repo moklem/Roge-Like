@@ -26,7 +26,12 @@ const FALLBACK_SCALE: float = 0.16
 
 ## D-15 Stage-2 follow: the drone flies diagonally above-and-right of the Engineer
 ## instead of sitting inside him. Y is negative because Godot's +Y points down.
-const FOLLOW_OFFSET := Vector2(30.0, -34.0)
+##
+## X must clear the player's overhead UI, or the drone covers it. In Player.tscn the
+## RoleLabel spans x -40..40 (y -68..-48) and the HealthBar x -26..26 (y -46..-35).
+## The drone draws ~32px wide at DRONE_TARGET_HEIGHT[2], so half of it is ~16px —
+## anything under x=56 would clip the name plate. 62 keeps a visible gap beside it.
+const FOLLOW_OFFSET := Vector2(62.0, -56.0)
 ## Exponential smoothing rate for the follow — the drone drifts after the Engineer
 ## rather than snapping onto him, which is what makes it read as flying alongside.
 const FOLLOW_SMOOTHING: float = 9.0

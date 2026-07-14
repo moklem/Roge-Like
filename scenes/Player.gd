@@ -437,6 +437,12 @@ func _update_health_ghost(old_hp: int, new_hp: int) -> void:
 # Driver Mode — per-sub-room team-wide timed effect (CarHUD "Driver Mode: …")
 # ------------------------------------------------------------------------------
 
+## ECO halves your speed, so its particles must read as braking, not as a buff — a bright
+## colour here signals "power-up" and fights the mechanic. Anthracite tyre smoke instead,
+## taken from the project's existing comic-ink family (UiStyle.INK = 0.08, 0.07, 0.10) and
+## lifted so it reads as drifting smoke rather than a black blob on dark floors.
+const DRIVER_ECO_SMOKE := Color(0.24, 0.23, 0.27, 0.85)
+
 ## GameEvents.driver_mode fires on ALL peers (host-rolled, call_local). Configures this
 ## player's copy: sets the active mult/heal, starts the timer, spawns matching sparkles.
 ## REPAIR reuses the existing green heal cue — the per-tick health gain triggers it on every
@@ -447,7 +453,7 @@ func _on_driver_mode(mode: String, duration: float) -> void:
 	match mode:
 		"eco":
 			_driver_speed_mult = 0.5                                # half speed (deutlich stärker)
-			_spawn_driver_particles(Color(1.0, 0.95, 0.35, 0.85))   # light yellow
+			_spawn_driver_particles(DRIVER_ECO_SMOKE)               # anthracite tyre smoke — see const
 		"sport":
 			_driver_speed_mult = 1.5
 			_spawn_driver_particles(Color(0.45, 0.8, 1.0, 0.9))     # light blue
