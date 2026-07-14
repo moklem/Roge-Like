@@ -350,8 +350,19 @@ func _exit_tree() -> void:
 	Juice.spawn_burst(global_position, death_color, 14, 0.6)
 	# Boss overrides _enter_phase (EliteEnemy does not), so has_method is a cheap boss check
 	# alongside is_elite — both get the heavier ~0.12s hit-stop; normal kills stay ~0.07s.
-	var stop_dur: float = 0.12 if (is_elite or has_method("_enter_phase")) else 0.07
+	var is_boss: bool = has_method("_enter_phase")
+	var stop_dur: float = 0.12 if (is_elite or is_boss) else 0.07
 	Juice.hitstop(stop_dur)
+	# Death cue rides the same every-peer path as the burst above. The three kill tiers get three
+	# different cues so a swarm kill never sounds like the boss going down: routine scrap crunch,
+	# a reserved-voice fanfare for elites, and a full stinger + music resolve for the boss.
+	if is_boss:
+		Sfx.play("boss_death")
+		Music.play_boss_death_sting()
+	elif is_elite:
+		Sfx.play("kill_fanfare")
+	else:
+		Sfx.play("enemy_die")
 
 ## Phase 5: Status effect tick — called from _physics_process (host-only via P6 guard).
 ## Phase 10-08/ABIL-01: sets/clears the replicated is_burning/is_slowed flags exactly where

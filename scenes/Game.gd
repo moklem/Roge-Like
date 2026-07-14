@@ -207,6 +207,7 @@ func _run_start_countdown() -> void:
 		label.text = str(n)
 		await get_tree().create_timer(1.0).timeout
 	label.text = "GO!"
+	Sfx.play("run_start")  # engine ignition on GO — runs on every peer, the countdown is local
 	countdown_active = false
 	if multiplayer.is_server():
 		# Room 3 (Burg) is the boss arena — a run starting there gets the boss
@@ -241,6 +242,7 @@ func _bake_navigation() -> void:
 @rpc("authority", "call_local", "reliable")
 func _transition_to_room(next_room: int) -> void:
 	# --- All peers: hide old room, show new room, teleport players ---
+	Sfx.play("transition")
 	# Reset wave display on all peers when entering a new room
 	_display_wave = 1
 	var old_room_id: int = current_room
@@ -388,6 +390,7 @@ func _cancel_driver_roll() -> void:
 ## T-09-03: @rpc("authority") — clients cannot trigger sub-room transitions.
 @rpc("authority", "call_local", "reliable")
 func _transition_to_sub_room(next: int) -> void:
+	Sfx.play("transition")
 	current_sub_room = next
 	_current_wave = 1
 	_wave_advancing = false
@@ -509,6 +512,10 @@ func _open_exit_passage() -> void:
 		tm.set_cell(0, coord, src_id, floor_tile)
 	## Phase 9 (D-08): Exit gap is now open — arm edge-walk advancement in _process.
 	_exit_open = true
+	# Distinct from "transition": this is the "sub-room cleared, the way is open" signal, which
+	# players hear while still fighting-adjacent and need to act on. The transition cue only
+	# fires later, once they actually walk through.
+	Sfx.play("exit_open")
 
 ## Phase 9: Teleports all players to the current sub-room's spawn points.
 ## Called on all peers by _transition_to_sub_room() and _transition_to_room() (call_local context).
@@ -1223,6 +1230,7 @@ func _tick_engineer_passive(delta: float) -> void:
 	if _engineer_passive_accum < 5.0:
 		return
 	_engineer_passive_accum = 0.0
+	var healed_anyone: bool = false
 	# Find all Engineers (by role_label) that are not downed
 	for eng in get_tree().get_nodes_in_group("players"):
 		if eng.role_label != "Engineer" or eng.is_downed:
@@ -1240,6 +1248,19 @@ func _tick_engineer_passive(delta: float) -> void:
 				target.receive_heal(10)
 			else:
 				target.receive_heal.rpc_id(target.peer_id, 10)
+			healed_anyone = true
+	# COOP-04: the heal itself is rpc_id'd to each healed peer individually, so nobody else would
+	# hear it. One broadcast per tick (not per target) makes it a team-audible event without
+	# stacking N copies of the same cue.
+	if healed_anyone:
+		_play_cue.rpc("engineer_heal")
+
+## Broadcast a single Sfx cue to every peer. For host-authoritative moments that have no
+## existing every-peer visual RPC to ride along with (the Engineer passive heal is rpc_id'd
+## per-target, so it is otherwise inaudible to the rest of the team).
+@rpc("authority", "call_local", "reliable")
+func _play_cue(cue: String) -> void:
+	Sfx.play(cue)
 
 ## Phase 7 Plan 03 (D-13, HUD-07): Host-only periodic bonus-elite spawn + LIDAR HUD pulse.
 ## Mirrors _tick_engineer_passive pattern. When the interval is reached it spawns one elite at a
@@ -1403,6 +1424,7 @@ func _tick_earth_effects(delta: float) -> void:
 ## call_local so host also renders the ring.
 @rpc("authority", "call_local", "unreliable_ordered")
 func _show_earth_shockwave(pos: Vector2) -> void:
+	Sfx.play("earth_shockwave")  # rides the existing every-peer ring RPC
 	const RADIUS: float = 120.0
 	var ring := ColorRect.new()
 	ring.color = Color(0.4, 0.8, 0.2, 0.8)

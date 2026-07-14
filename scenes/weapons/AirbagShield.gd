@@ -12,6 +12,7 @@ const RING_RADIUS: float = 28.0  # pixels from player center to ring edge
 const RING_THICKNESS: float = 4.0
 
 func activate() -> void:
+	Sfx.play("airbag_arm")
 	## ColorRect must be parented to a Node2D (Player) to render in world space.
 	## AirbagShield extends plain Node — it has no canvas transform, so children
 	## added here would render at the viewport origin instead of at the player.

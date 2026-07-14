@@ -670,38 +670,34 @@ Plans:
 - Reserve/priority voices for must-hear stingers (kill fanfare, evolution, downed/revive) so they aren't stolen by routine hit sounds during busy fights; bump the shared pool size if needed (~18–20 from 12) — decide concretely during this phase rather than leaving it ambiguous
 - Multiplayer-specific pitfalls (time_scale asymmetry, RPC despawn races, per-peer leak differences) are invisible in solo testing — this soak/swarm test must be run with real second/third peers, not solo
 
-**Plans:** 8 plans
+**Plans:** executed as a single consolidated pass (2026-07-14), not as the 8 separate plans below.
 
-Plans:
+The plumbing turned out to be one coherent change — a cue table plus ~25 one-line call sites —
+so plans 11-01…11-07 were collapsed into one pass rather than run as 8 planned waves. What
+landed:
 
-- [ ] 11-01-PLAN.md — Whole-game audio-parts checklist (team handoff deliverable)
-- [ ] 11-02-PLAN.md — Sfx.gd pool+priority scheme + central GameEvents/hud_event listener + Music.gd sting layer
-- [ ] 11-03-PLAN.md — Game.gd/GameState.gd transition, run-start, earth-shockwave, level-up cues
-- [ ] 11-04-PLAN.md — Enemy.gd/Boss.gd kill-fanfare fork, boss death+music, boss phase-change cues
-- [ ] 11-05-PLAN.md — Weapon cues (Exhaust/Antenna/Horn fire, airbag arm/break)
-- [ ] 11-06-PLAN.md — Player.gd dash/shield/shockwave/card-confirm + evolution cue+Music swell
-- [ ] 11-07-PLAN.md — HealDrone/XpOrb + UI/menu interaction cues
-- [ ] 11-08-PLAN.md — Manual soak test + swarm playtest validation (autonomous: false)
+- [x] **Audio-parts checklist** → `assets/audio/AUDIO_CHECKLIST.md` (team handoff; 33 files to source)
+- [x] **`autoloads/Sfx.gd` rewrite** — data-driven `CUES` table (name → file/dB/pitch), shared
+  16-voice pool + reserved 4-voice priority pool for the 8 must-hear stingers, safe-load per cue,
+  onset-gated `hud_event` echo (SFX-02), central `player_downed`/`player_revived`/`big_hit`
+  listeners so those need no gameplay-file edits
+- [x] **`autoloads/Music.gd`** — separate sting player layered over the shuffle; evolution +
+  boss-death only
+- [x] **Call sites wired** — Enemy/Boss (kill tiers, boss phase/death), weapons (exhaust, antenna,
+  horn, airbag arm/break), Player (dash, shield, dash-shockwave, evolution, card confirm),
+  Game/GameState (run-start, exit-open, transitions, earth shockwave, engineer heal, level-up),
+  HealDrone, XpOrb, UI (`UiStyle.wire_click_cue` covers all buttons; CardOverlay navigate)
+- [ ] **11-08 — soak test + swarm playtest** — OPEN. Needs 2–3 real peers and a human; cannot be
+  run headless/solo (the multiplayer-specific leak and voice-stealing failure modes are invisible
+  in solo testing).
 
-**Wave 1** *(autonomous)*
+Deliberately kept out of scope, recorded in the checklist: no dedicated cue for Spinning Tires,
+Ice-trail slow, Fire burst, Tank reflect, per-enemy spawn telegraph, or drone heal pulse — each is
+either already audible via a shared cue or would machine-gun under swarm density (SYS-02).
 
-- 11-01: audio-parts checklist (source of truth for every cue name/path)
-
-**Wave 2** *(blocked on Wave 1 — needs the checklist's method names/paths)*
-
-- 11-02: Sfx.gd + Music.gd backbone (the cue-method contract every call site invokes)
-
-**Wave 3** *(blocked on Wave 2 — parallel, zero file overlap)*
-
-- 11-03: Game.gd + GameState.gd (transitions, run-start, earth, level-up)
-- 11-04: Enemy.gd + Boss.gd (kill/death/phase)
-- 11-05: weapons (Exhaust/Antenna/Horn + AirbagShield + WeaponManager)
-- 11-06: Player.gd (abilities + evolution)
-- 11-07: HealDrone + XpOrb + UI (MainMenu/LobbyScreen/CardOverlay/GameOver)
-
-**Wave 4** *(blocked on Wave 3 — manual multiplayer validation)*
-
-- 11-08: soak test (host+client) + swarm playtest (2–3 peers) — autonomous: false
+**Not done: audio content.** Every cue is silent until the team drops the actual `.wav` files at
+the paths in the checklist. That is by design (safe-load) and is what makes the wiring landable
+ahead of the assets.
 
 ---
 
@@ -719,4 +715,4 @@ Plans:
 | 8. Rooms 2 & 3, Boss | 3/3 | Complete | 2026-06-22 |
 | 9. Map Overhaul — TileMap Sub-Rooms | 3/4 | In progress | — |
 | 10. Juicy Feedback — Visual & Gameplay Polish | 0/12 | Not started | — |
-| 11. Whole-Game Sound Design Pass & Soak-Test Validation | 0/8 | Planned | — |
+| 11. Whole-Game Sound Design Pass & Soak-Test Validation | Plumbing done | Awaiting audio files + human soak test | — |

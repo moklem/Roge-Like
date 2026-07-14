@@ -88,6 +88,7 @@ func _on_fire_timer(weapon_manager: Node) -> void:
 func _show_visual(pos: Vector2) -> void:
 	if not is_instance_valid(_area):
 		return
+	Sfx.play("horn_shockwave")  # rides the existing every-peer visual RPC — no new sound RPC
 	_area.global_position = pos
 	var game := get_node_or_null("/root/Game")
 	if game == null:

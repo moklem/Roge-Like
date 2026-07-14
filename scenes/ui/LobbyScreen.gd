@@ -66,6 +66,7 @@ func _ready() -> void:
 	ready_btn.pressed.connect(_on_ready_pressed)
 	start_btn.pressed.connect(_on_start_pressed)
 	copy_btn.pressed.connect(_on_copy_pressed)
+	UiStyle.wire_click_cue(self)
 
 	# Listen to lobby changes
 	Lobby.player_list_changed.connect(_refresh_ui)

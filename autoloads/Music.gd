@@ -28,12 +28,16 @@ var _mode: String = ""            # "single" (looping track) or "shuffle" (rando
 var _pool: Array[String] = []     # shuffle pool
 var _current_path: String = ""
 var _volume_db: float = -12.0
+var _sting: AudioStreamPlayer = null
 
 func _ready() -> void:
 	_player = AudioStreamPlayer.new()
 	_player.bus = "Music"
 	add_child(_player)
 	_player.finished.connect(_on_finished)
+	_sting = AudioStreamPlayer.new()
+	_sting.bus = "Music"
+	add_child(_sting)
 
 ## Main-menu music — same quiet Erba_1 track as the lobby.
 func play_menu() -> void:
@@ -51,8 +55,40 @@ func play_ingame() -> void:
 func stop() -> void:
 	if _player:
 		_player.stop()
+	if _sting:
+		_sting.stop()
 	_mode = ""
 	_current_path = ""
+
+## Two — and only two — moments get a music reaction, layered OVER the running shuffle rather
+## than interrupting it: the evolution transform and the boss death that ends the loop. Boss
+## phase changes stay SFX-only, so the music layer keeps marking the genuine climaxes.
+## Same safe-load discipline as everything else: a missing sting file is silent, not a crash.
+const EVOLUTION_STING := "res://assets/audio/evolution_sting.wav"
+const BOSS_DEATH_STING := "res://assets/audio/boss_death_sting.wav"
+const STING_DB := -8.0
+
+func play_evolution_sting() -> void:
+	_play_sting(EVOLUTION_STING)
+
+func play_boss_death_sting() -> void:
+	_play_sting(BOSS_DEATH_STING)
+
+## Fire-and-forget one-shot on its own player, so it overlaps the shuffle instead of stopping
+## it. Loop is forced off — a sting that looped would never stop.
+func _play_sting(path: String) -> void:
+	if _sting == null or not ResourceLoader.exists(path):
+		return
+	var stream: AudioStream = load(path)
+	if stream is AudioStreamMP3:
+		stream.loop = false
+	elif stream is AudioStreamWAV:
+		stream.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	elif stream is AudioStreamOggVorbis:
+		stream.loop = false
+	_sting.stream = stream
+	_sting.volume_db = STING_DB
+	_sting.play()
 
 ## Single looping track. No-op if that track is already playing (avoids restart on re-enter).
 func _play_single(path: String, volume_db: float) -> void:

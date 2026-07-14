@@ -15,6 +15,7 @@ func _ready() -> void:
 	_style_title()
 	_apply_reason()
 	return_button.pressed.connect(_on_return_pressed)
+	UiStyle.wire_click_cue(self)
 	return_button.grab_focus()
 	_slam_in()
 

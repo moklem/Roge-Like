@@ -140,6 +140,7 @@ func _on_pulse() -> void:
 ## (no crash) if FxLayer is not yet present — e.g. main menu / very early scene load.
 func _spawn_deploy_effect() -> void:
 	const DEPLOY_COLOR: Color = Color(0.2, 0.9, 0.3, 0.9)  # matches the drone's own green
+	Sfx.play("drone_deploy")  # _ready() runs on every peer (spawner-replicated) — no RPC needed
 	Juice.spawn_burst(global_position, DEPLOY_COLOR, 10, 0.5)
 	var layer := Juice._fx_layer()
 	if layer == null:

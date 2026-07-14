@@ -110,6 +110,7 @@ func _enter_phase(new_phase: int) -> void:
 @rpc("authority", "call_local", "reliable")
 func _notify_phase_change(new_phase: int) -> void:
 	_apply_phase_visual(new_phase)
+	Sfx.play("boss_phase")  # reserved voice — must cut through the swarm it summons
 
 ## Two sinks, because they serve two different consumers:
 ##

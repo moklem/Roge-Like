@@ -883,6 +883,7 @@ func _activate_shield(duration: float) -> void:
 	shield_active = true
 	_shield_timer = duration
 	_show_shield_ring()
+	Sfx.play("shield_up")
 
 ## Show (or create) the blue hollow-ring visual around the player.
 ## Mirrors AirbagShield.gd ring construction; blue instead of yellow.
@@ -1043,6 +1044,7 @@ func request_reflect(attacker_path: String, reflect_amount: int) -> void:
 func _do_dash() -> void:
 	dash_invincible = true
 	_dash_timer = DASH_DURATION
+	Sfx.play("dash")
 	var dir := Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 	if dir == Vector2.ZERO:
 		dir = Vector2.RIGHT  # fallback direction when no input held
@@ -1123,6 +1125,7 @@ func _show_dash_shockwave(pos: Vector2) -> void:
 	var game := get_node_or_null("/root/Game")
 	if game == null:
 		return
+	Sfx.play("dash_shockwave")  # rides the existing every-peer visual RPC
 	var ring := ColorRect.new()
 	ring.color = Color(1.0, 1.0, 0.0, 0.8)  # yellow (Speedster shockwave — Claude's discretion)
 	ring.size = Vector2(RADIUS * 2.0, RADIUS * 2.0)
@@ -1222,6 +1225,11 @@ func _play_evolution_transform(stage: int) -> void:
 	var target: CanvasItem = $CharSprite if _uses_char_sprite else $Sprite
 	var color := Juice.element_color(element)
 	_evolution_transform_active = true
+	# One of only two moments that get a music reaction (the other is boss death). The sting
+	# layers over the running shuffle rather than interrupting it — the transform is a beat in
+	# the run, not a cutscene.
+	Sfx.play("evolution")
+	Music.play_evolution_sting()
 	var charge := create_tween()
 	charge.tween_method(func(t: float) -> void:
 		var glow_scale: float = 1.0 + t * 0.6
@@ -1397,6 +1405,7 @@ func _trigger_weapon_choice() -> void:
 		$CardOverlay.show_cards(candidates.slice(0, 2), "NEW WEAPON — PICK ONE")
 
 func _confirm_card_pick() -> void:
+	Sfx.play("ui_confirm")
 	var selected_index: int = 0
 	var selected_card: Dictionary = {}
 	if has_node("CardOverlay"):

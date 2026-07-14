@@ -231,6 +231,7 @@ func _deferred_activate_airbag(wep: Node) -> void:
 ## Phase 6 D-11: Decrements charge count; hides ring only when count reaches 0.
 func consume_airbag() -> void:
 	airbag_count = maxi(airbag_count - 1, 0)
+	Sfx.play("airbag_break")  # owner-only, like the receive_damage path that calls this
 	if airbag_count == 0:
 		if has_node("AirbagShield"):
 			get_node("AirbagShield").hide_ring()

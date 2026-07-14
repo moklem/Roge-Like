@@ -79,6 +79,8 @@ func add_team_xp(amount: int) -> void:
 func _sync_team_xp(xp_value: int, level_value: int, levels_gained: int) -> void:
 	team_xp = xp_value
 	team_level = level_value
+	if levels_gained > 0:
+		Sfx.play("level_up")  # call_local — every peer hears the shared team level-up
 	var local_id := multiplayer.get_unique_id()
 	for p in get_tree().get_nodes_in_group("players"):
 		if p.peer_id == local_id:

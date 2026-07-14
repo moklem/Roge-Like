@@ -110,6 +110,7 @@ func _on_fire_timer(weapon_manager: Node) -> void:
 func _show_visual(aim_dir: Vector2, pos: Vector2) -> void:
 	if not is_instance_valid(_area):
 		return
+	Sfx.play("exhaust_flames")  # rides the existing every-peer visual RPC — no new sound RPC
 	_area.global_position = pos
 	_area.rotation = aim_dir.angle()
 	if _area.has_node("ExhaustVisual"):

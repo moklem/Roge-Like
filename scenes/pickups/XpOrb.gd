@@ -93,6 +93,7 @@ func _spawn_collection_dart(player: Node) -> void:
 	tween.tween_callback(func() -> void:
 		if is_instance_valid(hud):
 			hud.arrive_xp()
+			Sfx.play("xp_arrive")  # on arrival, not on pickup — the cue lands with the bar tick
 		if is_instance_valid(dart):
 			dart.queue_free()
 	)

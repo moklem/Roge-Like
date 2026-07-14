@@ -44,6 +44,7 @@ func _ready() -> void:
 	shake_cycle_button.pressed.connect(_on_shake_cycle_pressed)
 	music_slider.value_changed.connect(_on_music_slider_changed)
 	sfx_slider.value_changed.connect(_on_sfx_slider_changed)
+	UiStyle.wire_click_cue(self)
 	Lobby.connection_failed.connect(_on_connection_failed)
 	multiplayer.connected_to_server.connect(_on_connected_to_server)
 	# Also listen for peer_connected on client side (more reliable than connected_to_server)

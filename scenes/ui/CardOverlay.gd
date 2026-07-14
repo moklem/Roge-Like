@@ -114,6 +114,7 @@ func navigate(direction: int) -> void:
 		return
 	_selected = wrapi(_selected + direction, 0, _cards.size())
 	_refresh_display()
+	Sfx.play("ui_navigate")
 
 func get_selected_index() -> int:
 	return _selected

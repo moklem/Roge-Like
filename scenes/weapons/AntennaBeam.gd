@@ -123,6 +123,7 @@ func _apply_damage(origin: Vector2, dir: Vector2, level: int = 1, shooter_peer_i
 func _show_visual(dir: Vector2, pos: Vector2) -> void:
 	if not is_instance_valid(_area):
 		return
+	Sfx.play("antenna_beam")  # rides the existing every-peer visual RPC — no new sound RPC
 	_area.global_position = pos
 	_area.rotation = dir.angle()
 	if _beam_visual:

@@ -23,6 +23,12 @@ static func title_font() -> Font:
 		_title_font = load(TITLE_FONT_PATH)
 	return _title_font
 
+## Give every Button under `root` the shared click cue. Done by walking the tree rather than
+## per-button at each call site, so buttons added to a screen later are covered for free.
+static func wire_click_cue(root: Node) -> void:
+	for btn in root.find_children("*", "Button", true, false):
+		btn.pressed.connect(func() -> void: Sfx.play("ui_click"))
+
 ## Add a full-screen background image behind all existing UI (once per screen).
 static func add_background(root: Control, path: String = BACKGROUND_PATH) -> void:
 	if root.has_node("StyleBackground") or not ResourceLoader.exists(path):
