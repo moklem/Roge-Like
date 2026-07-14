@@ -53,6 +53,7 @@ var _pulse_timer: Timer = null
 var _area: Area2D = null
 var _lifetime_elapsed: float = 0.0
 var _sprite: Sprite2D = null
+var _sprite_base_offset: Vector2 = Vector2.ZERO   # unflipped centering offset from _fit_sprite
 var _bob_t: float = 0.0
 
 func _ready() -> void:
@@ -80,12 +81,20 @@ func _physics_process(delta: float) -> void:
 	# of snapping to it — the lag is what sells it as a flying companion.
 	if stage < 2:
 		return
+	var owner_player: Node2D = _find_owner()
+	if owner_player == null:
+		return
+	var target: Vector2 = owner_player.global_position + FOLLOW_OFFSET
+	# Frame-rate-independent exponential smoothing (physics tick can vary).
+	global_position = global_position.lerp(target, 1.0 - exp(-FOLLOW_SMOOTHING * delta))
+
+## The owning Engineer, or null if he is gone (downed players stay in the group, so this
+## keeps working while the drone's remaining lifetime runs out).
+func _find_owner() -> Node2D:
 	for p in get_tree().get_nodes_in_group("players"):
-		if p.peer_id == owning_peer:
-			var target: Vector2 = p.global_position + FOLLOW_OFFSET
-			# Frame-rate-independent exponential smoothing (physics tick can vary).
-			global_position = global_position.lerp(target, 1.0 - exp(-FOLLOW_SMOOTHING * delta))
-			break
+		if p is Node2D and p.peer_id == owning_peer:
+			return p
+	return null
 
 func _setup_area() -> void:
 	_area = Area2D.new()
@@ -156,15 +165,43 @@ func _draw_visual() -> void:
 	add_child(spr)
 	_sprite = spr
 
-## Cosmetic hover bob for the flying Stage-2 unit. Runs on every peer (presentation only)
-## and drives the SPRITE's local position, never `global_position` — that one is replicated
-## and is also what the heal pulse measures from, so bobbing it would jitter both the
-## network state and the heal range.
+## Presentation-only, and deliberately in _process rather than _physics_process: the latter
+## early-returns for non-authority peers (the host owns the drone), so clients would never
+## see the bob or the facing. Both are local cosmetics, so every peer just runs them.
+##
+## The bob drives the SPRITE's local position, never `global_position` — that one is
+## replicated and is what the heal pulse measures range from, so bobbing it would jitter
+## both the network state and the heal zone.
 func _process(delta: float) -> void:
 	if stage < 2 or _sprite == null:
 		return
 	_bob_t += delta * BOB_SPEED
 	_sprite.position = Vector2(0.0, sin(_bob_t) * BOB_AMPLITUDE)
+	_face_like_owner()
+
+## Mirror the Engineer's facing so the drone looks where he looks. Rather than deriving
+## facing ourselves, copy the player's own CharSprite.flip_h — the same trick the dash
+## afterimage uses (Player.gd `g.flip_h = spr.flip_h`). That value is already computed
+## locally on every peer from replicated position deltas (Player.gd `_update_facing`), and
+## it already accounts for per-role quirks like Tank stage-2's inverted art, so copying it
+## needs no new sync and cannot drift out of step with the character.
+func _face_like_owner() -> void:
+	var owner_player: Node2D = _find_owner()
+	if owner_player == null:
+		return
+	var char_spr: Node = owner_player.get_node_or_null("CharSprite")
+	if char_spr == null:
+		return
+	_set_flip(char_spr.flip_h)
+
+## flip_h mirrors the art inside its own canvas, so the centering shift from _fit_sprite
+## has to mirror with it — otherwise the drone jumps sideways every time it turns around.
+## Same correction as Player._apply_char_fit.
+func _set_flip(flip: bool) -> void:
+	if _sprite.flip_h == flip:
+		return
+	_sprite.flip_h = flip
+	_sprite.offset = Vector2(-_sprite_base_offset.x if flip else _sprite_base_offset.x, _sprite_base_offset.y)
 
 ## Scale and centre the sprite on its opaque pixels, mirroring the `_compute_char_fit`
 ## idiom in Player.gd. The art is a 256x256 canvas with wide transparent margins, so
@@ -184,6 +221,7 @@ func _fit_sprite(spr: Sprite2D, tex: Texture2D, target_height: float) -> void:
 	var canvas_center := Vector2(img.get_width(), img.get_height()) * 0.5
 	var used_center := Vector2(used.position) + Vector2(used.size) * 0.5
 	spr.offset = canvas_center - used_center
+	_sprite_base_offset = spr.offset   # _set_flip mirrors this when the drone turns
 
 ## Heal radius indicator — runs on all peers so everyone sees the drone's reach.
 ## Drawn below the drone rect; stage is set by the spawner before add_child, so the
