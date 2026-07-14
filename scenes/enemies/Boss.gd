@@ -11,6 +11,28 @@ extends "res://scenes/enemies/Enemy.gd"
 var phase: int = 1
 var _boss_max_hp: int = 1000
 
+# ─── Art ──────────────────────────────────────────────────────────────────────
+## The boss ships one animation set ("boss_idle"/"boss_walk"), not the two enemy_N variants.
+const BOSS_ANIM_SET: String = "boss"
+## Roughly the footprint of the 80x80 collision box / 48px hurtbox radius. Kept close to them
+## on purpose: art much larger than the hurtbox would invite players to swing at empty pixels.
+const BOSS_TARGET_HEIGHT: float = 112.0
+
+## Phase tint applied to the CharSprite as the boss enrages. These are MULTIPLIERS over the
+## artwork, not replacements for it (the old ColorRect took a flat fill), so they stay light —
+## the near-black reds the ColorRect used would crush the art into an unreadable silhouette.
+const PHASE_TINT := {
+	1: Color(1.0, 1.0, 1.0),    # untinted — the art's own colours
+	2: Color(1.0, 0.78, 0.78),  # flushing red
+	3: Color(1.0, 0.45, 0.45),  # enraged
+}
+
+func _anim_set() -> String:
+	return BOSS_ANIM_SET
+
+func _char_target_height() -> float:
+	return BOSS_TARGET_HEIGHT
+
 # ─── Movement Constants ────────────────────────────────────────────────────────
 const PHASE1_SPEED: float = 80.0
 const PHASE2_SPEED: float = 110.0
@@ -41,13 +63,11 @@ func _ready() -> void:
 	current_hp = MAX_HP
 	# Contact damage: 25 base (2.5× normal 10) scaled by loop mult (D-12 boss spec)
 	CONTACT_DAMAGE = int(25 * mult)
-	# Defensive Phase 1 color assertion (canonical values set in .tscn already)
-	if has_node("Sprite"):
-		$Sprite.color = Color(0.15, 0.05, 0.05, 1)
-		$Sprite.offset_left   = -48.0
-		$Sprite.offset_top    = -48.0
-		$Sprite.offset_right  = 48.0
-		$Sprite.offset_bottom = 48.0
+	# Phase-1 visual baseline. super._ready() has already run _setup_enemy_sprite(), which hides
+	# $Sprite in favour of the CharSprite art — the ColorRect's offsets no longer matter, but its
+	# colour does (Enemy._exit_tree reads it for the death burst), so route through the same sink
+	# the phase transitions use instead of setting it by hand here.
+	_apply_phase_visual(1)
 	# Initialise timers so boss starts attacking immediately
 	_charge_timer = CHARGE_COOLDOWN_P1
 	_shoot_timer  = SHOOT_COOLDOWN_P2
@@ -89,10 +109,27 @@ func _enter_phase(new_phase: int) -> void:
 ## RPC: broadcast phase color change to all peers (D-13).
 @rpc("authority", "call_local", "reliable")
 func _notify_phase_change(new_phase: int) -> void:
+	_apply_phase_visual(new_phase)
+
+## Two sinks, because they serve two different consumers:
+##
+## $Sprite (the ColorRect) is now hidden behind the artwork, but Enemy._exit_tree still reads
+## its `.color` to pick the death-burst particle colour — so it stays the boss's saturated
+## identity colour and must keep being updated.
+##
+## $CharSprite.modulate is what the player actually sees. It deliberately does NOT go on the
+## boss node's own `modulate`: Enemy._process rewrites that every frame from the burn/slow
+## status tint, so a phase tint there would be wiped within a frame. The child's modulate
+## multiplies through instead, so the phase tint, the status tint and Juice.flash's overbright
+## pop all compose rather than fight.
+func _apply_phase_visual(new_phase: int) -> void:
 	if has_node("Sprite"):
 		match new_phase:
-			2: $Sprite.color = Color(0.4, 0.05, 0.05, 1)   # dark red — Phase 2
-			3: $Sprite.color = Color(0.6, 0.0,  0.0,  1)   # bright red — Phase 3 enrage
+			1: $Sprite.color = Color(0.15, 0.05, 0.05, 1)  # near-black red — Phase 1
+			2: $Sprite.color = Color(0.4,  0.05, 0.05, 1)  # dark red — Phase 2
+			3: $Sprite.color = Color(0.6,  0.0,  0.0,  1)  # bright red — Phase 3 enrage
+	if has_node("CharSprite"):
+		$CharSprite.modulate = PHASE_TINT.get(new_phase, Color.WHITE)
 
 # ─── Physics / Attack Loop ────────────────────────────────────────────────────
 ## Override _physics_process to add phase-gated attacks.

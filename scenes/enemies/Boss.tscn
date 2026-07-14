@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://boss_scene_001"]
 
 [ext_resource type="Script" uid="uid://bjgujtkkmxjtd" path="res://scenes/enemies/Boss.gd" id="1_boss"]
+[ext_resource type="SpriteFrames" path="res://scenes/enemies/BossFrames.tres" id="2_boss_frames"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
 size = Vector2(80, 80)
@@ -32,6 +33,11 @@ offset_right = 48.0
 offset_bottom = 48.0
 color = Color(0.15, 0.05, 0.05, 1)
 
+[node name="CharSprite" type="AnimatedSprite2D" parent="." unique_id=100000009]
+sprite_frames = ExtResource("2_boss_frames")
+animation = &"boss_idle"
+visible = false
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=100000003]
 shape = SubResource("RectangleShape2D_1")
 
@@ -47,9 +53,9 @@ shape = SubResource("CircleShape2D_1")
 
 [node name="HealthBar" type="ProgressBar" parent="." unique_id=100000007]
 offset_left = -40.0
-offset_top = -64.0
+offset_top = -76.0
 offset_right = 40.0
-offset_bottom = -56.0
+offset_bottom = -66.0
 value = 100.0
 show_percentage = false
 

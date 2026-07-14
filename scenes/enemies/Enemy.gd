@@ -49,12 +49,24 @@ var _last_hp_seen: int = 0
 var _health_ghost: ColorRect = null
 var _health_ghost_tween: Tween = null
 
-## Animated enemy art (standard enemies only — Elite/Boss scenes have no CharSprite node).
+## Animated enemy art. Any scene that carries a CharSprite node gets it; scenes without one
+## (EliteEnemy) keep the flat ColorRect placeholder.
 ## Two art variants; the pick derives from the node name, which the MultiplayerSpawner
 ## keeps identical on every peer, so all clients show the same variant.
 const ENEMY_TARGET_HEIGHT: float = 50.0  # on-screen height of the drawn character (px)
 var _uses_char_sprite: bool = false
 var _variant: int = 1
+
+## Animation-set name on the CharSprite's SpriteFrames — the shared "<set>_idle" / "<set>_walk"
+## naming contract. Subclasses with their own art override this instead of the animation names
+## being hard-coded here (Boss ships one "boss" set, not the two enemy_N variants).
+func _anim_set() -> String:
+	return "enemy_%d" % _variant
+
+## On-screen height of the drawn character. Overridden by subclasses whose art is a different
+## size from a rank-and-file enemy (Boss).
+func _char_target_height() -> float:
+	return ENEMY_TARGET_HEIGHT
 var _last_anim_pos: Vector2 = Vector2.ZERO
 var _move_timer: float = 0.0  # keeps "walk" alive between 20 Hz position syncs on clients
 
@@ -125,7 +137,8 @@ func _setup_enemy_sprite() -> void:
 		$Sprite.visible = false
 	var spr: AnimatedSprite2D = $CharSprite
 	spr.visible = true
-	var tex: Texture2D = spr.sprite_frames.get_frame_texture("enemy_%d_idle" % _variant, 0)
+	var anim_set: String = _anim_set()
+	var tex: Texture2D = spr.sprite_frames.get_frame_texture("%s_idle" % anim_set, 0)
 	if tex != null:
 		var img: Image = tex.get_image()
 		if img != null:
@@ -133,13 +146,13 @@ func _setup_enemy_sprite() -> void:
 				img.decompress()
 			var used: Rect2i = img.get_used_rect()
 			if used.size.y > 0:
-				var s: float = ENEMY_TARGET_HEIGHT / float(used.size.y)
+				var s: float = _char_target_height() / float(used.size.y)
 				spr.scale = Vector2(s, s)
 				var canvas_center := Vector2(img.get_width(), img.get_height()) * 0.5
 				var used_center := Vector2(used.position) + Vector2(used.size) * 0.5
 				spr.offset = canvas_center - used_center
 	_last_anim_pos = global_position
-	spr.play("enemy_%d_idle" % _variant)
+	spr.play("%s_idle" % anim_set)
 
 ## Drive walk/idle + facing on ALL peers from the replicated position (clients run no AI,
 ## so velocity is meaningless there — the synced position delta is the only movement signal).
@@ -153,7 +166,7 @@ func _update_enemy_visual(delta_t: float) -> void:
 		_move_timer = 0.15
 	else:
 		_move_timer = maxf(0.0, _move_timer - delta_t)
-	var anim := "enemy_%d_%s" % [_variant, "walk" if _move_timer > 0.0 else "idle"]
+	var anim := "%s_%s" % [_anim_set(), "walk" if _move_timer > 0.0 else "idle"]
 	if spr.animation != StringName(anim) or not spr.is_playing():
 		spr.play(anim)
 
