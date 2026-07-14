@@ -550,7 +550,7 @@ Phase numbering continues from Phase 9 (previous milestone's last phase). Consol
 - SYS-01: All new particle effects use `CPUParticles2D` (not `GPUParticles2D`, which silently fails to render under this project's renderer)
 - SYS-02: Damage numbers and screen shake are pooled/capped so high enemy density and rapid multi-weapon fire don't produce unreadable visual clutter
 - SYS-03: Juice effect nodes (tweens, particles, floating text) are cleaned up without leaking over a full 15-minute loop
-- DMG-01: A floating damage number appears over an enemy when it's hit, showing the amount of damage dealt
+- DMG-01 *(revised 2026-07-14)*: An enemy hit produces tiered, presentation-only impact feedback on the enemy — flash + directional spark always, squash/recoil from a medium hit, micro hit-stop + impact ring on a heavy one — scaled by damage as a fraction of max HP. Floating damage numbers were dropped: at this game's hit density (20-40 damage instances/sec, AoE hitting 8-12 enemies per frame) they read as unreadable confetti.
 - DMG-02: The player's own sprite flashes (tints red/white) briefly when taking damage
 - DMG-03: The screen shakes briefly when the player takes damage; shake magnitude is capped so simultaneous multi-hits don't compound into unreadable chaos
 - DMG-04: The player's health bar flashes and animates down (not snaps instantly) when taking damage

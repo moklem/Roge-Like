@@ -19,6 +19,8 @@ const ICE_TRAIL_SCENE := preload("res://scenes/elements/IceTrailZone.tscn")
 const ELITE_ENEMY_SCENE := preload("res://scenes/enemies/EliteEnemy.tscn")
 ## Phase 7 Plan 03 (D-01, HUD-01): CarHUD global dashboard scene
 const CAR_HUD_SCENE := preload("res://scenes/ui/CarHUD.tscn")
+## ESC settings overlay. Never pauses the SceneTree — see PauseMenu.gd's header.
+const PAUSE_MENU_SCENE := preload("res://scenes/ui/PauseMenu.tscn")
 ## Phase 8 Plan 03 (P7, D-09): Boss scene pre-registered in EnemySpawner before boss fight
 const BOSS_SCENE := preload("res://scenes/enemies/Boss.tscn")
 
@@ -138,6 +140,9 @@ func _ready() -> void:
 	# NOT inside $HUD — CarHUD is layer=3, must not conflict with existing HUD CanvasLayer
 	var _car_hud := CAR_HUD_SCENE.instantiate()
 	add_child(_car_hud)
+	# ESC settings overlay (layer 6 — above CarHUD's 3 and Juice's vignette layer 4). Purely
+	# local: it never pauses the tree, it only freezes the owning peer's own input.
+	add_child(PAUSE_MENU_SCENE.instantiate())
 	# COOP-05/D-16: renders the team-visible big-hit cue on every peer (mirrors the
 	# GameEvents.driver_mode.connect precedent in Player.gd:126 / CarHUD.gd:38).
 	GameEvents.big_hit.connect(_on_big_hit)
@@ -731,17 +736,22 @@ func _spawn_wave() -> void:
 		$EnemySpawner.spawn({"type": "elite", "pos": ep, "room_id": current_room})
 		GameEvents.emit_hud.rpc("lidar")
 
-## Returns a spawn position guaranteed to sit on a non-solid (floor) cell.
-## Authored enemy spawn points occasionally overlap a wall/obstacle tile; this snaps
-## the position outward to the nearest open cell so enemies never spawn inside walls.
+## Minimum gap between a fresh spawn and any enemy already in the room. Kept in step with
+## Enemy.SEPARATION_RADIUS so a wave never starts out overlapping and then has to unstack.
+const MIN_SPAWN_SEPARATION: float = 28.0
+
+## Returns a spawn position guaranteed to sit on a non-solid (floor) cell that no other enemy
+## is already standing on. Authored spawn points occasionally overlap a wall/obstacle tile,
+## and several enemies of one wave routinely draw the same point; this snaps outward to the
+## nearest cell that is both open and unoccupied.
 func _safe_enemy_spawn_pos(world_pos: Vector2) -> Vector2:
 	var tilemap: TileMap = get_node_or_null("Room%d/TileMap" % current_room)
 	if tilemap == null:
 		return world_pos
 	var origin_cell: Vector2i = tilemap.local_to_map(tilemap.to_local(world_pos))
-	if not _cell_is_solid(tilemap, origin_cell):
+	if not _cell_is_solid(tilemap, origin_cell) and _spawn_pos_is_clear(world_pos):
 		return world_pos
-	# Spiral outward ring by ring to find the nearest non-solid cell.
+	# Spiral outward ring by ring to find the nearest open, unoccupied cell.
 	for radius in range(1, 8):
 		for dx in range(-radius, radius + 1):
 			for dy in range(-radius, radius + 1):
@@ -749,9 +759,21 @@ func _safe_enemy_spawn_pos(world_pos: Vector2) -> Vector2:
 				if absi(dx) != radius and absi(dy) != radius:
 					continue
 				var cell: Vector2i = origin_cell + Vector2i(dx, dy)
-				if not _cell_is_solid(tilemap, cell):
-					return tilemap.to_global(tilemap.map_to_local(cell))
-	return world_pos  # fallback — no open cell found nearby
+				if _cell_is_solid(tilemap, cell):
+					continue
+				var candidate: Vector2 = tilemap.to_global(tilemap.map_to_local(cell))
+				if _spawn_pos_is_clear(candidate):
+					return candidate
+	return world_pos  # fallback — nothing free nearby; Enemy's separation push unstacks it
+
+## True when no already-spawned enemy sits within MIN_SPAWN_SEPARATION of `pos`. Enemies of the
+## same wave are spawned one after another and enter the "enemies" group on _ready(), so each
+## successive spawn in a wave sees the ones placed before it.
+func _spawn_pos_is_clear(pos: Vector2) -> bool:
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if e is Node2D and e.global_position.distance_to(pos) < MIN_SPAWN_SEPARATION:
+			return false
+	return true
 
 ## True when the TileMap cell carries a collision polygon (wall or obstacle tile).
 ## Layout-independent: reads the tile's collision data rather than comparing atlas coords.

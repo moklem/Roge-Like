@@ -47,16 +47,29 @@ func shake_label() -> String:
 		_:
 			return "NORMAL"
 
-## Sets Music-bus volume. No-op until Plan 10-02 creates the "Music" bus (Pitfall 7).
+## Quietest audible slider position, in dB. Below this the bus is hard-muted.
+const MIN_VOLUME_DB: float = -40.0
+
+## Slider position (0..1) -> bus dB, linear in dB rather than in amplitude.
+## `linear_to_db()` is the physically correct amplitude mapping, but it crams almost all
+## of the audible range into the bottom fifth of the slider: 0.75 lands on -2.5 dB and
+## 0.5 on -6 dB, which is inaudible over the -20 dB menu track. Interpolating in dB
+## instead spreads the change across the whole travel.
+func _slider_to_db(v: float) -> float:
+	if v <= 0.0:
+		return -80.0
+	return lerpf(MIN_VOLUME_DB, 0.0, v)
+
+## Sets Music-bus volume. No-op when the "Music" bus doesn't exist (Pitfall 7).
 func set_music_volume(v: float) -> void:
 	music_volume = clampf(v, 0.0, 1.0)
 	var idx := AudioServer.get_bus_index("Music")
 	if idx >= 0:
-		AudioServer.set_bus_volume_db(idx, linear_to_db(clampf(music_volume, 0.0001, 1.0)))
+		AudioServer.set_bus_volume_db(idx, _slider_to_db(music_volume))
 
-## Sets SFX-bus volume. No-op until Plan 10-02 creates the "SFX" bus (Pitfall 7).
+## Sets SFX-bus volume. No-op when the "SFX" bus doesn't exist (Pitfall 7).
 func set_sfx_volume(v: float) -> void:
 	sfx_volume = clampf(v, 0.0, 1.0)
 	var idx := AudioServer.get_bus_index("SFX")
 	if idx >= 0:
-		AudioServer.set_bus_volume_db(idx, linear_to_db(clampf(sfx_volume, 0.0001, 1.0)))
+		AudioServer.set_bus_volume_db(idx, _slider_to_db(sfx_volume))

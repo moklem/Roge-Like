@@ -7,6 +7,13 @@ extends CharacterBody2D
 
 const SPEED: float = 80.0
 const DETECT_RADIUS: float = 300.0
+
+## Enemies deliberately do NOT collide with each other physically — collision_mask omits the
+## "enemies" layer, because hard bodies jam the swarm against each other in Room 2's corridors
+## and at sub-room doorways. Instead they steer apart with a soft push, which stops sprites
+## from stacking without ever blocking a path. Host-only, like the rest of the AI.
+const SEPARATION_RADIUS: float = 28.0    # below this, two enemies read as overlapping
+const SEPARATION_STRENGTH: float = 60.0  # px/s of push at full overlap, falling off to 0 at the radius
 var CONTACT_DAMAGE: int = 10  # must be var for spawn-time difficulty scaling (Pitfall 2, D-19)
 var MAX_HP: int = 50           # must be var for spawn-time difficulty scaling (Pitfall 2, D-19)
 ## WR-02: set to true in EliteEnemy._ready() so the SUSPENSION indicator is only triggered by
@@ -191,28 +198,43 @@ func _process(_delta: float) -> void:
 	# (host applies damage directly; clients see the synced drop) for any damage source.
 	if current_hp < _last_hp_seen:
 		Sfx.hit()
-		# DMG-01/D-04: pooled damage number + white over-bright flash pop. Runs on every peer,
-		# no authority guard, no new RPC — reacts to the already-replicated current_hp diff.
+		# Tiered impact reaction (flash + directional spark, escalating to squash/recoil and
+		# then to hit-stop + ring). Runs on every peer, no authority guard, no new RPC — it
+		# reacts to the already-replicated current_hp diff, and Juice.impact() only ever
+		# touches presentation, never the body's position or any authoritative field.
 		var dmg: int = _last_hp_seen - current_hp
-		Juice.spawn_damage_number(global_position, dmg, _damage_number_color(), get_instance_id())
-		Juice.flash(self, Color(2, 2, 2, 1), 0.1)
+		var visual: CanvasItem = $CharSprite if _uses_char_sprite else null
+		Juice.impact(self, visual, _hit_direction(), float(dmg) / float(maxi(MAX_HP, 1)), _impact_color())
 		# DMG-07/D-05: burst-only (~0.4s) element hit VFX for burning/slowed enemies, reusing
 		# the shared bounded Juice.spawn_burst/FxLayer pool — no second uncapped spawn path.
 		# Reads the now-replicated flags, so this renders identically on host and client.
 		if is_burning or is_slowed:
-			Juice.spawn_burst(global_position, _damage_number_color(), 8, 0.4)
+			Juice.spawn_burst(global_position, _impact_color(), 8, 0.4)
 		# DMG-04/D-07: HP bar ghost chip-away for the segment just lost.
 		_update_health_ghost(_last_hp_seen, current_hp)
 	_last_hp_seen = current_hp
 	if _uses_char_sprite:
 		_update_enemy_visual(_delta)
 
-## Damage-number color hook (DMG-07/D-02). Reads the replicated is_burning/is_slowed flags
-## (ABIL-01) so numbers/bursts are element-colored via the shared Juice.element_color lookup
+## Direction the hit is treated as having come FROM, used to aim the spark cone and the
+## recoil kick. Derived from the nearest player rather than from the actual damage source:
+## take_damage(amount) carries no origin, and threading one through Bullet, all six weapons
+## and every ability would be an authoritative-path change for a purely cosmetic gain. The
+## shooter is nearly always the nearest player anyway, and because it is computed from
+## replicated positions it resolves identically on every peer.
+func _hit_direction() -> Vector2:
+	var src: Node = _find_nearest_player()
+	if src == null or not (src is Node2D):
+		return Vector2.UP
+	var away: Vector2 = global_position - (src as Node2D).global_position
+	return away.normalized() if away.length() > 0.01 else Vector2.UP
+
+## Impact color hook (DMG-07/D-02). Reads the replicated is_burning/is_slowed flags
+## (ABIL-01) so sparks/bursts are element-colored via the shared Juice.element_color lookup
 ## — never a hand-rolled second color table. Earth applies no per-hit enemy status, so an
 ## earth-dealt basic hit falls through to neutral white here (earth's green lives at its own
 ## ability presentation sites per the locked "no new synced state" constraint).
-func _damage_number_color() -> Color:
+func _impact_color() -> Color:
 	if is_burning:
 		return Juice.element_color("fire")
 	if is_slowed:
@@ -260,9 +282,32 @@ func _physics_process(_delta: float) -> void:
 			velocity = (next - global_position).normalized() * SPEED * speed_multiplier
 		else:
 			velocity = Vector2.ZERO
+	# Applied in both states: idle enemies that were spawned on top of each other still
+	# need to unstack, and move_and_slide() keeps the push from shoving anyone into a wall.
+	velocity += _separation_push()
 	move_and_slide()
 	# Phase 5: Burn DoT and Slow countdown (host-only — P6 guard already applied in _ready)
 	_tick_status_effects(_delta)
+
+## Steering force away from every other enemy that is closer than SEPARATION_RADIUS, with a
+## linear falloff so a barely-touching neighbour barely pushes. O(n²) over the enemy group,
+## which is fine at this game's densities (8-12 per wave, ~20 late-loop).
+func _separation_push() -> Vector2:
+	var push := Vector2.ZERO
+	for other in get_tree().get_nodes_in_group("enemies"):
+		if other == self or not other is Node2D:
+			continue
+		var offset: Vector2 = global_position - other.global_position
+		var dist: float = offset.length()
+		if dist >= SEPARATION_RADIUS:
+			continue
+		if dist < 0.01:
+			# Exactly stacked — two enemies off the same spawn point. There is no meaningful
+			# direction to push along, so pick one at random and let the falloff sort it out.
+			push += Vector2.RIGHT.rotated(randf() * TAU) * SEPARATION_STRENGTH
+			continue
+		push += (offset / dist) * SEPARATION_STRENGTH * (1.0 - dist / SEPARATION_RADIUS)
+	return push
 
 func _find_nearest_player() -> Node:
 	var nearest: Node = null

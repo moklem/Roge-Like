@@ -96,11 +96,10 @@ func _spawn_collection_dart(player: Node) -> void:
 		if is_instance_valid(dart):
 			dart.queue_free()
 	)
-	# Backstop cleanup (T-10-14, SYS-03 convention) in case `finished` never fires.
-	get_tree().create_timer(0.6).timeout.connect(func() -> void:
-		if is_instance_valid(dart):
-			dart.queue_free()
-	)
+	# Backstop cleanup (T-10-14, SYS-03 convention) in case the arrival tween never lands.
+	# Routed through Juice so the dart is held by a WeakRef: capturing it directly errors out
+	# ("lambda capture was freed") in the common case where the tween already freed it.
+	Juice._backstop_free(dart, 0.6)
 
 @rpc("any_peer", "call_remote", "reliable")
 func _request_collect(_orb_name: String) -> void:

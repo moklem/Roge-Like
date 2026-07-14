@@ -140,7 +140,8 @@ Game-feel/"juice" polish layer: immediate, discernible, satisfying audiovisual f
 
 ### Combat Feedback
 
-- [ ] **DMG-01**: A floating damage number appears over an enemy when it's hit, showing the amount of damage dealt
+- [x] **DMG-01** *(revised 2026-07-14 — floating numbers dropped)*: An enemy hit produces tiered, presentation-only impact feedback ON the enemy, escalating with the damage as a fraction of its max HP: every hit flashes it white and throws a directional spark cone; a medium hit (>=0.18, e.g. a bolt) adds squash-and-stretch plus a sprite recoil; a heavy hit (>=0.55, e.g. a Horn shockwave) adds a rate-limited micro hit-stop and an impact ring.
+  **Why the change:** the original requirement asked for floating damage numbers, but the shipped game sustains 20-40 damage instances per second (three players, up to three weapons each plus 0.5s auto-bolts) and a single AoE can hit 8-12 enemies in one frame. Rendered as text that is unreadable confetti. User decision: no numbers at all; the feedback belongs on the enemy.
 - [ ] **DMG-02**: The player's own sprite flashes (tints red/white) briefly when taking damage
 - [ ] **DMG-03**: The screen shakes briefly when the player takes damage; shake magnitude is capped so simultaneous multi-hits don't compound into unreadable chaos
 - [ ] **DMG-04**: The player's health bar flashes and animates down (not snaps instantly) when taking damage

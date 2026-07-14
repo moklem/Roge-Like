@@ -226,9 +226,14 @@ static var SUB_ROOM_DATA: Dictionary = {
 			"floor": [
 				Rect2i(1, 1, 26, 17),
 			],
+			## Clearance: the right rock pile used to bottom out on row 12, one row above the
+			## bottom-right corner wall block (which starts on row 14). That left row 13 as the
+			## ONLY row where the rock's column and the wall's column are both walkable — a gate
+			## exactly one tile (32px) tall, and the player capsule is 32px tall, so you wedged
+			## in that corner. One row shallower opens the gate to 2 tiles.
 			"obstacles": [
 				Rect2i(10, 8, 4, 4),
-				Rect2i(17, 9, 4, 4),
+				Rect2i(17, 9, 4, 3),
 			],
 			"spawn_points": [
 				Vector2(6 * 16, 13 * 16),
@@ -443,9 +448,13 @@ static var SUB_ROOM_DATA: Dictionary = {
 			"obstacles": [
 				Rect2i(12, 8, 4, 3),
 			],
+			## Clearance: pulled one tile in off the side walls. At x8/x18 they left a single
+			## free tile (32px) against the wall, and the player capsule is 24x32 — a slot that
+			## exact is where you wedge. Every house is now either >=2 tiles clear of a wall or
+			## flush against one.
 			"houses": [
-				Vector2i(8, 3), Vector2i(18, 3),
-				Vector2i(8, 14), Vector2i(18, 14),
+				Vector2i(9, 3), Vector2i(17, 3),
+				Vector2i(9, 14), Vector2i(17, 14),
 			],
 			"spawn_points": [
 				Vector2(6 * 16, 14 * 16),
@@ -490,9 +499,12 @@ static var SUB_ROOM_DATA: Dictionary = {
 			"obstacles": [
 				Rect2i(12, 8, 4, 4),
 			],
+			## Clearance: these alcoves are only 4 tiles wide, so a house anywhere in the middle
+			## leaves a 1-tile wedge slot on one side. Pushed flush against the side wall — the
+			## remaining 3 tiles are a clean walkable gap.
 			"houses": [
-				Vector2i(7, 3), Vector2i(20, 3),
-				Vector2i(7, 16), Vector2i(20, 16),
+				Vector2i(6, 3), Vector2i(21, 3),
+				Vector2i(6, 16), Vector2i(21, 16),
 			],
 			"spawn_points": [
 				Vector2(6 * 16, 15 * 16),
@@ -587,8 +599,11 @@ static var SUB_ROOM_DATA: Dictionary = {
 				Rect2i(12, 9, 4, 4),
 				Rect2i(20, 9, 4, 5),
 			],
+			## Clearance: the two top houses each left a 1-tile wedge slot against their side wall.
+			## Pushed flush against the walls rather than inward — moving them inward instead
+			## would just relocate the 1-tile slot to between the two houses.
 			"houses": [
-				Vector2i(17, 3), Vector2i(21, 3),
+				Vector2i(16, 3), Vector2i(22, 3),
 				Vector2i(10, 17), Vector2i(14, 18),
 			],
 			"spawn_points": [
@@ -636,9 +651,11 @@ static var SUB_ROOM_DATA: Dictionary = {
 			"obstacles": [
 				Rect2i(15, 9, 4, 5),
 			],
+			## Clearance: left house moved one tile in (2 free tiles either side); right alcove is
+			## only 3 wide, so its house goes flush against the wall instead.
 			"houses": [
-				Vector2i(10, 3), Vector2i(21, 3),
-				Vector2i(10, 19), Vector2i(21, 19),
+				Vector2i(11, 3), Vector2i(20, 3),
+				Vector2i(11, 19), Vector2i(20, 19),
 			],
 			"spawn_points": [
 				Vector2(6 * 16, 17 * 16),
@@ -843,12 +860,16 @@ static var SUB_ROOM_DATA: Dictionary = {
 			"floor": [
 				Rect2i(1, 1, 31, 20),
 			],
+			## Clearance: the two lower obstacles were 3 rows deep and bottomed out exactly one
+			## tile short of the south wall, leaving a 32px-high channel — the player capsule is
+			## 32px tall, so that channel is a guaranteed wedge. Both are one row shallower now,
+			## which opens those gaps to 2 tiles without changing the arena's read.
 			"obstacles": [
 				Rect2i(9, 9, 3, 3),
 				Rect2i(15, 8, 3, 3),
-				Rect2i(15, 13, 3, 3),
+				Rect2i(15, 13, 3, 2),
 				Rect2i(21, 9, 3, 3),
-				Rect2i(21, 14, 3, 3),
+				Rect2i(21, 14, 2, 2),
 			],
 			"spawn_points": [
 				Vector2(6 * 16, 16 * 16),

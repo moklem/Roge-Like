@@ -42,12 +42,13 @@ const BOB_SPEED: float = 3.0
 
 const PULSE_INTERVAL: float = 3.0
 const LIFETIME: float = 10.0          # drone despawns after 10s
-## Stage-1 stats (D-14)
+## Stage-1 stats (D-14). Both stages heal every teammate inside the radius; the tighter
+## radius is what makes standing with the team a real positioning decision.
 const PULSE_HEAL_S1: int = 15
-const PULSE_RADIUS_S1: float = 150.0
+const PULSE_RADIUS_S1: float = 90.0
 ## Stage-2 stats (D-15)
 const PULSE_HEAL_S2: int = 25
-const PULSE_RADIUS_S2: float = 200.0
+const PULSE_RADIUS_S2: float = 120.0
 
 var _pulse_timer: Timer = null
 var _area: Area2D = null

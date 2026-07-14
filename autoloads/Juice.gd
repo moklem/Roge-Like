@@ -3,9 +3,9 @@ extends Node
 ## No RPCs of its own: callers already run identically on every peer (diff-watch
 ## Pattern A, or an existing broadcast RPC — Pattern B), so Juice only ever needs to
 ## execute a purely local, cosmetic reaction. Provides: trauma-based screen shake
-## (local authority Camera2D only), local cosmetic hit-stop, pooled/aggregated
-## floating damage numbers, hit-flash, parametrized CPUParticles2D bursts, and the
-## single shared element-color lookup reused by every later wave.
+## (local authority Camera2D only), local cosmetic hit-stop, tiered impact feedback
+## (flash / spark / squash / ring), hit-flash, parametrized CPUParticles2D bursts, and
+## the single shared element-color lookup reused by every later wave.
 ##
 ## Hard constraints (never violate, see RESEARCH.md Pitfall 1 / Anti-Patterns):
 ## hit-stop is a private cosmetic float read only by presentation code — it must
@@ -32,17 +32,23 @@ const LOW_HP_THRESHOLD: float = 0.3
 const LOW_HP_MAX_ALPHA: float = 0.34
 const LOW_HP_BREATH_HZ: float = 1.2
 
-## Pooled damage-number constants (SYS-02, Pitfall 5).
-const DAMAGE_NUMBER_POOL_SIZE: int = 24
-const DAMAGE_NUMBER_AGGREGATE_WINDOW: float = 0.1
-const DAMAGE_NUMBER_LIFETIME: float = 0.6
+## Impact tiers, expressed as a fraction of the target's max HP rather than as a raw damage
+## number, so the ladder stays meaningful while both enemy HP (per loop) and weapon damage
+## (per card upgrade) grow. Against a 50 HP enemy: a burn tick is 5/50 = 0.10 (light), a bolt
+## or Exhaust cone 20/50 = 0.40 (medium), a Horn shockwave 30/50 = 0.60 (heavy).
+const IMPACT_MEDIUM_RATIO: float = 0.18
+const IMPACT_HEAVY_RATIO: float = 0.55
 
-const DamageNumberScene: PackedScene = preload("res://scenes/vfx/DamageNumber.tscn")
+## Heavy hits micro-freeze — but one Horn blast lands heavy on up to 8 enemies in the SAME
+## frame, and a run sustains 20-40 hits/sec across three players. Without this cooldown the
+## freezes chain into a permanent stutter, so a volley reads as one freeze, not eight.
+const IMPACT_HITSTOP_DURATION: float = 0.035
+const IMPACT_HITSTOP_COOLDOWN: float = 0.35
 
 var trauma: float = 0.0
 
 var _hitstop_timer: float = 0.0
-var _damage_number_pool: Array = []  # Array[Dictionary]: node/target_id/aggregate_until/busy_until
+var _impact_hitstop_until: float = 0.0
 
 ## Shake writes to the camera's `offset`, which Player.tscn already uses for its own
 ## framing nudge — cache that base so shake is added ON TOP of it instead of erasing it.
@@ -232,63 +238,167 @@ func spawn_burst(pos: Vector2, color: Color, amount: int = 14, lifetime: float =
 	var p := ImpactBurst.build(color, amount, lifetime)
 	layer.add_child(p)
 	p.global_position = pos
-	# Backstop cleanup (SYS-03) — queue_free() on an already-freed node is a safe no-op.
-	get_tree().create_timer(lifetime + 0.5).timeout.connect(func() -> void:
-		if is_instance_valid(p):
-			p.queue_free()
+	_backstop_free(p, lifetime + 0.5)
+
+## Backstop cleanup (SYS-03) for a particle that normally frees itself on `finished`.
+##
+## The node is held through a WeakRef rather than captured directly by the lambda: in the
+## common case the particle has ALREADY freed itself by the time this timer fires, and a
+## lambda that captured the node directly errors out on invocation ("lambda capture was
+## freed") rather than quietly no-opping. A WeakRef stays valid and simply hands back null.
+func _backstop_free(node: Node, delay: float) -> void:
+	var ref: WeakRef = weakref(node)  # explicit: weakref() returns Variant, and := on a Variant is an error here
+	get_tree().create_timer(delay).timeout.connect(func() -> void:
+		var n: Object = ref.get_ref()
+		if n != null and is_instance_valid(n):
+			(n as Node).queue_free()
 	)
 
 # ------------------------------------------------------------------------------
-# Pooled/aggregated floating damage numbers (DMG-01, SYS-02).
+# Tiered impact feedback (replaces the floating damage numbers of DMG-01).
+#
+# Floating numbers do not survive this game's hit density: three players fielding up to
+# three weapons each plus auto-firing bolts land 20-40 damage instances per second, and a
+# single AoE blast can hit 8-12 enemies in one frame. Rendered as text that is unreadable
+# confetti, so the feedback lives ON the enemy instead, and escalates with how hard the hit
+# actually was — chip damage stays quiet, a Horn blast lands like a truck.
+#
+# Everything here is presentation-only and runs on every peer off the replicated current_hp
+# diff. Note this means "recoil" is the SPRITE kicking back inside the enemy, never the
+# physics body being displaced: displacing it would be an authoritative state change, would
+# fight NavigationAgent2D, and would desync (SYS/Phase-10 hard constraint).
 # ------------------------------------------------------------------------------
 
-## Spawns (or aggregates into) a pooled floating damage number at `pos`. Rapid
-## repeat hits on the same `target_id` within ~100ms are summed into the still-
-## active number instead of spawning a second (SYS-02). If the fixed pool is
-## exhausted, drops silently rather than growing (Pitfall 5).
-func spawn_damage_number(pos: Vector2, amount: int, color: Color, target_id: int = 0) -> void:
-	_ensure_damage_number_pool()
-	if _damage_number_pool.is_empty():
-		return  # FxLayer not present yet (e.g. main menu) — drop silently.
-
-	var now := _now()
-
-	if target_id != 0:
-		for entry in _damage_number_pool:
-			if entry["target_id"] == target_id and now < entry["aggregate_until"]:
-				entry["amount"] += amount
-				entry["aggregate_until"] = now + DAMAGE_NUMBER_AGGREGATE_WINDOW
-				entry["busy_until"] = now + DAMAGE_NUMBER_LIFETIME
-				entry["node"].global_position = pos
-				entry["node"].show_number(entry["amount"], color)
-				return
-
-	for entry in _damage_number_pool:
-		if now >= entry["busy_until"]:
-			entry["target_id"] = target_id
-			entry["amount"] = amount
-			entry["aggregate_until"] = now + DAMAGE_NUMBER_AGGREGATE_WINDOW
-			entry["busy_until"] = now + DAMAGE_NUMBER_LIFETIME
-			entry["node"].global_position = pos
-			entry["node"].show_number(amount, color)
-			return
-	# Pool exhausted — drop silently, never grow (SYS-02).
-
-func _ensure_damage_number_pool() -> void:
-	if not _damage_number_pool.is_empty():
+## Tiered impact reaction on `target`, whose visual is `sprite` (they differ: the body owns
+## the world position, the sprite owns the scale/offset that get deformed).
+##   every hit  -> white flash + a spark cone thrown along `hit_dir`
+##   medium+    -> squash-and-stretch plus a sprite recoil kick
+##   heavy      -> rate-limited micro hit-stop plus an expanding impact ring
+## `severity` is damage / max_hp, clamped 0..1.
+func impact(target: Node2D, sprite: CanvasItem, hit_dir: Vector2, severity: float, color: Color) -> void:
+	if target == null or not is_instance_valid(target):
 		return
+	severity = clampf(severity, 0.0, 1.0)
+	var pos: Vector2 = target.global_position
+	var dir: Vector2 = hit_dir.normalized() if hit_dir.length() > 0.01 else Vector2.UP
+
+	flash(target, Color(2.2, 2.2, 2.2, 1.0), 0.08)
+	_spawn_spark(pos, dir, color, severity)
+
+	if severity < IMPACT_MEDIUM_RATIO:
+		return
+	_recoil(sprite, dir, severity)
+
+	if severity < IMPACT_HEAVY_RATIO:
+		return
+	var now := _now()
+	if now >= _impact_hitstop_until:
+		_impact_hitstop_until = now + IMPACT_HITSTOP_COOLDOWN
+		hitstop(IMPACT_HITSTOP_DURATION)
+	_impact_ring(pos, color)
+
+## Spark cone thrown ALONG the hit direction rather than puffed out symmetrically — the
+## directionality is what makes a hit read as having come from somewhere. Gravity is zeroed
+## because this is a top-down view: sparks skid away flat, they don't fall.
+func _spawn_spark(pos: Vector2, dir: Vector2, color: Color, severity: float) -> void:
 	var layer := _fx_layer()
 	if layer == null:
 		return
-	for _i in range(DAMAGE_NUMBER_POOL_SIZE):
-		var node := DamageNumberScene.instantiate()
-		layer.add_child(node)
-		_damage_number_pool.append({
-			"node": node,
-			"target_id": 0,
-			"aggregate_until": 0.0,
-			"busy_until": 0.0,
-		})
+	var amount: int = 4 + int(round(severity * 8.0))      # ~4 on a chip hit, ~12 on a heavy one
+	var speed: float = 90.0 + severity * 160.0
+	var p := ImpactBurst.build(color, amount, 0.28, dir, 38.0, speed * 0.5, speed, 1.6, 3.0)
+	p.gravity = Vector2.ZERO
+	layer.add_child(p)
+	p.global_position = pos
+	_backstop_free(p, 0.8)
+
+## Squash-and-stretch plus a positional kick, both sprung back to rest. Squats and widens the
+## sprite — the classic "took a punch" deformation.
+func _recoil(sprite: CanvasItem, dir: Vector2, severity: float) -> void:
+	if sprite == null or not is_instance_valid(sprite) or not (sprite is Node2D):
+		return
+	var s := sprite as Node2D
+	var rest := _rest_pose(s)
+	var rest_scale: Vector2 = rest["scale"]
+	var rest_position: Vector2 = rest["position"]
+	_kill_pose_tween(s)
+
+	var squash: float = 0.16 + 0.14 * severity
+	s.scale = Vector2(rest_scale.x * (1.0 + squash), rest_scale.y * (1.0 - squash))
+	s.position = rest_position + dir * (5.0 + 9.0 * severity)
+
+	var tw := s.create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.set_parallel(true)
+	tw.tween_property(s, "scale", rest_scale, 0.18).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(s, "position", rest_position, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	s.set_meta("juice_pose_tween", tw)
+
+## Axis-aligned stretch pop, sprung back to rest: the axis nearest `along` gets longer while
+## the other narrows, which sells volume preservation without rotating the sprite (rotation
+## would fight the flip_h that the walk animation drives). Used by the Speedster dash.
+func stretch(sprite: CanvasItem, along: Vector2, amount: float = 0.22, duration: float = 0.3) -> void:
+	if sprite == null or not is_instance_valid(sprite) or not (sprite is Node2D):
+		return
+	var s := sprite as Node2D
+	var rest := _rest_pose(s)
+	var rest_scale: Vector2 = rest["scale"]
+	_kill_pose_tween(s)
+
+	var horizontal: bool = absf(along.x) >= absf(along.y)
+	var factor := Vector2(1.0 + amount, 1.0 - amount) if horizontal else Vector2(1.0 - amount, 1.0 + amount)
+	s.scale = rest_scale * factor
+
+	var tw := s.create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.tween_property(s, "scale", rest_scale, duration).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	s.set_meta("juice_pose_tween", tw)
+
+## Captures a sprite's rest scale/position ONCE, on first deformation, and returns it forever
+## after. Re-reading them live would let a second hit landing mid-tween mistake a half-squashed
+## frame for the rest pose and compound the deformation until the sprite is a smear. Node
+## metadata is used rather than a dictionary on this autoload so the entry dies with the node
+## and cannot leak across a run.
+func _rest_pose(s: Node2D) -> Dictionary:
+	if not s.has_meta("juice_rest_scale"):
+		s.set_meta("juice_rest_scale", s.scale)
+		s.set_meta("juice_rest_position", s.position)
+	return {
+		"scale": s.get_meta("juice_rest_scale"),
+		"position": s.get_meta("juice_rest_position"),
+	}
+
+## Cancels any deformation still springing back, so a dash landing mid-recoil (or a second hit
+## mid-dash) restarts cleanly from the rest pose instead of two tweens fighting over `scale`.
+## has_meta() is checked first: get_meta()'s default argument is not a safe "missing" fallback
+## — passing null as the default still raises on a key that was never set.
+func _kill_pose_tween(s: Node2D) -> void:
+	if not s.has_meta("juice_pose_tween"):
+		return
+	var running: Variant = s.get_meta("juice_pose_tween")
+	if running is Tween and (running as Tween).is_valid():
+		(running as Tween).kill()
+
+## Expanding ring at the impact point — the "that one hurt" marker reserved for heavy hits.
+## Same ColorRect + scale/fade tween idiom as the dash shockwave and the drone deploy pop.
+func _impact_ring(pos: Vector2, color: Color) -> void:
+	var layer := _fx_layer()
+	if layer == null:
+		return
+	const RADIUS: float = 18.0
+	var ring := ColorRect.new()
+	ring.color = Color(color.r, color.g, color.b, 0.55)
+	ring.size = Vector2(RADIUS * 2.0, RADIUS * 2.0)
+	ring.pivot_offset = Vector2(RADIUS, RADIUS)
+	ring.scale = Vector2(0.25, 0.25)
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(ring)
+	ring.global_position = pos - Vector2(RADIUS, RADIUS)
+	var tween := ring.create_tween()
+	tween.set_ignore_time_scale(true)
+	tween.tween_property(ring, "scale", Vector2(1.5, 1.5), 0.22)
+	tween.parallel().tween_property(ring, "modulate:a", 0.0, 0.22)
+	tween.tween_callback(ring.queue_free)
 
 func _now() -> float:
 	return Time.get_ticks_msec() / 1000.0

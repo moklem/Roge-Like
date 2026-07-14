@@ -19,7 +19,7 @@ const TANK_REFLECT_PCT: float = 0.5    # Stage-2: reflect 50% of blocked damage
 const TANK_REFLECT_MIN: int = 5        # Stage-2: minimum reflection damage
 
 ## Phase 5 Plan 02: Speedster dash constants (D-11, D-12)
-const DASH_DURATION: float = 0.3       # dash speed-burst and i-frame duration
+const DASH_DURATION: float = 0.4       # dash speed-burst and i-frame duration
 const DASH_MULT: float = 3.0           # velocity multiplier during dash
 const DASH_COOLDOWN: float = 4.0       # cooldown after dash
 const DASH_WINDOW: float = 0.8         # double-dash availability window (Stage-2)
@@ -63,6 +63,10 @@ var xp: int = 0
 var level: int = 1
 var element_tier: int = 1
 var is_picking_card: bool = false
+## Local-only, deliberately NOT replicated: this peer has the ESC settings overlay open.
+## Gates this peer's own input in _physics_process. Teammates neither see nor care — the
+## character stays in the world and stays a valid target while the overlay is up.
+var menu_open: bool = false
 var stage3_damage_mult: float = 1.0
 var _pending_card_picks: int = 0
 ## Set when the sub-room weapon choice arrives while a level-up pick is already open;
@@ -370,10 +374,17 @@ var _hit_flash_active: bool = false
 var _evolution_transform_active: bool = false
 
 ## ABIL-02/D-20: Speedster dash afterimage trail — tracks the dash_invincible edge and
-## throttles ghost spawn rate so a single 0.3s dash produces ~3-4 fading ghosts, not one
+## throttles ghost spawn rate so a single 0.4s dash produces ~8 fading ghosts, not one
 ## per frame.
 var _last_dash_invincible: bool = false
 var _afterimage_timer: float = 0.0
+## The dash stretch and whoosh need the dash DIRECTION, which lives only on the dashing
+## peer (input is not replicated). Rather than sync a cosmetic field, every peer reads the
+## direction off the position delta — during a 3x-speed dash that delta is unmistakable.
+## It is zero on the frame the dash starts, so the pop fires on the first frame that has
+## actually moved (one frame / ~16ms later, which is not perceptible) and only once.
+var _dash_prev_pos: Vector2 = Vector2.ZERO
+var _dash_popped: bool = false
 
 ## ABIL-04/D-20: Tank aura ring pulse — fires once on the shield_active false->true edge.
 var _last_shield_active: bool = false
@@ -452,10 +463,21 @@ func _process(_delta: float) -> void:
 	# ABIL-02/D-20: Speedster dash afterimage trail — dash_invincible is already replicated,
 	# so this fires in the every-peer _process with zero new RPC and shows on all screens.
 	if dash_invincible:
+		if not _last_dash_invincible:
+			_dash_popped = false
+			_afterimage_timer = 0.0
+		# One-shot launch pop, as soon as the position delta gives us a usable direction.
+		var moved: Vector2 = global_position - _dash_prev_pos
+		if not _dash_popped and moved.length() > 1.0:
+			_dash_popped = true
+			var dir: Vector2 = moved.normalized()
+			Juice.stretch($CharSprite if _uses_char_sprite else $Sprite, dir, 0.26, 0.32)
+			_spawn_dash_whoosh(dir)
 		_afterimage_timer -= _delta
-		if _afterimage_timer <= 0.0 or not _last_dash_invincible:
-			_afterimage_timer = 0.08  # ~3-4 ghosts over the 0.3s dash
+		if _afterimage_timer <= 0.0:
+			_afterimage_timer = 0.05  # ~8 ghosts over the 0.4s dash — a solid streak, not dots
 			_spawn_dash_afterimage()
+	_dash_prev_pos = global_position
 	_last_dash_invincible = dash_invincible
 	# ABIL-04/D-20: Tank aura ring pulse — shield_active is already replicated; fires only
 	# on the rising edge (no RPC, no gameplay change).
@@ -485,6 +507,14 @@ func _physics_process(delta: float) -> void:
 		return
 	# Phase 6 D-07: Freeze movement while picking a card (no time limit)
 	if is_picking_card:
+		velocity = Vector2.ZERO
+		move_and_slide()
+		return
+	# ESC settings overlay is open on THIS peer only. The world deliberately keeps running —
+	# a real pause would mean pausing the SceneTree, which desyncs every other peer — but this
+	# peer's input is frozen, because WASD is bound to ui_left/right/up/down and without the
+	# gate, dragging a slider with A/D would also walk the character.
+	if menu_open:
 		velocity = Vector2.ZERO
 		move_and_slide()
 		return
@@ -1046,10 +1076,26 @@ func _spawn_dash_afterimage() -> void:
 	layer.add_child(ghost)
 	ghost.z_index = 1
 	ghost.global_position = global_position
-	ghost.modulate = Color(1.0, 1.0, 1.0, 0.5)
+	# Element-tinted and held longer than the dash itself, so the ghosts overlap into a
+	# continuous streak instead of reading as separate stamps.
+	var tint: Color = Juice.element_color(element)
+	ghost.modulate = Color(tint.r, tint.g, tint.b, 0.75)
 	var tween := ghost.create_tween()
-	tween.tween_property(ghost, "modulate:a", 0.0, 0.3)
+	tween.tween_property(ghost, "modulate:a", 0.0, 0.45)
 	tween.tween_callback(ghost.queue_free)
+
+## Speed lines torn out backwards along the dash — the burst reads as air being ripped past
+## rather than as an explosion at the feet. Element-colored, flat (no gravity: top-down view),
+## parented to the persistent FxLayer like every other transient VFX.
+func _spawn_dash_whoosh(dir: Vector2) -> void:
+	var layer := Juice._fx_layer()
+	if layer == null:
+		return
+	var p := ImpactBurst.build(Juice.element_color(element), 16, 0.35, -dir, 20.0, 130.0, 280.0, 1.2, 2.6)
+	p.gravity = Vector2.ZERO
+	layer.add_child(p)
+	p.global_position = global_position
+	Juice._backstop_free(p, 1.0)
 
 ## Spawn the Speedster Stage-2 shockwave at the landing position.
 ## Visual: yellow expanding ring (clone of HornShockwave._show_visual, RADIUS=80, yellow).

@@ -16,7 +16,7 @@ var _boss_max_hp: int = 1000
 const BOSS_ANIM_SET: String = "boss"
 ## Roughly the footprint of the 80x80 collision box / 48px hurtbox radius. Kept close to them
 ## on purpose: art much larger than the hurtbox would invite players to swing at empty pixels.
-const BOSS_TARGET_HEIGHT: float = 112.0
+const BOSS_TARGET_HEIGHT: float = 168.0
 
 ## Phase tint applied to the CharSprite as the boss enrages. These are MULTIPLIERS over the
 ## artwork, not replacements for it (the old ColorRect took a flat fill), so they stay light —
