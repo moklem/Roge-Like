@@ -20,8 +20,8 @@ var _driver_style: StyleBoxFlat = null
 var _driver_tween: Tween = null
 ## mode → [display text, lit background color]. Hold time arrives with the signal (host-rolled 3-5s).
 const DRIVER_MODE_DISPLAY: Dictionary = {
-	"eco":       ["Driver Mode: ECO",       Color(0.55, 0.48, 0.05, 1)],
-	"sport":     ["Driver Mode: SPORT",     Color(0.12, 0.4, 0.7, 1)],
+	"eco":       ["Driver Mode: ECO",       Color(0.12, 0.4, 0.7, 1)],
+	"sport":     ["Driver Mode: SPORT",     Color(0.55, 0.48, 0.05, 1)],
 	"repair":    ["Driver Mode: REPAIR",    Color(0.1, 0.55, 0.2, 1)],
 	"overdrive": ["Driver Mode: OVERDRIVE", Color(0.45, 0.18, 0.7, 1)],
 }

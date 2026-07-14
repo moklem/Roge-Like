@@ -373,7 +373,7 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		return
 	var dir := Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
-	velocity = dir * SPEED * _driver_speed_mult   # Driver Mode: ECO slows / SPORT speeds up
+	velocity = dir * SPEED * _driver_speed_mult   # Driver Mode: ECO speeds up / SPORT slows
 	move_and_slide()
 	# D-08: Delegate all weapon firing to WeaponManager (ScrewsAndBolts + future weapons)
 	if has_node("WeaponManager"):
@@ -446,26 +446,29 @@ func _update_health_ghost(old_hp: int, new_hp: int) -> void:
 # Driver Mode — per-sub-room team-wide timed effect (CarHUD "Driver Mode: …")
 # ------------------------------------------------------------------------------
 
-## ECO halves your speed, so its particles must read as braking, not as a buff — a bright
+## SPORT halves your speed, so its particles must read as braking, not as a buff — a bright
 ## colour here signals "power-up" and fights the mechanic. Anthracite tyre smoke instead,
 ## taken from the project's existing comic-ink family (UiStyle.INK = 0.08, 0.07, 0.10) and
 ## lifted so it reads as drifting smoke rather than a black blob on dark floors.
-const DRIVER_ECO_SMOKE := Color(0.24, 0.23, 0.27, 0.85)
+const DRIVER_BRAKE_SMOKE := Color(0.24, 0.23, 0.27, 0.85)
 
 ## GameEvents.driver_mode fires on ALL peers (host-rolled, call_local). Configures this
 ## player's copy: sets the active mult/heal, starts the timer, spawns matching sparkles.
 ## REPAIR reuses the existing green heal cue — the per-tick health gain triggers it on every
 ## peer automatically (see _process), so no extra particle emitter is needed for it.
+##
+## ECO buffs and SPORT punishes, not the other way round: the driver burning fuel must never be
+## the move that makes the team stronger, or the game teaches the opposite of what it should.
 func _on_driver_mode(mode: String, duration: float) -> void:
 	_clear_driver_effect()  # cancel any lingering effect before applying the new one
 	_driver_timer = duration
 	match mode:
 		"eco":
-			_driver_speed_mult = 0.5                                # half speed (deutlich stärker)
-			_spawn_driver_particles(DRIVER_ECO_SMOKE)               # anthracite tyre smoke — see const
-		"sport":
 			_driver_speed_mult = 1.5
 			_spawn_driver_particles(Color(0.45, 0.8, 1.0, 0.9))     # light blue
+		"sport":
+			_driver_speed_mult = 0.5                                # half speed (deutlich stärker)
+			_spawn_driver_particles(DRIVER_BRAKE_SMOKE)             # anthracite tyre smoke — see const
 		"repair":
 			_driver_heal_rate = 5.0
 			_spawn_driver_particles(Color(0.3, 1.0, 0.45, 0.95))    # green (like drone/earth heal)
