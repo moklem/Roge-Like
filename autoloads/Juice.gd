@@ -236,6 +236,50 @@ func flash(node: CanvasItem, color: Color = Color(2.0, 2.0, 2.0, 1.0), dur: floa
 	HitFlash.flash(node, color, dur)
 
 # ------------------------------------------------------------------------------
+# Blob shadow — soft radial ellipse under a character's feet. Purely cosmetic and
+# built in _ready on every peer (no RPC, no sync). Parented to the character (NOT
+# FxLayer): the shadow must follow every frame with zero bookkeeping, and unlike
+# transient VFX it dies with its owner by design.
+# ------------------------------------------------------------------------------
+var _blob_shadow_tex: GradientTexture2D = null
+
+## One shared radial-gradient texture for every shadow in the run.
+func _shadow_texture() -> GradientTexture2D:
+	if _blob_shadow_tex == null:
+		var grad := Gradient.new()
+		grad.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
+		grad.colors = PackedColorArray([
+			Color(0, 0, 0, 1), Color(0, 0, 0, 0.75), Color(0, 0, 0, 0),
+		])
+		_blob_shadow_tex = GradientTexture2D.new()
+		_blob_shadow_tex.gradient = grad
+		_blob_shadow_tex.fill = GradientTexture2D.FILL_RADIAL
+		_blob_shadow_tex.fill_from = Vector2(0.5, 0.5)
+		_blob_shadow_tex.fill_to = Vector2(0.5, 0.0)
+		_blob_shadow_tex.width = 64
+		_blob_shadow_tex.height = 64
+	return _blob_shadow_tex
+
+## Adds the shadow as the FIRST child so tree order draws it behind the sprite while
+## staying above the floor (same z as the body — never z_index, which would drop it
+## below the TileMap). Returns the sprite so callers can reposition it (e.g. player
+## evolution changes the character height).
+func add_blob_shadow(owner_node: Node2D, width: float, foot_y: float) -> Sprite2D:
+	var sh := Sprite2D.new()
+	sh.name = "BlobShadow"
+	sh.texture = _shadow_texture()
+	sh.modulate = Color(1, 1, 1, 0.35)
+	set_blob_shadow_size(sh, width, foot_y)
+	owner_node.add_child(sh)
+	owner_node.move_child(sh, 0)
+	return sh
+
+## Ellipse proportions: flat (~34% of width) so it reads as ground contact, not a hole.
+func set_blob_shadow_size(sh: Sprite2D, width: float, foot_y: float) -> void:
+	sh.scale = Vector2(width / 64.0, width * 0.34 / 64.0)
+	sh.position = Vector2(0, foot_y)
+
+# ------------------------------------------------------------------------------
 # Particle bursts (delegates to scenes/vfx/ImpactBurst.gd) — always parented to the
 # persistent FxLayer, never to the triggering node (Pitfall 3/4), with a backstop
 # cleanup timer alongside the particle's own `finished` cleanup (SYS-03).

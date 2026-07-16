@@ -77,6 +77,17 @@ func _char_target_height() -> float:
 var _last_anim_pos: Vector2 = Vector2.ZERO
 var _move_timer: float = 0.0  # keeps "walk" alive between 20 Hz position syncs on clients
 
+## Procedural walk-bounce/idle-breath state. The bob rides on the CharSprite's `offset`
+## (texture-space) and `rotation` — deliberately NOT `position`/`scale`, which belong to
+## Juice's recoil/stretch tweens and their once-captured rest pose (Juice._rest_pose).
+var _char_base_offset: Vector2 = Vector2.ZERO  # centering offset from _setup_enemy_sprite
+var _bob_phase: float = 0.0                    # per-node phase so a swarm never bobs in sync
+const BOB_WALK_HZ: float = 5.0     # hops per second while moving
+const BOB_WALK_AMP: float = 3.0    # hop height in SCREEN px (divided by sprite scale)
+const BOB_IDLE_HZ: float = 0.9     # breathing rate when standing
+const BOB_IDLE_AMP: float = 1.4    # breathing rise in SCREEN px
+const LEAN_WALK_RAD: float = 0.07  # lean into the travel direction (~4°)
+
 func _ready() -> void:
 	add_to_group("enemies")
 	# WR-03: set current_hp here so any bare instantiation (without _do_spawn_enemy) gets the
@@ -93,6 +104,9 @@ func _ready() -> void:
 	# DMG-04/D-07: ghost overlay lives as a child of $HealthBar so its local coordinate space
 	# matches the ProgressBar's 0..size.x == value 0..100 range. Hidden until the first hit.
 	if has_node("HealthBar"):
+		# Comic restyle for the over-head bar (ink track + red fill) — pure theme override,
+		# the value/ghost plumbing below is untouched.
+		UiStyle.health_bar($HealthBar, Color(0.88, 0.22, 0.16))
 		_health_ghost = ColorRect.new()
 		_health_ghost.color = Color(1.0, 0.3, 0.25, 0.85)
 		_health_ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -158,6 +172,10 @@ func _setup_enemy_sprite() -> void:
 				var canvas_center := Vector2(img.get_width(), img.get_height()) * 0.5
 				var used_center := Vector2(used.position) + Vector2(used.size) * 0.5
 				spr.offset = canvas_center - used_center
+	_char_base_offset = spr.offset
+	_bob_phase = float(str(name).hash() % 1000) / 1000.0 * TAU
+	# Ground the character: soft blob shadow at the feet, drawn behind the sprite.
+	Juice.add_blob_shadow(self, _char_target_height() * 0.62, _char_target_height() * 0.5)
 	_last_anim_pos = global_position
 	spr.play("%s_idle" % anim_set)
 
@@ -176,6 +194,23 @@ func _update_enemy_visual(delta_t: float) -> void:
 	var anim := "%s_%s" % [_anim_set(), "walk" if _move_timer > 0.0 else "idle"]
 	if spr.animation != StringName(anim) or not spr.is_playing():
 		spr.play(anim)
+	_apply_char_bob(spr, _move_timer > 0.0, move_delta.x)
+
+## Procedural life on top of the frame animation: a little hop + lean while walking, a slow
+## breathing rise while idle. Derived from replicated position like everything else here, so
+## it renders identically on every peer. Rides offset/rotation only — see _char_base_offset.
+func _apply_char_bob(spr: AnimatedSprite2D, walking: bool, dir_x: float) -> void:
+	var t: float = float(Time.get_ticks_msec()) / 1000.0 + _bob_phase
+	var px_scale: float = maxf(spr.scale.y, 0.001)  # offset is texture-space; convert screen px
+	if walking:
+		var hop: float = -absf(sin(t * TAU * BOB_WALK_HZ * 0.5)) * BOB_WALK_AMP
+		spr.offset = _char_base_offset + Vector2(0, hop / px_scale)
+		var lean_sign: float = signf(dir_x) if absf(dir_x) > 0.05 else (1.0 if spr.flip_h else -1.0)
+		spr.rotation = lerpf(spr.rotation, lean_sign * LEAN_WALK_RAD, 0.2)
+	else:
+		var breath: float = sin(t * TAU * BOB_IDLE_HZ) * BOB_IDLE_AMP
+		spr.offset = _char_base_offset + Vector2(0, breath / px_scale)
+		spr.rotation = lerpf(spr.rotation, 0.0, 0.15)
 
 ## WR-003: Health bar update runs on ALL peers so clients see synced current_hp.
 ## _physics_process is disabled on clients (P6 guard), so health bar must live here.

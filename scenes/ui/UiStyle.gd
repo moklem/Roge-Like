@@ -172,6 +172,23 @@ static func comic_box(bg: Color, pressed: bool = false) -> StyleBoxFlat:
 	s.shadow_offset = Vector2(1, 1) if pressed else Vector2(3, 3)
 	return s
 
+## Over-head HP bar restyle — dark ink track + 2px ink border + saturated fill, replacing
+## the default grey Godot ProgressBar that stuck out as a foreign body over the comic art.
+## The dark track makes the LOST segment read as a gap (the ghost chip-away overlay in
+## Enemy.gd/Player.gd draws over it unchanged, both work in bar-local 0..size.x space).
+static func health_bar(bar: ProgressBar, fill: Color) -> void:
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(0.16, 0.13, 0.11, 0.92)
+	bg.border_color = Color(0, 0, 0, 1)
+	bg.set_border_width_all(2)
+	bg.set_corner_radius_all(3)
+	bg.set_content_margin_all(2)  # insets the fill so it sits inside the ink frame
+	var fg := StyleBoxFlat.new()
+	fg.bg_color = fill
+	fg.set_corner_radius_all(2)
+	bar.add_theme_stylebox_override("background", bg)
+	bar.add_theme_stylebox_override("fill", fg)
+
 static func _focus_box() -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
 	s.bg_color = Color(0, 0, 0, 0)

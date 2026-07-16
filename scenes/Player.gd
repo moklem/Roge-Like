@@ -106,6 +106,18 @@ var _uses_char_sprite: bool = false
 var _last_anim_pos: Vector2 = Vector2.ZERO
 var _move_timer: float = 0.0   # keeps "walk" anim alive between 20 Hz position syncs on remote peers
 
+## Procedural walk-bounce/idle-breath + blob shadow (mirrors Enemy.gd's _apply_char_bob).
+## Rides the CharSprite's `offset`/`rotation` only — `position`/`scale` belong to Juice's
+## recoil/stretch tweens and _apply_char_fit's per-frame reset.
+var _char_shadow: Sprite2D = null
+var _shadow_stage: int = 0   # last stage the shadow was sized for (evolution resizes it)
+var _bob_phase: float = 0.0
+const BOB_WALK_HZ: float = 5.0     # hops per second while moving
+const BOB_WALK_AMP: float = 3.0    # hop height in SCREEN px
+const BOB_IDLE_HZ: float = 0.9     # breathing rate when standing
+const BOB_IDLE_AMP: float = 1.4    # breathing rise in SCREEN px
+const LEAN_WALK_RAD: float = 0.07  # lean into the travel direction (~4°)
+
 ## Phase 5 Plan 02: Tank shield state
 var _shield_timer: float = 0.0          # counts down active shield duration
 var _last_attacker_path: String = ""     # attacker NodePath for Stage-2 reflection
@@ -152,6 +164,10 @@ func _setup_draw_layers() -> void:
 		var node: CanvasItem = get_node_or_null(n)
 		if node:
 			node.z_index = 2
+	# Comic restyle for the over-head bar — green fill so a glance separates "my team"
+	# from the red enemy bars. Value/ghost plumbing untouched (same as Enemy._ready).
+	if has_node("HealthBar"):
+		UiStyle.health_bar($HealthBar, Color(0.30, 0.78, 0.35))
 
 ## AUTOBONK: Choose the character art set for this role and switch from the ColorRect
 ## placeholder to the AnimatedSprite2D. Runs on all peers (role_label is set before _ready
@@ -176,6 +192,11 @@ func _setup_char_sprite() -> void:
 	# Size normalization: scale is derived per role AND stage from the opaque bounding box
 	# of the idle art (see _compute_char_fit), so every character renders equally tall.
 	_compute_char_fit()
+	_bob_phase = float(str(name).hash() % 1000) / 1000.0 * TAU
+	# Ground the character: soft blob shadow at the feet, first child (behind sprite AND
+	# the z=0 weapon visuals). Sized for stage 1; _update_char_visual resizes on evolution.
+	_shadow_stage = 1
+	_char_shadow = Juice.add_blob_shadow(self, CHAR_TARGET_HEIGHT[1] * 0.62, CHAR_TARGET_HEIGHT[1] * 0.5)
 	_last_anim_pos = global_position
 	_update_char_visual(0.0)
 
@@ -1284,11 +1305,35 @@ func _update_char_visual(delta_t: float) -> void:
 		spr.play(anim)
 	# Normalized size per stage (also re-applies on evolution and mirrors the offset on flip)
 	_apply_char_fit(stage, spr)
+	# Keep the blob shadow matched to the current evolution height.
+	if _char_shadow != null and stage != _shadow_stage:
+		_shadow_stage = stage
+		var h: float = CHAR_TARGET_HEIGHT[stage]
+		Juice.set_blob_shadow_size(_char_shadow, h * 0.62, h * 0.5)
+	_apply_player_bob(spr, move_delta)
 	# DMG-02/COOP-01/COOP-03/PROG-03: skip the per-frame modulate reset while a hit-flash tween,
 	# the downed collapse/success tween, or the evolution charge-up/reveal tween owns it (see
 	# _hit_flash_active / _downed_collapse_active / _evolution_transform_active doc comments).
 	if not _hit_flash_active and not _downed_collapse_active and not _evolution_transform_active:
 		spr.modulate = _base_sprite_tint()
+
+## Procedural life on top of the frame animation: hop + lean while walking, slow breathing
+## rise while idle. `+=` on offset because _apply_char_fit just reset it this frame. Skipped
+## while the downed collapse or evolution transform tween owns the sprite's pose.
+func _apply_player_bob(spr: AnimatedSprite2D, move_delta: Vector2) -> void:
+	if is_downed or _downed_collapse_active or _evolution_transform_active:
+		return
+	var t: float = float(Time.get_ticks_msec()) / 1000.0 + _bob_phase
+	var px_scale: float = maxf(spr.scale.y, 0.001)  # offset is texture-space; convert screen px
+	if _move_timer > 0.0:
+		var hop: float = -absf(sin(t * TAU * BOB_WALK_HZ * 0.5)) * BOB_WALK_AMP
+		spr.offset += Vector2(0, hop / px_scale)
+		var lean_sign: float = signf(move_delta.x) if absf(move_delta.x) > 0.05 \
+			else (1.0 if spr.flip_h else -1.0)
+		spr.rotation = lerpf(spr.rotation, lean_sign * LEAN_WALK_RAD, 0.2)
+	else:
+		spr.offset += Vector2(0, sin(t * TAU * BOB_IDLE_HZ) * BOB_IDLE_AMP / px_scale)
+		spr.rotation = lerpf(spr.rotation, 0.0, 0.15)
 
 func _swap_stage_visual(stage: int) -> void:
 	_update_xp_hud()
