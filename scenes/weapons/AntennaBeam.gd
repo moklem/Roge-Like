@@ -1,12 +1,12 @@
 extends Node
 ## AntennaBeam — long thin Area2D aimed at nearest enemy, fires every 2s.
 ## D-11: Piercing — hits all enemies along the beam in one overlap query.
-## Uses long Area2D (500px × 8px) with collision_mask=4 (enemies only, walls ignored).
+## Uses long Area2D (BEAM_LENGTH × 8px) with collision_mask=4 (enemies only, walls ignored).
 ## W2: Authority guard prevents non-owning peers from applying damage.
 ## Visual: tall thin ColorRect that flashes briefly on fire.
 
 const COOLDOWN: float = 2.0
-const BEAM_LENGTH: float = 500.0
+const BEAM_LENGTH: float = 350.0  # playtest: 500 reached across most rooms and felt free
 const BEAM_WIDTH: float = 8.0
 const DAMAGE: int = 25
 
@@ -70,6 +70,10 @@ func _on_fire_timer(weapon_manager: Node) -> void:
 	var level: int = weapon_manager.weapon_level.get("antenna_beam", 1)
 	var nearest: Node = weapon_manager._find_nearest_enemy(player)
 	if nearest == null:
+		return
+	# _find_nearest_enemy is unbounded — hold fire (visual, sound and cooldown shot) when even
+	# the nearest enemy is beyond the beam, instead of visibly zapping into empty space.
+	if player.global_position.distance_to(nearest.global_position) > BEAM_LENGTH:
 		return
 	var dir: Vector2 = (nearest.global_position - player.global_position).normalized()
 	_show_visual.rpc(dir, player.global_position)

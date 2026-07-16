@@ -3,9 +3,10 @@ extends Node
 ## No RPCs of its own: callers already run identically on every peer (diff-watch
 ## Pattern A, or an existing broadcast RPC — Pattern B), so Juice only ever needs to
 ## execute a purely local, cosmetic reaction. Provides: trauma-based screen shake
-## (local authority Camera2D only), local cosmetic hit-stop, tiered impact feedback
-## (flash / spark / squash / ring), hit-flash, parametrized CPUParticles2D bursts, and
-## the single shared element-color lookup reused by every later wave.
+## (local authority Camera2D only), local cosmetic hit-stop, pooled/aggregated floating
+## damage numbers, tiered impact feedback (flash / spark / squash / ring), hit-flash,
+## parametrized CPUParticles2D bursts, and the single shared element-color lookup
+## reused by every later wave.
 ##
 ## Hard constraints (never violate, see RESEARCH.md Pitfall 1 / Anti-Patterns):
 ## hit-stop is a private cosmetic float read only by presentation code — it must
@@ -45,10 +46,18 @@ const IMPACT_HEAVY_RATIO: float = 0.55
 const IMPACT_HITSTOP_DURATION: float = 0.035
 const IMPACT_HITSTOP_COOLDOWN: float = 0.35
 
+## Pooled damage-number constants (SYS-02, Pitfall 5).
+const DAMAGE_NUMBER_POOL_SIZE: int = 24
+const DAMAGE_NUMBER_AGGREGATE_WINDOW: float = 0.1
+const DAMAGE_NUMBER_LIFETIME: float = 0.6
+
+const DamageNumberScene: PackedScene = preload("res://scenes/vfx/DamageNumber.tscn")
+
 var trauma: float = 0.0
 
 var _hitstop_timer: float = 0.0
 var _impact_hitstop_until: float = 0.0
+var _damage_number_pool: Array = []  # Array[Dictionary]: node/target_id/aggregate_until/busy_until
 
 ## Shake writes to the camera's `offset`, which Player.tscn already uses for its own
 ## framing nudge — cache that base so shake is added ON TOP of it instead of erasing it.
@@ -255,13 +264,12 @@ func _backstop_free(node: Node, delay: float) -> void:
 	)
 
 # ------------------------------------------------------------------------------
-# Tiered impact feedback (replaces the floating damage numbers of DMG-01).
+# Tiered impact feedback — runs ALONGSIDE the floating damage numbers (DMG-01).
 #
-# Floating numbers do not survive this game's hit density: three players fielding up to
-# three weapons each plus auto-firing bolts land 20-40 damage instances per second, and a
-# single AoE blast can hit 8-12 enemies in one frame. Rendered as text that is unreadable
-# confetti, so the feedback lives ON the enemy instead, and escalates with how hard the hit
-# actually was — chip damage stays quiet, a Horn blast lands like a truck.
+# Numbers carry the information (how much, element color via the per-target aggregation
+# in spawn_damage_number), impact carries the weight: a light hit is just flash + number
+# like it always was, while medium/heavy hits add squash, recoil, sparks and the ring so
+# a Horn blast still lands like a truck.
 #
 # Everything here is presentation-only and runs on every peer off the replicated current_hp
 # diff. Note this means "recoil" is the SPRITE kicking back inside the enemy, never the
@@ -271,8 +279,8 @@ func _backstop_free(node: Node, delay: float) -> void:
 
 ## Tiered impact reaction on `target`, whose visual is `sprite` (they differ: the body owns
 ## the world position, the sprite owns the scale/offset that get deformed).
-##   every hit  -> white flash + a spark cone thrown along `hit_dir`
-##   medium+    -> squash-and-stretch plus a sprite recoil kick
+##   every hit  -> white flash (the damage number spawns at the call site)
+##   medium+    -> spark cone along `hit_dir` plus squash-and-stretch and a recoil kick
 ##   heavy      -> rate-limited micro hit-stop plus an expanding impact ring
 ## `severity` is damage / max_hp, clamped 0..1.
 func impact(target: Node2D, sprite: CanvasItem, hit_dir: Vector2, severity: float, color: Color) -> void:
@@ -283,10 +291,12 @@ func impact(target: Node2D, sprite: CanvasItem, hit_dir: Vector2, severity: floa
 	var dir: Vector2 = hit_dir.normalized() if hit_dir.length() > 0.01 else Vector2.UP
 
 	flash(target, Color(2.2, 2.2, 2.2, 1.0), 0.08)
-	_spawn_spark(pos, dir, color, severity)
 
+	# Light hits stay quiet on purpose: flash + the floating damage number and nothing else —
+	# that's the pre-Phase-10 "normal hit" look. Sparks/recoil/ring only join from medium up.
 	if severity < IMPACT_MEDIUM_RATIO:
 		return
+	_spawn_spark(pos, dir, color, severity)
 	_recoil(sprite, dir, severity)
 
 	if severity < IMPACT_HEAVY_RATIO:
@@ -399,6 +409,68 @@ func _impact_ring(pos: Vector2, color: Color) -> void:
 	tween.tween_property(ring, "scale", Vector2(1.5, 1.5), 0.22)
 	tween.parallel().tween_property(ring, "modulate:a", 0.0, 0.22)
 	tween.tween_callback(ring.queue_free)
+
+# ------------------------------------------------------------------------------
+# Pooled/aggregated floating damage numbers (DMG-01, SYS-02).
+# ------------------------------------------------------------------------------
+
+## Spawns (or aggregates into) a pooled floating damage number at `pos`. Rapid
+## repeat hits on the same `target_id` within ~100ms are summed into the still-
+## active number instead of spawning a second (SYS-02). If the fixed pool is
+## exhausted, drops silently rather than growing (Pitfall 5).
+func spawn_damage_number(pos: Vector2, amount: int, color: Color, target_id: int = 0) -> void:
+	_ensure_damage_number_pool()
+	if _damage_number_pool.is_empty():
+		return  # FxLayer not present yet (e.g. main menu) — drop silently.
+
+	var now := _now()
+
+	if target_id != 0:
+		for entry in _damage_number_pool:
+			if entry["target_id"] == target_id and now < entry["aggregate_until"]:
+				entry["amount"] += amount
+				entry["aggregate_until"] = now + DAMAGE_NUMBER_AGGREGATE_WINDOW
+				entry["busy_until"] = now + DAMAGE_NUMBER_LIFETIME
+				_position_number(entry["node"], pos)
+				entry["node"].show_number(entry["amount"], color)
+				return
+
+	for entry in _damage_number_pool:
+		if now >= entry["busy_until"]:
+			entry["target_id"] = target_id
+			entry["amount"] = amount
+			entry["aggregate_until"] = now + DAMAGE_NUMBER_AGGREGATE_WINDOW
+			entry["busy_until"] = now + DAMAGE_NUMBER_LIFETIME
+			_position_number(entry["node"], pos)
+			entry["node"].show_number(amount, color)
+			return
+	# Pool exhausted — drop silently, never grow (SYS-02).
+
+## A Control's position is its top-left corner, so handing the enemy position straight to the
+## 120x40 label parks the text 60px right / 20px below the target. Center the rect on the
+## enemy instead, lifted a touch so the number reads just above the sprite.
+func _position_number(node: Control, pos: Vector2) -> void:
+	node.global_position = pos - node.size * 0.5 - Vector2(0.0, 10.0)
+
+func _ensure_damage_number_pool() -> void:
+	if not _damage_number_pool.is_empty():
+		# The pool lives under FxLayer, which dies with the Game scene — rebuild after a
+		# scene change instead of holding freed nodes forever.
+		if is_instance_valid(_damage_number_pool[0]["node"]):
+			return
+		_damage_number_pool.clear()
+	var layer := _fx_layer()
+	if layer == null:
+		return
+	for _i in range(DAMAGE_NUMBER_POOL_SIZE):
+		var node := DamageNumberScene.instantiate()
+		layer.add_child(node)
+		_damage_number_pool.append({
+			"node": node,
+			"target_id": 0,
+			"aggregate_until": 0.0,
+			"busy_until": 0.0,
+		})
 
 func _now() -> float:
 	return Time.get_ticks_msec() / 1000.0

@@ -198,12 +198,14 @@ func _process(_delta: float) -> void:
 	# (host applies damage directly; clients see the synced drop) for any damage source.
 	if current_hp < _last_hp_seen:
 		Sfx.hit()
-		# Tiered impact reaction (flash + directional spark, escalating to squash/recoil and
-		# then to hit-stop + ring). Runs on every peer, no authority guard, no new RPC — it
-		# reacts to the already-replicated current_hp diff, and Juice.impact() only ever
-		# touches presentation, never the body's position or any authoritative field.
+		# DMG-01/D-04: pooled damage number (element-colored via _impact_color, white for a
+		# plain hit) plus the tiered impact reaction (flash always, spark/squash/recoil from
+		# medium, hit-stop + ring on heavy). Runs on every peer, no authority guard, no new
+		# RPC — it reacts to the already-replicated current_hp diff, and both calls only ever
+		# touch presentation, never the body's position or any authoritative field.
 		var dmg: int = _last_hp_seen - current_hp
 		var visual: CanvasItem = $CharSprite if _uses_char_sprite else null
+		Juice.spawn_damage_number(global_position, dmg, _impact_color(), get_instance_id())
 		Juice.impact(self, visual, _hit_direction(), float(dmg) / float(maxi(MAX_HP, 1)), _impact_color())
 		# DMG-07/D-05: burst-only (~0.4s) element hit VFX for burning/slowed enemies, reusing
 		# the shared bounded Juice.spawn_burst/FxLayer pool — no second uncapped spawn path.

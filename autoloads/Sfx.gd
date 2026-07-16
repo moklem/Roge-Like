@@ -19,21 +19,27 @@ const PRIORITY_POOL_SIZE: int = 4
 
 const SFX_DIR: String = "res://assets/audio/sfx/"
 
-## cue name -> [file basename, volume_db, pitch_min, pitch_max]
-## Negative dB keeps the cues subtle. Pitch jitter stops repeated cues sounding machine-gunned.
+## cue name -> [file basename OR Array of basenames (a random variant per play), volume_db,
+## pitch_min, pitch_max]. Pitch jitter stops repeated cues sounding machine-gunned.
+##
+## volume_db carries BOTH the mix intent (UI whisper-quiet, stingers loud) AND a per-sample
+## loudness correction: the delivered samples are peak-normalized but their perceived level
+## (max 300ms window RMS) spreads across ~20 dB, so each delivered file's dB was re-leveled
+## against a -19 dBFS reference. Re-measure before touching these — a value that looks odd
+## (ui_click at -2) is compensating for a genuinely quiet sample.
 const CUES: Dictionary = {
 	# --- combat (routine) ---
-	"shoot":           ["shoot.wav",           -17.0, 0.95, 1.08],
-	"hit":             ["hit.wav",             -13.0, 0.92, 1.10],
-	"enemy_die":       ["enemy_die.wav",       -12.0, 0.90, 1.10],
+	"shoot":           ["shoot.wav",           -19.5, 0.95, 1.08],
+	"hit":             ["hit.mp3",             -13.0, 0.92, 1.10],
+	"enemy_die":       ["enemy_die.wav",       -16.0, 0.90, 1.10],
 	# --- weapons ---
-	"exhaust_flames":  ["exhaust_flames.wav",  -15.0, 0.95, 1.05],
-	"antenna_beam":    ["antenna_beam.wav",    -15.0, 0.95, 1.05],
-	"horn_shockwave":  ["horn_shockwave.wav",  -14.0, 0.95, 1.05],
+	"exhaust_flames":  ["exhaust_flames.wav",  -15.5, 0.95, 1.05],
+	"antenna_beam":    ["antenna_beam.wav",    -19.0, 0.95, 1.05],
+	"horn_shockwave":  ["horn_shockwave.wav",  -14.0, 0.95, 1.05],  # playtest: louder than the leveled -20
 	"airbag_arm":      ["airbag_arm.wav",      -14.0, 1.00, 1.00],
 	"airbag_break":    ["airbag_break.wav",    -11.0, 0.95, 1.05],
 	# --- role abilities ---
-	"dash":            ["dash.wav",            -14.0, 0.95, 1.08],
+	"dash":            ["dash.wav",             -9.0, 0.95, 1.08],
 	"dash_shockwave":  ["dash_shockwave.wav",  -12.0, 0.95, 1.05],
 	"shield_up":       ["shield_up.wav",       -14.0, 0.95, 1.05],
 	"earth_shockwave": ["earth_shockwave.wav", -12.0, 0.95, 1.05],
@@ -45,28 +51,29 @@ const CUES: Dictionary = {
 	"earth_servo_hum": ["earth_servo_hum.wav", -16.0, 0.98, 1.02],
 	"lidar_blip":      ["lidar_blip.wav",      -16.0, 0.98, 1.02],
 	# --- pickups, transitions, UI ---
-	"xp_arrive":       ["xp_arrive.wav",       -16.0, 0.96, 1.10],
+	"xp_arrive":       [["xp_arrive.wav", "xp_arrive_2.wav"], -14.0, 0.96, 1.10],
 	"exit_open":       ["exit_open.wav",       -12.0, 1.00, 1.00],
-	"transition":      ["transition.wav",      -12.0, 1.00, 1.00],
-	"run_start":       ["run_start.wav",       -10.0, 1.00, 1.00],
-	"ui_click":        ["ui_click.wav",        -18.0, 0.98, 1.02],
-	"ui_navigate":     ["ui_navigate.wav",     -20.0, 0.98, 1.06],
-	"ui_confirm":      ["ui_confirm.wav",      -16.0, 1.00, 1.00],
+	"transition":      ["transition.wav",       -8.0, 1.00, 1.00],
+	"run_start":       ["run_start.wav",       -18.0, 1.00, 1.00],
+	"ui_click":        ["ui_click.wav",         -2.0, 0.98, 1.02],
+	"ui_navigate":     ["ui_navigate.wav",     -14.5, 0.98, 1.06],
+	"ui_confirm":      ["ui_confirm.wav",      -11.5, 1.00, 1.00],
 	# --- priority stingers (reserved pool) ---
-	"kill_fanfare":    ["kill_fanfare.wav",     -8.0, 0.98, 1.02],
-	"boss_phase":      ["boss_phase.wav",       -7.0, 1.00, 1.00],
+	"kill_fanfare":    ["kill_fanfare.wav",     -6.0, 0.98, 1.02],
+	"boss_phase":      ["boss_phase.wav",       -5.5, 1.00, 1.00],
 	"boss_death":      ["boss_death.wav",       -6.0, 1.00, 1.00],
-	"evolution":       ["evolution.wav",        -7.0, 1.00, 1.00],
+	"evolution":       ["evolution.wav",        -9.5, 1.00, 1.00],
 	"level_up":        ["level_up.wav",         -9.0, 1.00, 1.00],
-	"downed":          ["downed.wav",           -8.0, 1.00, 1.00],
-	"revive":          ["revive.wav",           -8.0, 1.00, 1.00],
+	"downed":          ["downed.wav",           -8.5, 1.00, 1.00],
+	"revive":          ["revive.wav",          -11.0, 1.00, 1.00],
 	"big_hit":         ["big_hit.wav",          -8.0, 0.97, 1.03],
+	"game_over":       ["game_over.wav",        -4.0, 1.00, 1.00],
 }
 
 ## Must-hear stingers — routed to the reserved pool so routine fire can't steal their voice.
 const PRIORITY: Array[String] = [
 	"kill_fanfare", "boss_phase", "boss_death", "evolution",
-	"level_up", "downed", "revive", "big_hit",
+	"level_up", "downed", "revive", "big_hit", "game_over",
 ]
 
 ## HUD event -> cue. The CARIAD indicators already fire on every peer for exactly the moments
@@ -91,7 +98,7 @@ var _players: Array[AudioStreamPlayer] = []
 var _priority_players: Array[AudioStreamPlayer] = []
 var _next: int = 0
 var _next_priority: int = 0
-var _streams: Dictionary = {}       # cue name -> AudioStream (absent when the file isn't there)
+var _streams: Dictionary = {}       # cue name -> Array of AudioStreams (the delivered variants; absent when no file is there)
 var _hud_last_seen: Dictionary = {} # hud event name -> last time seen (seconds)
 
 func _ready() -> void:
@@ -100,9 +107,14 @@ func _ready() -> void:
 	for _i in range(PRIORITY_POOL_SIZE):
 		_priority_players.append(_make_player())
 	for cue in CUES:
-		var stream := _try_load(SFX_DIR + CUES[cue][0])
-		if stream != null:
-			_streams[cue] = stream
+		var names: Variant = CUES[cue][0]
+		var streams: Array = []
+		for basename in (names if names is Array else [names]):
+			var stream := _try_load(SFX_DIR + basename)
+			if stream != null:
+				streams.append(stream)
+		if not streams.is_empty():
+			_streams[cue] = streams
 	# Central listeners — these events already fire on every peer, so the cue rides along with
 	# them and no gameplay file needs a separate sound call for them.
 	GameEvents.hud_event.connect(_on_hud_event)
@@ -142,7 +154,8 @@ func play(cue: String) -> void:
 		p = pool[_next]
 		_next = (_next + 1) % pool.size()
 	var cfg: Array = CUES[cue]
-	p.stream = _streams[cue]
+	var variants: Array = _streams[cue]
+	p.stream = variants[randi() % variants.size()]
 	p.volume_db = cfg[1]
 	p.pitch_scale = randf_range(cfg[2], cfg[3])
 	p.play()

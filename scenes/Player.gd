@@ -95,6 +95,10 @@ var _sprite_key: String = ""
 ## Target on-screen height (px) of the drawn character per evolution stage.
 ## Same for every role — characters grow slightly with each stage.
 const CHAR_TARGET_HEIGHT := {1: 56.0, 2: 62.0, 3: 68.0}
+## Per-role correction on top of CHAR_TARGET_HEIGHT (sprite key → stage → factor).
+## Equal HEIGHT is not equal perceived size: the stage-1 Tank is a chibi that is nearly all
+## box head, so at the shared 56px it reads far bulkier than the lanky Speedster/Engineer.
+const CHAR_HEIGHT_TWEAK := {"tank": {1: 0.82}}
 ## stage → {"scale": Vector2, "offset": Vector2}, filled by _compute_char_fit()
 var _char_fit: Dictionary = {}
 var _uses_char_sprite: bool = false
@@ -103,7 +107,6 @@ var _move_timer: float = 0.0   # keeps "walk" anim alive between 20 Hz position 
 
 ## Phase 5 Plan 02: Tank shield state
 var _shield_timer: float = 0.0          # counts down active shield duration
-var _shield_ring: ColorRect = null       # reusable outer ring node (created on first show)
 var _last_attacker_path: String = ""     # attacker NodePath for Stage-2 reflection
 
 ## Phase 5 Plan 02: Speedster dash state
@@ -200,7 +203,8 @@ func _compute_char_fit() -> void:
 		var used: Rect2i = img.get_used_rect()
 		if used.size.y <= 0:
 			continue
-		var s: float = CHAR_TARGET_HEIGHT[stage] / float(used.size.y)
+		var tweak: float = CHAR_HEIGHT_TWEAK.get(_sprite_key, {}).get(stage, 1.0)
+		var s: float = CHAR_TARGET_HEIGHT[stage] * tweak / float(used.size.y)
 		var canvas_center := Vector2(img.get_width(), img.get_height()) * 0.5
 		var used_center := Vector2(used.position) + Vector2(used.size) * 0.5
 		_char_fit[stage] = {"scale": Vector2(s, s), "offset": canvas_center - used_center}
@@ -408,11 +412,8 @@ func _process(_delta: float) -> void:
 	if _uses_char_sprite:
 		_update_char_visual(_delta)
 	elif not _hit_flash_active and not _downed_collapse_active and not _evolution_transform_active:
-		# D-12: downed visual tint runs on ALL peers from synced is_downed value
-		if is_downed:
-			$Sprite.modulate = Color(0.4, 0.4, 0.4)   # grayscale tint
-		else:
-			$Sprite.modulate = Color.WHITE
+		# D-12: downed/shield tint runs on ALL peers from synced values (see _base_sprite_tint)
+		$Sprite.modulate = _base_sprite_tint()
 	# COOP-01/COOP-03/D-18: is_downed is replicated (D-17), so this diff fires on every peer
 	# with zero new RPC — the collapse and success juice are inherently team-visible.
 	if is_downed and not _last_downed:
@@ -729,7 +730,6 @@ func _tick_ability(delta: float) -> void:
 		_shield_timer -= delta
 		if _shield_timer <= 0.0:
 			shield_active = false
-			_hide_shield_ring()
 	# Speedster dash i-frame countdown
 	if _dash_timer > 0.0:
 		_dash_timer -= delta
@@ -877,42 +877,28 @@ func _find_nearest_enemy_global() -> Node:
 # Plan 02 helpers — Tank shield
 # ──────────────────────────────────────────────────────────────────────────────
 
-## Activate the Tank damage shield for the given duration.
-## Sets shield_active (replicated via MultiplayerSynchronizer) and shows the blue ring.
+## Activate the Tank damage shield for the given duration. Sets shield_active (replicated
+## via MultiplayerSynchronizer); the visual is the pulsing blue sprite glow every peer
+## derives from that flag in _base_sprite_tint() — there is no shield node to show/hide.
+## (The old ColorRect "hollow ring" rendered as a solid blue square: a transparent child
+## rect does not cut a hole out of its parent.)
 func _activate_shield(duration: float) -> void:
 	shield_active = true
 	_shield_timer = duration
-	_show_shield_ring()
 	Sfx.play("shield_up")
 
-## Show (or create) the blue hollow-ring visual around the player.
-## Mirrors AirbagShield.gd ring construction; blue instead of yellow.
-func _show_shield_ring() -> void:
-	const RING_RADIUS: float = 32.0
-	const RING_THICKNESS: float = 5.0
-	if _shield_ring == null:
-		# Create once; reuse on subsequent activations
-		_shield_ring = ColorRect.new()
-		_shield_ring.name = "TankShieldRing"
-		_shield_ring.color = Color(0.3, 0.6, 1.0, 0.85)  # blue (not yellow like AirbagShield)
-		var outer_size: float = (RING_RADIUS + RING_THICKNESS) * 2.0
-		_shield_ring.size = Vector2(outer_size, outer_size)
-		_shield_ring.pivot_offset = Vector2(outer_size / 2.0, outer_size / 2.0)
-		_shield_ring.position = Vector2(-outer_size / 2.0, -outer_size / 2.0)
-		var ring_inner := ColorRect.new()
-		ring_inner.name = "TankShieldRingInner"
-		ring_inner.color = Color(0, 0, 0, 0)  # transparent cutout
-		var inner_size: float = RING_RADIUS * 2.0
-		ring_inner.size = Vector2(inner_size, inner_size)
-		ring_inner.position = Vector2(RING_THICKNESS, RING_THICKNESS)
-		_shield_ring.add_child(ring_inner)
-		add_child(_shield_ring)
-	_shield_ring.visible = true
-
-## Hide the shield ring when the shield expires.
-func _hide_shield_ring() -> void:
-	if _shield_ring and is_instance_valid(_shield_ring):
-		_shield_ring.visible = false
+## Base tint for the character sprite, applied every frame by the shared modulate reset
+## (skipped while a hit-flash/collapse/evolution tween owns modulate). Downed grey wins;
+## then the Tank shield glow — a gentle ~2 Hz pulse toward over-bright blue so the shield
+## reads as an active effect on the character rather than a recolored sprite. Both flags
+## are replicated, so the tint resolves identically on every peer.
+func _base_sprite_tint() -> Color:
+	if is_downed:
+		return Color(0.4, 0.4, 0.4)   # grayscale tint
+	if shield_active:
+		var pulse: float = 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) / 1000.0 * TAU * 2.0)
+		return Color(0.55, 0.75, 1.0).lerp(Color(0.75, 0.9, 1.35), pulse)
+	return Color.WHITE
 
 ## ABIL-04/D-20: expanding soft ring pulse in the aura's established blue on the
 ## shield_active rising edge (mirrors _show_dash_shockwave's scale+fade tween shape).
@@ -1294,7 +1280,7 @@ func _update_char_visual(delta_t: float) -> void:
 	# the downed collapse/success tween, or the evolution charge-up/reveal tween owns it (see
 	# _hit_flash_active / _downed_collapse_active / _evolution_transform_active doc comments).
 	if not _hit_flash_active and not _downed_collapse_active and not _evolution_transform_active:
-		spr.modulate = Color(0.4, 0.4, 0.4) if is_downed else Color.WHITE
+		spr.modulate = _base_sprite_tint()
 
 func _swap_stage_visual(stage: int) -> void:
 	_update_xp_hud()

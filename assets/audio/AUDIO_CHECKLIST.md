@@ -16,7 +16,15 @@ Designer), plus Länge und die Fallstricke. Diese Datei hier ist die Übersicht:
 - **Lautstärke:** egal — die Pegel sind pro Cue im Code gesetzt (`CUES` in `autoloads/Sfx.gd`)
   und sind bewusst leise gemischt. Liefert die Samples normalisiert, wir ziehen im Code runter.
 
-**Stand:** 2 von 35 Dateien vorhanden (`shoot.wav`, `hit.wav`). **33 fehlen.**
+**Stand:** 21 von 37 Dateien vorhanden — der komplette Kampf-, UI- und Stinger-Kern ist da
+(inkl. `game_over.wav` und zwei `xp_arrive`-Varianten). **16 fehlen**, alle in den Tabellen
+unten ohne ✅: die 5 Waffen-/Rollen-Cues (`airbag_*`, `dash_shockwave`, `shield_up`,
+`earth_shockwave`), `engineer_heal`, `drone_deploy`, die 4 HUD-Echos, `exit_open`,
+`boss_death`, `big_hit` und die 2 Musik-Stings.
+
+**Varianten:** Ein Cue darf mehrere Dateien haben — einfach mehrere liefern, der Code spielt
+pro Abspielvorgang zufällig eine davon (`xp_arrive.wav` + `xp_arrive_2.wav` machen es vor).
+Gut gegen Abnutzung bei häufigen Cues.
 
 ---
 
@@ -24,7 +32,7 @@ Designer), plus Länge und die Fallstricke. Diese Datei hier ist die Übersicht:
 
 Es gibt zwei getrennte Pools. Der geteilte Pool (16 Stimmen) trägt die Routine-Cues — bei
 dichtem Beschuss schneiden die sich gegenseitig ab, das ist so gewollt, das ist Textur. Die
-8 **Priority-Stinger** haben 4 eigene, reservierte Stimmen, damit ein Kill-Fanfare oder ein
+9 **Priority-Stinger** haben 4 eigene, reservierte Stimmen, damit ein Kill-Fanfare oder ein
 Downed-Alarm nie von 20 Treffer-Ticks weggedrängt wird. Das passiert automatisch anhand der
 `PRIORITY`-Liste im Code — ihr müsst dafür nichts tun.
 
@@ -35,8 +43,8 @@ Downed-Alarm nie von 20 Treffer-Ticks weggedrängt wird. Das passiert automatisc
 | Cue | Datei (`res://assets/audio/sfx/…`) | Wann | Klang-Richtung |
 |-----|-----------------------------------|------|----------------|
 | shoot | `shoot.wav` ✅ vorhanden | Screws/Bolts feuern | metallisches "pew" |
-| hit | `hit.wav` ✅ vorhanden | Gegner nimmt Schaden | subtiler Tick |
-| enemy_die | `enemy_die.wav` | normaler Gegner stirbt | Schrott-Knirschen |
+| hit | `hit.mp3` ✅ vorhanden | Gegner nimmt Schaden | subtiler Tick |
+| enemy_die | `enemy_die.wav` ✅ vorhanden | normaler Gegner stirbt | Schrott-Knirschen |
 
 ## 2. Waffen
 
@@ -44,9 +52,9 @@ Alle Waffen sind CARIAD-Autoteile — das darf man hören (Auspuff, Hupe, Antenn
 
 | Cue | Datei | Wann | Klang-Richtung |
 |-----|-------|------|----------------|
-| exhaust_flames | `exhaust_flames.wav` | Exhaust Flames feuert | Feuer-Whoosh aus dem Auspuff |
-| antenna_beam | `antenna_beam.wav` | Antenna Beam feuert | elektronischer Zap |
-| horn_shockwave | `horn_shockwave.wav` | Horn Shockwave feuert | Autohupe |
+| exhaust_flames | `exhaust_flames.wav` ✅ vorhanden | Exhaust Flames feuert | Feuer-Whoosh aus dem Auspuff |
+| antenna_beam | `antenna_beam.wav` ✅ vorhanden | Antenna Beam feuert | elektronischer Zap |
+| horn_shockwave | `horn_shockwave.wav` ✅ vorhanden | Horn Shockwave feuert | Autohupe |
 | airbag_arm | `airbag_arm.wav` | Airbag wird freigeschaltet | Aufblas-Plopp |
 | airbag_break | `airbag_break.wav` | Airbag fängt tödlichen Treffer ab | Platzen / Luft ablassen |
 
@@ -57,7 +65,7 @@ Alle Waffen sind CARIAD-Autoteile — das darf man hören (Auspuff, Hupe, Antenn
 
 | Cue | Datei | Wann | Klang-Richtung |
 |-----|-------|------|----------------|
-| dash | `dash.wav` | Speedster dasht | Reifenquietschen |
+| dash | `dash.wav` ✅ vorhanden | Speedster dasht | Reifenquietschen |
 | dash_shockwave | `dash_shockwave.wav` | Speedster Stage-2 Doppel-Dash landet | dumpfer Impact |
 | shield_up | `shield_up.wav` | Tank-Schild geht hoch | metallischer Clunk |
 | earth_shockwave | `earth_shockwave.wav` | Earth-Schockwelle | tiefes Grollen |
@@ -85,30 +93,31 @@ SFX-02. Heißt für euch: Diese Samples werden als *einzelner Anschlag* gehört,
 
 | Cue | Datei | Wann | Klang-Richtung |
 |-----|-------|------|----------------|
-| xp_arrive | `xp_arrive.wav` | XP-Orb landet in der Leiste | Münz-Chime |
+| xp_arrive | `xp_arrive.wav` + `xp_arrive_2.wav` (zufällige Variante) ✅ vorhanden | XP-Orb landet in der Leiste | Münz-Chime |
 | exit_open | `exit_open.wav` | Sub-Room geschafft, Durchgang öffnet sich | Tor-Clunk — **wichtiges Signal**, das sagt den Spielern "hier lang" |
-| transition | `transition.wav` | Spieler gehen in den nächsten (Sub-)Raum | Whoosh |
-| run_start | `run_start.wav` | "GO!" nach dem 3-2-1-Countdown | Motor-Zündung / Aufheulen |
-| ui_click | `ui_click.wav` | irgendein Menü-Button | dezenter Blip |
-| ui_navigate | `ui_navigate.wav` | Karten-Auswahl mit A/D | dezenter Tick |
-| ui_confirm | `ui_confirm.wav` | Karte bestätigt | dezenter Bestätigungston |
+| transition | `transition.wav` ✅ vorhanden | Spieler gehen in den nächsten (Sub-)Raum | Whoosh |
+| run_start | `run_start.wav` ✅ vorhanden | "GO!" nach dem 3-2-1-Countdown | Motor-Zündung / Aufheulen |
+| ui_click | `ui_click.wav` ✅ vorhanden | irgendein Menü-Button | dezenter Blip |
+| ui_navigate | `ui_navigate.wav` ✅ vorhanden | Karten-Auswahl mit A/D | dezenter Tick |
+| ui_confirm | `ui_confirm.wav` ✅ vorhanden | Karte bestätigt | dezenter Bestätigungston |
 
 *UI bewusst sehr leise und unauffällig — das ist Feedback, kein Statement.*
 
 ## 6. Priority-Stinger (reservierte Stimmen)
 
-Das sind die 8 Momente, die **immer** durchkommen müssen. Dürfen länger und lauter sein.
+Das sind die 9 Momente, die **immer** durchkommen müssen. Dürfen länger und lauter sein.
 
 | Cue | Datei | Wann | Klang-Richtung |
 |-----|-------|------|----------------|
-| kill_fanfare | `kill_fanfare.wav` | Elite-Gegner stirbt | triumphaler Sting |
-| boss_phase | `boss_phase.wav` | Boss wechselt Phase | Mech-Brüllen / Alarm |
+| kill_fanfare | `kill_fanfare.wav` ✅ vorhanden | Elite-Gegner stirbt | triumphaler Sting |
+| boss_phase | `boss_phase.wav` ✅ vorhanden | Boss wechselt Phase | Mech-Brüllen / Alarm |
 | boss_death | `boss_death.wav` | Boss stirbt | großes Auflösen |
-| evolution | `evolution.wav` | Spieler transformiert (Stage 2/3) | Transform-Sting |
-| level_up | `level_up.wav` | Team-Level-Up | triumphaler Aufstieg |
-| downed | `downed.wav` | Spieler geht zu Boden | Power-Down-Alarm |
-| revive | `revive.wav` | Spieler wiederbelebt | Power-Up-Chime |
+| evolution | `evolution.wav` ✅ vorhanden | Spieler transformiert (Stage 2/3) | Transform-Sting |
+| level_up | `level_up.wav` ✅ vorhanden | Team-Level-Up | triumphaler Aufstieg |
+| downed | `downed.wav` ✅ vorhanden | Spieler geht zu Boden | Power-Down-Alarm |
+| revive | `revive.wav` ✅ vorhanden | Spieler wiederbelebt | Power-Up-Chime |
 | big_hit | `big_hit.wav` | schwerer Treffer auf einen Spieler | wuchtiger Impact |
+| game_over | `game_over.wav` ✅ vorhanden | Team-Wipe, Game-Over-Screen | Niederlagen-Sting |
 
 ## 7. Musik-Stings
 

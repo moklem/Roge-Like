@@ -35,6 +35,9 @@ func _apply_reason() -> void:
 	message_label.text = "Team wiped on loop %d — team level %d" % [
 		GameState.final_loop, GameState.final_level,
 	]
+	# Defeat sting for the real wipe only — "host left" is an exit, not a defeat, and every
+	# peer lands on this screen through its own scene change, so no RPC is needed here.
+	Sfx.play("game_over")
 
 ## Comic slam: the title punches in oversized and settles back to full size.
 func _slam_in() -> void:
