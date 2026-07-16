@@ -65,7 +65,8 @@ const SRC_BURG_CHEST: int = 12         ## chest obstacle (solid, layer 1)
 ## ROOM_ART — per-room art config consumed by RoomBuilder's unified build path.
 ##   floor_src      : base floor source id
 ##   floor_mix      : [[src, one_in_n], ...] hash-mixed floor variants
-##   shadow_src     : floor texture darkened via modulate — contact shadow row
+##   shadow_src     : (legacy, unused since 2026-07-16 — wall shadows are now slanted
+##                    Polygon2Ds built by RoomBuilder._add_wall_shadows)
 ##                    under south-facing wall faces
 ##   wall_faces     : source pool for south-facing wall cells (hash pick)
 ##   wall_caps      : source pool for wall top cells (hash pick)

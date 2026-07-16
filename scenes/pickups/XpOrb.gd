@@ -19,6 +19,9 @@ func _ready() -> void:
 	# Grouped so Game.gd can purge uncollected orbs on sub-room / room transitions.
 	add_to_group("xp_orbs")
 	body_entered.connect(_on_body_entered)
+	# Same blob shadow as the characters, orb-sized — grounds the pickup in the world
+	# instead of leaving it pasted on top of the floor art.
+	Juice.add_blob_shadow(self, 12.0, 8.0)
 
 func _process(delta: float) -> void:
 	if _collected:

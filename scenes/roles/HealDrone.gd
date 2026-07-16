@@ -166,6 +166,14 @@ func _draw_visual() -> void:
 	_fit_sprite(spr, tex, DRONE_TARGET_HEIGHT[s])
 	add_child(spr)
 	_sprite = spr
+	# Ground the drone with the same blob shadow the characters carry. The planted Stage-1
+	# unit gets it at its feet; the hovering Stage-2 unit casts it further below and smaller —
+	# the gap between body and shadow is what reads as "flying".
+	var h: float = DRONE_TARGET_HEIGHT[s]
+	if s >= 2:
+		Juice.add_blob_shadow(self, h * 0.5, h * 0.9)
+	else:
+		Juice.add_blob_shadow(self, h * 0.62, h * 0.5)
 
 ## Presentation-only, and deliberately in _process rather than _physics_process: the latter
 ## early-returns for non-authority peers (the host owns the drone), so clients would never

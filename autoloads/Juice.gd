@@ -279,6 +279,19 @@ func set_blob_shadow_size(sh: Sprite2D, width: float, foot_y: float) -> void:
 	sh.scale = Vector2(width / 64.0, width * 0.34 / 64.0)
 	sh.position = Vector2(0, foot_y)
 
+## Free-standing blob shadow for static map props (obstacles, houses): same texture,
+## alpha and proportions as the character shadows, but parented to an explicit container
+## at an explicit position (local to `parent`). RoomBuilder grounds tile props with this.
+func add_prop_shadow(parent: Node, pos: Vector2, width: float) -> Sprite2D:
+	var sh := Sprite2D.new()
+	sh.name = "PropShadow"
+	sh.texture = _shadow_texture()
+	sh.modulate = Color(1, 1, 1, 0.35)
+	sh.scale = Vector2(width / 64.0, width * 0.34 / 64.0)
+	sh.position = pos
+	parent.add_child(sh)
+	return sh
+
 # ------------------------------------------------------------------------------
 # Particle bursts (delegates to scenes/vfx/ImpactBurst.gd) — always parented to the
 # persistent FxLayer, never to the triggering node (Pitfall 3/4), with a backstop

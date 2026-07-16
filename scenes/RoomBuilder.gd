@@ -19,6 +19,15 @@ extends RefCounted
 
 const ATLAS_ORIGIN := Vector2i(0, 0)  ## single-tile sources: always coord (0,0)
 
+## Cast-shadow geometry for wall faces (in tiles). The shadow falls down-right — the same
+## top-left light the comic UI's hard (3,3) offset shadows imply — and leans sideways so
+## it reads as cast by a standing wall, not as a dark stripe painted under it.
+const WALL_SHADOW_DROP: float = 0.55
+const WALL_SHADOW_SKEW: float = 0.35
+const WALL_SHADOW_ALPHA: float = 0.30
+## Small down-right nudge on the prop blob shadows so they agree with the same light.
+const PROP_SHADOW_LEAN: float = 0.08
+
 ## Build a sub-room by populating the TileMap with floor/wall/obstacle/deco cells
 ## from RoomLayouts data, then repopulate spawn point Marker2D children.
 ##
@@ -34,6 +43,11 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 
 	## Clear all cells from all layers — removes stale tiles from previous sub-rooms
 	tilemap.clear()
+
+	## Blob-shadow container for map props (obstacles/houses), recreated per build. As a
+	## sibling ADDED AFTER the TileMap it draws above the tile art, so the shadows are
+	## placed at each prop's south edge where they land on the floor, not on the prop.
+	var prop_shadows: Node2D = _reset_prop_shadows(room_id, game_node)
 
 	## Register every tile this room can use (Godot 4 requires tiles to exist on
 	## the TileSetAtlasSource before set_cell() renders them).
@@ -71,7 +85,7 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 
 	## Step 1b: Carpet runner — optional layer-0 floor override rects (e.g. the
 	## ceremonial carpet across the boss arena). Placed after the floor mix so it
-	## always wins; excluded from shadows and deco via the floor_srcs check below.
+	## always wins; excluded from deco via the floor_srcs check below.
 	var carpet_src: int = art["carpet_src"]
 	if carpet_src != -1:
 		for carpet_rect in layout.get("carpet", []):
@@ -119,19 +133,16 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 					tilemap.set_cell(1, coords, wd[0], ATLAS_ORIGIN)
 					break
 
-	## Step 2b: Contact shadow — darken the floor row directly under each wall
-	## face (cheap trick that sells the wall height). Only plain/mixed floor
-	## cells are shadowed; connector road/carpet cells stay untouched.
-	var shadow_src: int = art["shadow_src"]
+	## Step 2b: Cast shadow — slanted semi-transparent parallelograms falling down-right
+	## from every south-facing wall face (replaces the old darkened-floor-tile row, which
+	## read as paint on the ground rather than as a shadow the wall throws). One polygon
+	## per horizontal RUN of face cells, never per cell — adjacent per-cell quads would
+	## overlap at the skewed edges and double-darken the seams. Drawn into PropShadows
+	## BEFORE the prop blobs, so it renders beneath them.
 	var floor_srcs: Array = [floor_src]
 	for mix in floor_mix:
 		floor_srcs.append(mix[0])
-	for w: Vector2i in wall_cells:
-		var below: Vector2i = w + Vector2i(0, 1)
-		if wall_cells.has(below):
-			continue
-		if tilemap.get_cell_source_id(0, below) in floor_srcs:
-			tilemap.set_cell(0, below, shadow_src, ATLAS_ORIGIN)
+	_add_wall_shadows(prop_shadows, tilemap, face_cells)
 
 	## Step 3: Obstacles — solid tile per cell on layer 1 (transparent edges keep
 	## the floor visible underneath). Source is hash-picked from the room's pool
@@ -144,6 +155,10 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 				var coords := Vector2i(rect.position.x + x_off, rect.position.y + y_off)
 				var src: int = obstacle_srcs[_cell_hash(coords, 7) % obstacle_srcs.size()]
 				tilemap.set_cell(1, coords, src, ATLAS_ORIGIN)
+				## Ground the prop with the characters' blob shadow — only on the rect's
+				## south row, so stacked obstacle rows don't stripe shadows across each other.
+				if y_off == rect.size.y - 1:
+					_add_prop_shadow(prop_shadows, tilemap, coords, 0.95)
 
 	## Step 3a: Houses — hand-placed solid landmark cells (Altstadt). The house
 	## texture is drawn oversized (64px on the 32px grid) so it reads as a real
@@ -152,6 +167,8 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 	if house_src != -1:
 		for house_cell: Vector2i in layout.get("houses", []):
 			tilemap.set_cell(1, house_cell, house_src, ATLAS_ORIGIN)
+			## Houses draw oversized (64px art on the 32px grid) → wider shadow to match.
+			_add_prop_shadow(prop_shadows, tilemap, house_cell, 1.7)
 
 	## Step 3b: Deco scatter (flowers/pebbles/lanterns/…) on plain floor cells —
 	## layer 1, no collision. Skips connector corridors, shadowed cells and cells
@@ -165,7 +182,7 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 					if tilemap.get_cell_source_id(1, coords) != -1:
 						continue  # obstacle already there
 					if tilemap.get_cell_source_id(0, coords) not in floor_srcs:
-						continue  # wall or shadow cell
+						continue  # wall or carpet cell
 					for deco_idx in range(art["deco"].size()):
 						var deco: Array = art["deco"][deco_idx]
 						if _cell_hash(coords, 10 + deco_idx) % int(deco[1]) == 0:
@@ -207,6 +224,70 @@ func build_sub_room(room_id: int, sub_room_id: int, game_node: Node) -> Rect2:
 		layout["height_tiles"] * RoomLayouts.TILE_SIZE)
 
 
+## Clear (or lazily create) the room's prop-shadow container. Sibling of the TileMap,
+## appended after it so the soft blobs draw above the tile art but below the Entities
+## and FxLayer nodes that come later at the Game root. Content is rebuilt per sub-room,
+## mirroring tilemap.clear() at the top of build_sub_room.
+func _reset_prop_shadows(room_id: int, game_node: Node) -> Node2D:
+	var room: Node = game_node.get_node("Room%d" % room_id)
+	var layer: Node2D = room.get_node_or_null("PropShadows")
+	if layer == null:
+		layer = Node2D.new()
+		layer.name = "PropShadows"
+		room.add_child(layer)
+	for c in layer.get_children():
+		c.queue_free()
+	return layer
+
+## One blob shadow at a prop cell's south edge — mostly on the floor below the prop, so
+## the sprite (which draws above the tile art) doesn't sit on the prop's own pixels.
+## `width_tiles` is the shadow width as a fraction of the 32px grid cell. Nudged slightly
+## right so props agree with the walls' top-left light direction.
+func _add_prop_shadow(container: Node2D, tilemap: TileMap, coords: Vector2i, width_tiles: float) -> void:
+	var t: float = float(RoomLayouts.TILE_SIZE)
+	var world: Vector2 = tilemap.to_global(tilemap.map_to_local(coords))
+	var pos: Vector2 = container.to_local(world + Vector2(t * PROP_SHADOW_LEAN, t * 0.42))
+	Juice.add_prop_shadow(container, pos, t * width_tiles)
+
+## Slanted cast shadows for the south-facing wall faces. Face cells are grouped into
+## horizontal runs (same row, consecutive x) and each run becomes ONE Polygon2D
+## parallelogram: top edge flush with the wall base, bottom edge dropped and skewed
+## down-right. Merging per run keeps the skewed side edges from double-darkening where
+## per-cell quads would overlap.
+func _add_wall_shadows(container: Node2D, tilemap: TileMap, face_cells: Array[Vector2i]) -> void:
+	if face_cells.is_empty():
+		return
+	var cells: Array[Vector2i] = face_cells.duplicate()
+	cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		return a.y < b.y if a.y != b.y else a.x < b.x)
+	var run_start: Vector2i = cells[0]
+	var run_end: Vector2i = cells[0]
+	for i in range(1, cells.size()):
+		var c: Vector2i = cells[i]
+		if c.y == run_end.y and c.x == run_end.x + 1:
+			run_end = c
+			continue
+		_add_wall_shadow_poly(container, tilemap, run_start, run_end)
+		run_start = c
+		run_end = c
+	_add_wall_shadow_poly(container, tilemap, run_start, run_end)
+
+func _add_wall_shadow_poly(container: Node2D, tilemap: TileMap, start: Vector2i, end: Vector2i) -> void:
+	var t: float = float(RoomLayouts.TILE_SIZE)
+	## Wall base line in world px: bottom edge of the face cells (map_to_local = cell center)
+	var left: Vector2 = tilemap.to_global(tilemap.map_to_local(start)) + Vector2(-t * 0.5, t * 0.5)
+	var right: Vector2 = tilemap.to_global(tilemap.map_to_local(end)) + Vector2(t * 0.5, t * 0.5)
+	var slant := Vector2(t * WALL_SHADOW_SKEW, t * WALL_SHADOW_DROP)
+	var poly := Polygon2D.new()
+	poly.color = Color(0.0, 0.0, 0.0, WALL_SHADOW_ALPHA)
+	poly.polygon = PackedVector2Array([
+		container.to_local(left),
+		container.to_local(right),
+		container.to_local(right + slant),
+		container.to_local(left + slant),
+	])
+	container.add_child(poly)
+
 ## Deterministic per-cell hash for tile variation. A plain linear form like
 ## (x*31 + y*17) % 16 degenerates to (y - x) % 16 → diagonal stripes; the xor-shift
 ## scramble kills any directional pattern. Same result on every peer (pure function).
@@ -237,14 +318,8 @@ func _register_room_tiles(tilemap: TileMap, art: Dictionary) -> void:
 		var src := tilemap.tile_set.get_source(sid) as TileSetAtlasSource
 		if src and not src.has_tile(ATLAS_ORIGIN):
 			src.create_tile(ATLAS_ORIGIN)
-	## Contact shadow: same floor texture, darkened via per-tile modulate.
-	var sh := tilemap.tile_set.get_source(art["shadow_src"]) as TileSetAtlasSource
-	if sh:
-		if not sh.has_tile(ATLAS_ORIGIN):
-			sh.create_tile(ATLAS_ORIGIN)
-		var std := sh.get_tile_data(ATLAS_ORIGIN, 0)
-		if std:
-			std.modulate = Color(0.66, 0.66, 0.66)
+	## (The old darkened-floor contact-shadow tile (art["shadow_src"]) is no longer placed —
+	## wall shadows are slanted Polygon2Ds in the PropShadows container since 2026-07-16.)
 	## Solid tiles: wall faces, wall caps, obstacles, houses — full-cell collision
 	## polygon on physics layer 0 so players and bullets collide with them.
 	var solid: Array = []
@@ -301,6 +376,9 @@ func set_tilemap_collision(room_id: int, enabled: bool, game_node: Node) -> void
 		# Clear removes all cells and their generated physics bodies.
 		# build_sub_room() will repopulate when this room becomes active again.
 		(tilemap as TileMap).clear()
+		# Prop shadows mirror the tile content — all rooms share world origin (0,0), so
+		# a departed room's shadows would otherwise draw into the newly active room.
+		_reset_prop_shadows(room_id, game_node)
 		return
 	# Enabling: belt-and-suspenders — also restore TileMapLayer collision in case
 	# Godot 4.3+ wraps layers as children with a separate collision_enabled flag.
