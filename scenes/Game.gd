@@ -143,6 +143,9 @@ func _ready() -> void:
 	# ESC settings overlay (layer 6 — above CarHUD's 3 and Juice's vignette layer 4). Purely
 	# local: it never pauses the tree, it only freezes the owning peer's own input.
 	add_child(PAUSE_MENU_SCENE.instantiate())
+	# Offscreen indicators (layer 2): small comic edge arrows toward offscreen teammates and
+	# the opened exit. Local per peer — each screen shows what IT cannot see.
+	add_child(load("res://scenes/ui/OffscreenIndicators.gd").new())
 	# COOP-05/D-16: renders the team-visible big-hit cue on every peer (mirrors the
 	# GameEvents.driver_mode.connect precedent in Player.gd:126 / CarHUD.gd:38).
 	GameEvents.big_hit.connect(_on_big_hit)
@@ -338,8 +341,8 @@ func _check_room_clear() -> void:
 # SUB-ROOM PROGRESSION (Phase 9 — MAP-01, MAP-02, MAP-03, D-08, D-10, D-11, D-12)
 # ==============================================================================
 
-## Phase 9 (D-03, MAP-07): Hands every player the current sub-room's bounds — the shared camera
-## clamps itself against them so it never scrolls past a wall.
+## Phase 9 (D-03, MAP-07): Hands every player the current sub-room's bounds — each player's
+## camera clamps itself against them so it never scrolls past a wall.
 ## Called on all peers after every sub-room build (call_local context — no RPC needed).
 ## Must be called AFTER _current_sub_room_rect_px is set.
 func _update_all_camera_limits() -> void:
@@ -350,8 +353,7 @@ func _update_all_camera_limits() -> void:
 ## D-22: one revive per player per sub-room. Both transition RPCs are call_local, so this runs on
 ## every peer: the host clears its own gate dict, and each peer clears the flag on the player it
 ## owns, which replicates the reset outward. Player.revive_used is the client-visible mirror of
-## that gate — the shared camera (MAP-07) reads it to decide whether a downed player still holds
-## the frame, so the two must never drift apart.
+## that gate, so the two must never drift apart.
 func _reset_revive_limits() -> void:
 	GameState.revives_used.clear()
 	for p in get_tree().get_nodes_in_group("players"):
@@ -1118,7 +1120,7 @@ func _build_card_pool_for_player(player_node: Node) -> Array:
 				pool.append({"type": "weapon_upgrade", "weapon_id": wid, "new_level": lvl + 1})
 	if player_node.element_tier < 3:
 		pool.append({"type": "element_upgrade", "new_tier": player_node.element_tier + 1})
-	for stat in ["Speed", "Max HP", "Damage"]:
+	for stat in ["Speed", "Max HP", "Damage", "Cooldown"]:
 		pool.append({"type": "stat_boost", "stat": stat, "amount": 10})
 	if pool.size() == 0:
 		pool.append({"type": "fallback"})
@@ -1167,7 +1169,11 @@ func _apply_stat_boost_rpc(stat: String, amount: int) -> void:
 				"Speed":      p.SPEED += int(float(p.SPEED) * float(amount) / 100.0)
 				"Max HP":     p.MAX_HP += int(float(p.MAX_HP) * float(amount) / 100.0)
 				"Damage":     p.stage3_damage_mult += float(amount) / 100.0
-				"Cooldown":   pass  # TODO Phase 7: cooldown reduction not yet wired
+				"Cooldown":
+					# Multiplicative stack, floored at 0.4 (max 60% total reduction)
+					p.cooldown_mult = maxf(p.cooldown_mult * (1.0 - float(amount) / 100.0), 0.4)
+					if p.has_node("WeaponManager"):
+						p.get_node("WeaponManager").apply_cooldown_mult(p.cooldown_mult)
 			return
 
 ## Phase 6: Signal owning peer that card pick is complete — clear overlay and flag.

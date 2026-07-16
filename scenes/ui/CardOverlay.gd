@@ -24,6 +24,7 @@ const STAT_ICONS := {
 	"Speed": "icon_stat_speed.png",
 	"Max HP": "icon_stat_maxhp.png",
 	"Damage": "icon_stat_damage.png",
+	"Cooldown": "icon_stat_cooldown.png",  # not delivered yet — falls back to icon_generic
 }
 
 func _ready() -> void:
@@ -172,7 +173,11 @@ func _card_name_text(card: Dictionary) -> String:
 		"weapon_unlock":   return WEAPON_NAMES.get(card.get("weapon_id", ""), card.get("weapon_id", ""))
 		"weapon_upgrade":  return "%s Lv%d" % [WEAPON_NAMES.get(card.get("weapon_id", ""), card.get("weapon_id", "")), card.get("new_level", 2)]
 		"element_upgrade": return "Tier %d" % card.get("new_tier", 2)
-		"stat_boost":      return "+%d%% %s" % [card.get("amount", 10), card.get("stat", "")]
+		"stat_boost":
+			# Cooldown is a reduction — "+10% Cooldown" would read as a downgrade
+			if card.get("stat", "") == "Cooldown":
+				return "-%d%% Cooldown" % card.get("amount", 10)
+			return "+%d%% %s" % [card.get("amount", 10), card.get("stat", "")]
 		_:                 return "+10%% Damage"
 
 func _card_desc_text(card: Dictionary) -> String:
@@ -180,7 +185,10 @@ func _card_desc_text(card: Dictionary) -> String:
 		"weapon_unlock":   return "Unlocks %s" % WEAPON_NAMES.get(card.get("weapon_id", ""), card.get("weapon_id", ""))
 		"weapon_upgrade":  return _weapon_upgrade_desc(card.get("weapon_id", ""), card.get("new_level", 2))
 		"element_upgrade": return "Proc rate: %d%%" % (25 * card.get("new_tier", 2))
-		"stat_boost":      return "Increases %s by %d%%" % [card.get("stat", ""), card.get("amount", 10)]
+		"stat_boost":
+			if card.get("stat", "") == "Cooldown":
+				return "Weapons & ability fire %d%% faster" % card.get("amount", 10)
+			return "Increases %s by %d%%" % [card.get("stat", ""), card.get("amount", 10)]
 		_:                 return "+10% all damage"
 
 func _weapon_upgrade_desc(wid: String, lvl: int) -> String:

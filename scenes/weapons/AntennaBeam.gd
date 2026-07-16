@@ -18,6 +18,11 @@ func activate(weapon_manager: Node) -> void:
 	_setup_area()
 	_setup_timer(weapon_manager)
 
+## Cooldown card (XP-04): scale the fire interval; called by WeaponManager.
+func apply_cooldown_mult(mult: float) -> void:
+	if _timer and is_instance_valid(_timer):
+		_timer.wait_time = COOLDOWN * mult
+
 func deactivate() -> void:
 	if _timer and is_instance_valid(_timer):
 		_timer.stop()

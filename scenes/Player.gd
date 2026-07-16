@@ -41,11 +41,10 @@ const STAGE3_LEVEL: int = 10         # D-04: Full AutoBot at Level 10 (cumulativ
 var health: int = MAX_HP
 var is_downed: bool = false
 
-## MAP-07: mirrors the host's revive gate (GameState.revives_used — one revive per player per
-## sub-room) so every peer, not just the host, knows whether a downed player can still be picked
-## up. The shared camera needs that answer locally: a downed player who can still be revived
-## holds the frame, one whose revive is spent does not. Replicated like health/is_downed —
-## written on the owning peer inside revive(), reset by Game._reset_revive_limits().
+## Mirrors the host's revive gate (GameState.revives_used — one revive per player per
+## sub-room) so every peer, not just the host, knows whether a downed player can still be
+## picked up. Replicated like health/is_downed — written on the owning peer inside revive(),
+## reset by Game._reset_revive_limits().
 var revive_used: bool = false
 
 ## Phase 5: Role/element/ability state
@@ -69,6 +68,10 @@ var is_picking_card: bool = false
 ## character stays in the world and stays a valid target while the overlay is up.
 var menu_open: bool = false
 var stage3_damage_mult: float = 1.0
+## XP-04 Cooldown card: multiplier on every weapon fire interval and the role-ability
+## cooldown. Local to the owning peer (cooldowns only tick there); 0.9 = 10% faster.
+## Stacks multiplicatively per card, floored at 0.4 in Game._apply_stat_boost_rpc.
+var cooldown_mult: float = 1.0
 var _pending_card_picks: int = 0
 ## Set when the sub-room weapon choice arrives while a level-up pick is already open;
 ## drained in _trigger_pending_card_pick.
@@ -94,12 +97,10 @@ var _driver_particles: CPUParticles2D = null
 var _sprite_key: String = ""
 
 ## Target on-screen height (px) of the drawn character per evolution stage.
-## Same for every role — characters grow slightly with each stage.
-const CHAR_TARGET_HEIGHT := {1: 56.0, 2: 62.0, 3: 68.0}
-## Per-role correction on top of CHAR_TARGET_HEIGHT (sprite key → stage → factor).
-## Equal HEIGHT is not equal perceived size: the stage-1 Tank is a chibi that is nearly all
-## box head, so at the shared 56px it reads far bulkier than the lanky Speedster/Engineer.
-const CHAR_HEIGHT_TWEAK := {"tank": {1: 0.82}}
+## Identical for every role (team decision 2026-07-16: no per-role tweaks — all three
+## players read the same size within a stage), and the stage growth is deliberately
+## minimal: evolution should read through the art change, not through a size jump.
+const CHAR_TARGET_HEIGHT := {1: 56.0, 2: 59.0, 3: 62.0}
 ## stage → {"scale": Vector2, "offset": Vector2}, filled by _compute_char_fit()
 var _char_fit: Dictionary = {}
 var _uses_char_sprite: bool = false
@@ -225,8 +226,7 @@ func _compute_char_fit() -> void:
 		var used: Rect2i = img.get_used_rect()
 		if used.size.y <= 0:
 			continue
-		var tweak: float = CHAR_HEIGHT_TWEAK.get(_sprite_key, {}).get(stage, 1.0)
-		var s: float = CHAR_TARGET_HEIGHT[stage] * tweak / float(used.size.y)
+		var s: float = CHAR_TARGET_HEIGHT[stage] / float(used.size.y)
 		var canvas_center := Vector2(img.get_width(), img.get_height()) * 0.5
 		var used_center := Vector2(used.position) + Vector2(used.size) * 0.5
 		_char_fit[stage] = {"scale": Vector2(s, s), "offset": canvas_center - used_center}
@@ -244,12 +244,11 @@ func _apply_char_fit(stage: int, spr: AnimatedSprite2D) -> void:
 	spr.offset = Vector2(-off.x if spr.flip_h else off.x, off.y)
 
 # ──────────────────────────────────────────────────────────────────────────────
-# MAP-07: shared co-op camera — one frame for the whole team, Mario-style.
+# MAP-07: per-player camera — each peer's camera follows its own player.
 #
-# Every peer draws the same rect: the bounding box of the players that still matter. The player
-# who runs ahead pushes the frame, the one at the back holds it, and nobody can leave it —
-# _clamp_to_camera_leash() stops the leader at the edge instead of letting the team split. The
-# camera is never networked; each peer derives it locally from the replicated positions.
+# (The shared Mario-style team frame from d6149fd was reverted by team decision 2026-07-16;
+# the zoom level it introduced stays.) The camera is never networked — each peer positions
+# its own, clamped so the visible play area never leaves the current sub-room.
 # ──────────────────────────────────────────────────────────────────────────────
 
 ## Zoomed in far enough that the play area is SMALLER than every sub-room. Below ~1.63 the whole
@@ -260,8 +259,6 @@ const CAMERA_ZOOM: float = 1.6
 ## Both the framing and the leash subtract it — otherwise the leading player gets walled at a
 ## boundary he cannot see, behind the dashboard.
 const HUD_PANEL_WIDTH: float = 200.0
-## Keeps the sprite and its nameplate clear of the screen edge when the leash bites.
-const CAMERA_EDGE_MARGIN: float = 24.0
 
 ## Pixel bounds of the sub-room the camera may show — set by Game.gd on every (sub-)room
 ## transition, on every peer.
@@ -273,10 +270,11 @@ func _setup_camera() -> void:
 	var cam: Camera2D = $Camera2D
 	cam.enabled = is_multiplayer_authority()
 	cam.zoom = Vector2(CAMERA_ZOOM, CAMERA_ZOOM)
-	## The camera frames the GROUP, not this player, so it must not ride along with its parent.
+	## top_level so the room clamp in _own_camera_center() can hold the frame inside the
+	## sub-room while the player walks right up to the wall.
 	cam.top_level = true
-	## Position is recomputed from the group's bounding box every frame. Smoothing would let the
-	## frame lag behind the leash and draw players outside the box we just walled them into.
+	## Position is set explicitly every physics frame from the player's clamped position;
+	## smoothing on top of that would lag the frame during room-transition teleports.
 	cam.position_smoothing_enabled = false
 	## Shift the view right by half the HUD width so the UNCOVERED part of the screen — the part
 	## the player actually plays in — ends up centred on the group. Written once, not per frame:
@@ -297,33 +295,13 @@ func _play_area_size() -> Vector2:
 	var view: Vector2 = get_viewport_rect().size / CAMERA_ZOOM
 	return Vector2(view.x - HUD_PANEL_WIDTH / CAMERA_ZOOM, view.y)
 
-## The players the camera must keep on screen: everyone still standing, plus downed players who
-## can still be picked up. A downed player whose revive is already spent (D-22: one per sub-room)
-## drops out of the frame, so the team may leave him behind instead of being locked to his body.
-func _framing_players() -> Array:
-	var framed: Array = []
-	for p in get_tree().get_nodes_in_group("players"):
-		if not is_instance_valid(p):
-			continue
-		if p.is_downed and p.revive_used:
-			continue
-		framed.append(p)
-	return framed
-
-## Centre of the group's bounding box, pulled back so the play area never leaves the sub-room.
+## The player's position, pulled back so the play area never leaves the sub-room.
 ## A room smaller than the play area on an axis (the connector corridor is 5 tiles high) is
 ## centred on that axis instead of clamped, or it would stick to the top-left corner.
-func _shared_camera_center(framed: Array) -> Vector2:
-	var mn: Vector2 = framed[0].global_position
-	var mx: Vector2 = mn
-	for p in framed:
-		mn.x = minf(mn.x, p.global_position.x)
-		mn.y = minf(mn.y, p.global_position.y)
-		mx.x = maxf(mx.x, p.global_position.x)
-		mx.y = maxf(mx.y, p.global_position.y)
-	var c: Vector2 = (mn + mx) * 0.5
+func _own_camera_center() -> Vector2:
+	var c: Vector2 = global_position
 	if _room_rect_px.size == Vector2.ZERO:
-		return c   # no room bounds yet (first frame after spawn) — frame the group unclamped
+		return c   # no room bounds yet (first frame after spawn) — follow unclamped
 	var half: Vector2 = _play_area_size() * 0.5
 	for axis in [Vector2.AXIS_X, Vector2.AXIS_Y]:
 		if _room_rect_px.size[axis] > half[axis] * 2.0:
@@ -332,43 +310,15 @@ func _shared_camera_center(framed: Array) -> Vector2:
 			c[axis] = _room_rect_px.position[axis] + _room_rect_px.size[axis] * 0.5
 	return c
 
-## Frame the group. Runs every physics frame on the authority peer — including the frames where
-## this player is frozen (countdown, card pick) or downed, so the camera keeps following the team
-## when he himself cannot move.
-func _update_shared_camera() -> void:
+## Follow the own player. Runs every physics frame on the authority peer — including the frames
+## where this player is frozen (countdown, card pick) or downed.
+func _update_own_camera() -> void:
 	if not has_node("Camera2D"):
 		return
 	var cam: Camera2D = $Camera2D
 	if not cam.enabled:
 		return
-	var framed: Array = _framing_players()
-	if framed.is_empty():
-		framed = [self]   # whole team down and spent: game over is already on its way
-	cam.global_position = _shared_camera_center(framed)
-
-## The Mario co-op rule: the team can never spread wider than the frame. Whoever runs ahead is
-## stopped at the edge rather than dragging the camera off his team-mates — that is what forces
-## the team to move together. Clamps the SPREAD, not the distance to the camera: clamping against
-## the camera would let the leader creep forward at half speed, since the frame follows the
-## midpoint and would keep sliding after him.
-##
-## Runs at the very end of the frame so it also catches the Speedster dash, which does its own
-## move_and_slide() inside _tick_ability (_do_dash) and would otherwise burst through the edge.
-func _clamp_to_camera_leash() -> void:
-	var max_spread: Vector2 = _play_area_size() - Vector2(CAMERA_EDGE_MARGIN, CAMERA_EDGE_MARGIN) * 2.0
-	var others_min: Vector2 = Vector2.INF
-	var others_max: Vector2 = -Vector2.INF
-	for p in _framing_players():
-		if p == self:
-			continue
-		others_min.x = minf(others_min.x, p.global_position.x)
-		others_min.y = minf(others_min.y, p.global_position.y)
-		others_max.x = maxf(others_max.x, p.global_position.x)
-		others_max.y = maxf(others_max.y, p.global_position.y)
-	if is_inf(others_min.x):
-		return   # solo run, or the only one the camera still frames — nothing to stay near
-	global_position.x = clampf(global_position.x, others_max.x - max_spread.x, others_min.x + max_spread.x)
-	global_position.y = clampf(global_position.y, others_max.y - max_spread.y, others_min.y + max_spread.y)
+	cam.global_position = _own_camera_center()
 
 ## Phase 9 (D-03, MAP-07): Called by Game.gd on every peer after each sub-room is built.
 ## sub_room_rect_px: Rect2 = Rect2(origin_x_px, origin_y_px, width_px, height_px)
@@ -500,6 +450,11 @@ func _process(_delta: float) -> void:
 		if _afterimage_timer <= 0.0:
 			_afterimage_timer = 0.05  # ~8 ghosts over the 0.4s dash — a solid streak, not dots
 			_spawn_dash_afterimage()
+			# Element-colored skid marks on the ground under the dash path — same tick,
+			# same replicated-state gate, so they appear on every peer with zero new RPC.
+			var skid_delta: Vector2 = global_position - _dash_prev_pos
+			if skid_delta.length() > 0.5:
+				_spawn_dash_skid(skid_delta.normalized())
 	_dash_prev_pos = global_position
 	_last_dash_invincible = dash_invincible
 	# ABIL-04/D-20: Tank aura ring pulse — shield_active is already replicated; fires only
@@ -514,9 +469,9 @@ func _physics_process(delta: float) -> void:
 	# P3: Only the authority peer reads input and moves
 	if not is_multiplayer_authority():
 		return
-	# MAP-07: frame the team first — the camera has to keep tracking them through every early
-	# return below (countdown, downed, card pick), or it freezes while the others fight on.
-	_update_shared_camera()
+	# MAP-07: camera first — it has to keep tracking through every early return below
+	# (countdown, downed, card pick), or it freezes while the world moves on.
+	_update_own_camera()
 	# Start countdown gate — no movement, weapons, or abilities until GO
 	var game := get_node_or_null("/root/Game")
 	if game != null and game.get("countdown_active") == true:
@@ -553,8 +508,6 @@ func _physics_process(delta: float) -> void:
 	_tick_element(delta)
 	# HLTH-05: Check revive input (R key) each frame
 	_check_revive(delta)
-	# MAP-07: last thing in the frame, after the dash's own move_and_slide — hold the leash.
-	_clamp_to_camera_leash()
 
 ## ABIL-03/COOP-04/D-20: One-shot green sparkle rise at the player — self-frees when
 ## finished. Fired from the every-peer `_process` health-increase diff (never gated behind
@@ -744,7 +697,8 @@ func _apply_role_stats() -> void:
 ## Runs only on the authority (owning) peer — guarded by _physics_process P3 check.
 func _tick_ability(delta: float) -> void:
 	if _ability_cooldown > 0.0:
-		_ability_cooldown -= delta
+		# Cooldown card: tick faster instead of scaling every assignment site
+		_ability_cooldown -= delta / maxf(cooldown_mult, 0.01)
 	if _dash_window_timer > 0.0:
 		_dash_window_timer -= delta
 	# Tank shield countdown — expire when timer reaches zero
@@ -1101,6 +1055,73 @@ func _spawn_dash_afterimage() -> void:
 	tween.tween_property(ghost, "modulate:a", 0.0, 0.45)
 	tween.tween_callback(ghost.queue_free)
 
+## Element-colored tire skid marks the dash burns onto the floor — two short parallel
+## stripes per tick, aligned with the travel direction, purely cosmetic (no zone, no
+## collision, no gameplay). Parented to the active room's PropShadows GROUND layer, not
+## to FxLayer: FxLayer sits after the Entities node, so its children draw over the
+## characters — right for afterimages, wrong for marks on the floor. PropShadows renders
+## between the tile art and the entities, exactly ground level, and its per-sub-room
+## clearing can never strand a mark (each one also fades and frees itself in ~1.4s).
+## Skid-mark art per element, safe-loaded once in _lazy_skid_tex: drop the PNGs at these
+## paths (art points RIGHT, engine rotates it) and the marks switch from the procedural
+## stripes to the drawn streaks; while missing, the ColorRect fallback below keeps working.
+const SKID_ART := {
+	"fire":  "res://assets/active/elements/skid_fire.png",
+	"ice":   "res://assets/active/elements/skid_ice.png",
+	"earth": "res://assets/active/elements/skid_earth.png",
+}
+## On-screen length of one skid stamp in px.
+const SKID_WIDTH: float = 26.0
+var _skid_tex: Texture2D = null
+var _skid_tex_checked: bool = false
+
+## Lazy rather than in _ready: element is read from Lobby in _ready, and this keeps the
+## load beside its only consumer. Checked once, then cached (also caches "missing").
+func _lazy_skid_tex() -> Texture2D:
+	if not _skid_tex_checked:
+		_skid_tex_checked = true
+		var path: String = SKID_ART.get(element, "")
+		if path != "" and ResourceLoader.exists(path):
+			_skid_tex = load(path)
+	return _skid_tex
+
+func _spawn_dash_skid(dir: Vector2) -> void:
+	var game := get_node_or_null("/root/Game")
+	if game == null:
+		return
+	var ground: Node2D = game.get_node_or_null("Room%d/PropShadows" % int(game.get("current_room"))) as Node2D
+	if ground == null:
+		return
+	var mark := Node2D.new()
+	ground.add_child(mark)
+	mark.global_position = global_position + Vector2(0.0, CHAR_TARGET_HEIGHT[1] * 0.42)
+	mark.rotation = dir.angle()
+	var tex: Texture2D = _lazy_skid_tex()
+	if tex != null and tex.get_width() > 0:
+		var spr := Sprite2D.new()
+		spr.texture = tex
+		var s: float = SKID_WIDTH / float(tex.get_width())
+		spr.scale = Vector2(s, s)
+		spr.modulate = Color(1.0, 1.0, 1.0, 0.8)
+		mark.add_child(spr)
+	else:
+		# Fallback until the art lands: two element-colored stripes, like the twin tires
+		# of the car the Speedster still is underneath
+		var tint: Color = Juice.element_color(element)
+		for side in [-1.0, 1.0]:
+			var stripe := ColorRect.new()
+			stripe.color = Color(tint.r, tint.g, tint.b, 0.55)
+			stripe.size = Vector2(14.0, 2.5)
+			stripe.position = Vector2(-7.0, side * 4.0 - 1.25)
+			stripe.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			mark.add_child(stripe)
+	var tw := mark.create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.tween_interval(0.3)
+	tw.tween_property(mark, "modulate:a", 0.0, 1.1)
+	tw.tween_callback(mark.queue_free)
+	Juice._backstop_free(mark, 3.0)
+
 ## Speed lines torn out backwards along the dash — the burst reads as air being ripped past
 ## rather than as an explosion at the feet. Element-colored, flat (no gravity: top-down view),
 ## parented to the persistent FxLayer like every other transient VFX.
@@ -1376,7 +1397,7 @@ func _build_card_pool() -> Array:
 	if element_tier < 3:
 		pool.append({"type": "element_upgrade", "new_tier": element_tier + 1})
 	# Stat boosts — always eligible (XP-04)
-	for stat in ["Speed", "Max HP", "Damage"]:
+	for stat in ["Speed", "Max HP", "Damage", "Cooldown"]:
 		pool.append({"type": "stat_boost", "stat": stat, "amount": 10})
 	# XP-06: fallback ensures pool never empty
 	if pool.size() == 0:

@@ -52,7 +52,8 @@ func tick(delta: float) -> void:
 	if unlocked_weapons.has("screws_and_bolts"):
 		_screws_cooldown -= delta
 		if _screws_cooldown <= 0.0:
-			_screws_cooldown = _screws_interval
+			# Cooldown card (XP-04): the player's multiplier shortens every fire interval
+			_screws_cooldown = _screws_interval * get_parent().cooldown_mult
 			if not DEBUG_WEAPON_TEST:
 				_fire_screws()
 
@@ -210,6 +211,7 @@ func _activate_weapon_node(weapon_id: String) -> void:
 func _deferred_activate_exhaust(wep: Node) -> void:
 	if is_instance_valid(wep):
 		wep.activate(self)
+		wep.apply_cooldown_mult(get_parent().cooldown_mult)
 
 func _deferred_activate_tires(wep: Node) -> void:
 	if is_instance_valid(wep):
@@ -218,14 +220,24 @@ func _deferred_activate_tires(wep: Node) -> void:
 func _deferred_activate_antenna(wep: Node) -> void:
 	if is_instance_valid(wep):
 		wep.activate(self)
+		wep.apply_cooldown_mult(get_parent().cooldown_mult)
 
 func _deferred_activate_shockwave(wep: Node) -> void:
 	if is_instance_valid(wep):
 		wep.activate(self)
+		wep.apply_cooldown_mult(get_parent().cooldown_mult)
 
 func _deferred_activate_airbag(wep: Node) -> void:
 	if is_instance_valid(wep):
 		wep.activate()
+
+## Cooldown card (XP-04): re-scale the fire timers of every active weapon. Called from
+## Game._apply_stat_boost_rpc on the owning peer whenever the multiplier changes; newly
+## activated weapons pick it up in the _deferred_activate_* helpers instead.
+func apply_cooldown_mult(mult: float) -> void:
+	for node_name in ["ExhaustFlames", "AntennaBeam", "HornShockwave"]:
+		if has_node(node_name):
+			get_node(node_name).apply_cooldown_mult(mult)
 
 ## Called by Player.gd receive_damage after airbag absorbs a lethal hit.
 ## Phase 6 D-11: Decrements charge count; hides ring only when count reaches 0.

@@ -16,7 +16,9 @@ var _boss_max_hp: int = 1000
 const BOSS_ANIM_SET: String = "boss"
 ## Roughly the footprint of the 80x80 collision box / 48px hurtbox radius. Kept close to them
 ## on purpose: art much larger than the hurtbox would invite players to swing at empty pixels.
-const BOSS_TARGET_HEIGHT: float = 168.0
+## Trimmed 168 → 144 (2026-07-16): still clearly the biggest thing in the arena, but less of
+## a wall — especially at the tighter per-player camera zoom.
+const BOSS_TARGET_HEIGHT: float = 144.0
 
 ## Phase tint applied to the CharSprite as the boss enrages. These are MULTIPLIERS over the
 ## artwork, not replacements for it (the old ColorRect took a flat fill), so they stay light —
@@ -46,6 +48,17 @@ var _shoot_timer: float = 0.0
 var _charging: bool = false
 var _charge_elapsed: float = 0.0
 var _phase_pause_timer: float = 0.0  # brief attack pause on phase entry (Claude's Discretion)
+
+## Telegraph wind-ups: attacks no longer release instantly when their cooldown expires — a
+## short, host-driven wind-up runs first and broadcasts a subtle presentation cue to every
+## peer, so the burst/volley stops feeling like it came from nowhere. Deliberately short:
+## a tell, not a cutscene.
+const CHARGE_WINDUP: float = 0.5
+const VOLLEY_WINDUP: float = 0.35
+## How hard the boss brakes while winding up a charge — the sudden stop is itself the tell.
+const WINDUP_BRAKE: float = 900.0
+var _charge_windup: float = 0.0
+var _volley_windup: float = 0.0
 
 # Cooldowns per phase (tuned for playability — Claude's Discretion in CONTEXT)
 const CHARGE_COOLDOWN_P1: float = 2.5
@@ -99,6 +112,9 @@ func _enter_phase(new_phase: int) -> void:
 	_shoot_timer = shoot_cd
 	_charging = false
 	_charge_elapsed = 0.0
+	# Cancel any wind-up in flight — its attack must not release into the phase pause
+	_charge_windup = 0.0
+	_volley_windup = 0.0
 	# Brief attack pause on phase entry (Claude's Discretion in CONTEXT)
 	_phase_pause_timer = 2.0
 	# D-14: request mob swarm from Game node (call_deferred is physics-safe — RESEARCH pattern)
@@ -166,18 +182,36 @@ func _physics_process(delta: float) -> void:
 			_tick_status_effects(delta)
 			return
 
-	# Phase 1+: melee charge trigger
+	# Charge wind-up in progress: brake hard instead of chasing, release the burst when done.
+	# The stop plus the crouch cue broadcast at wind-up start is the whole telegraph.
+	if _charge_windup > 0.0:
+		_charge_windup -= delta
+		if _charge_windup <= 0.0:
+			_charging = true
+			_charge_elapsed = 0.0
+		velocity = velocity.move_toward(Vector2.ZERO, WINDUP_BRAKE * delta)
+		move_and_slide()
+		_tick_status_effects(delta)
+		return
+
+	# Phase 1+: melee charge trigger — telegraph first, the burst releases when it ends
 	if _charge_timer <= 0.0:
 		var cd := CHARGE_COOLDOWN_P3 if phase == 3 else CHARGE_COOLDOWN_P1
 		_charge_timer = cd
-		_charging = true
-		_charge_elapsed = 0.0
+		_charge_windup = CHARGE_WINDUP
+		_show_telegraph.rpc("charge")
 
-	# Phase 2+: ranged volley trigger
-	if phase >= 2 and _shoot_timer <= 0.0:
+	# Volley wind-up in progress: keeps moving (subtle) — fires when the blink ends
+	if _volley_windup > 0.0:
+		_volley_windup -= delta
+		if _volley_windup <= 0.0:
+			_fire_volley()
+	# Phase 2+: ranged volley trigger — telegraph first
+	elif phase >= 2 and _shoot_timer <= 0.0:
 		var cd := SHOOT_COOLDOWN_P3 if phase == 3 else SHOOT_COOLDOWN_P2
 		_shoot_timer = cd
-		_fire_volley()
+		_volley_windup = VOLLEY_WINDUP
+		_show_telegraph.rpc("volley")
 
 	# Normal chase movement
 	_chase_player(delta)
@@ -199,6 +233,45 @@ func _chase_player(_delta: float) -> void:
 		velocity = (next - global_position).normalized() * base_speed * speed_multiplier
 	else:
 		velocity = Vector2.ZERO
+
+## Presentation-only attack telegraph, broadcast right when a wind-up starts. Subtle by
+## design (a tell, not a stinger): the charge crouches the sprite wide-and-low and drops a
+## faint phase-tinted ground ring under the boss; the volley is a quick warm overbright
+## blink. No gameplay state changes here — release timing lives in _physics_process.
+@rpc("authority", "call_local", "reliable")
+func _show_telegraph(kind: String) -> void:
+	var spr: CanvasItem = get_node_or_null("CharSprite")
+	if spr == null:
+		return
+	match kind:
+		"charge":
+			# Negative amount inverts the stretch: wider + shorter = pre-pounce crouch
+			Juice.stretch(spr, Vector2.DOWN, -0.14, CHARGE_WINDUP)
+			_spawn_telegraph_ring()
+		"volley":
+			Juice.flash(spr, Color(1.7, 1.5, 1.1, 1.0), VOLLEY_WINDUP)
+
+## Faint expanding ring under the boss during the charge wind-up — same ColorRect idiom as
+## Enemy._play_spawn_telegraph, but phase-tinted and quieter (alpha 0.35). Parented to
+## FxLayer, never to the boss (Pitfall 3/4), and self-frees when the tween ends.
+func _spawn_telegraph_ring() -> void:
+	var layer: Node2D = get_node_or_null("/root/Game/FxLayer") as Node2D
+	if layer == null:
+		return
+	const RING_RADIUS: float = 34.0
+	var ring := ColorRect.new()
+	var tint: Color = PHASE_TINT.get(phase, Color.WHITE)
+	ring.color = Color(tint.r, tint.g * 0.55, tint.b * 0.55, 0.35)
+	ring.size = Vector2(RING_RADIUS * 2.0, RING_RADIUS * 2.0)
+	ring.pivot_offset = Vector2(RING_RADIUS, RING_RADIUS)
+	ring.position = global_position - Vector2(RING_RADIUS, RING_RADIUS)
+	ring.scale = Vector2(0.3, 0.3)
+	layer.add_child(ring)
+	var tw := ring.create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.tween_property(ring, "scale", Vector2(1.0, 1.0), CHARGE_WINDUP * 0.8)
+	tw.parallel().tween_property(ring, "modulate:a", 0.0, CHARGE_WINDUP)
+	tw.tween_callback(ring.queue_free)
 
 # ─── Ranged Volley ────────────────────────────────────────────────────────────
 ## Fire a spread of bullets toward the nearest player (Phase 2+).

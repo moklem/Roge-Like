@@ -10,10 +10,19 @@ const DAMAGE: int = 30
 
 var _timer: Timer = null
 var _area: Area2D = null
+## Base fire interval before the Cooldown card multiplier — L2 lowers it to 2.5.
+var _base_cooldown: float = COOLDOWN
+## Cooldown card (XP-04): current multiplier, applied whenever wait_time is written.
+var _cd_mult: float = 1.0
 
 func activate(weapon_manager: Node) -> void:
 	_setup_area()
 	_setup_timer(weapon_manager)
+
+func apply_cooldown_mult(mult: float) -> void:
+	_cd_mult = mult
+	if _timer and is_instance_valid(_timer):
+		_timer.wait_time = _base_cooldown * _cd_mult
 
 func deactivate() -> void:
 	if _timer and is_instance_valid(_timer):
@@ -58,8 +67,9 @@ func _on_fire_timer(weapon_manager: Node) -> void:
 	var damage: int = int(float(DAMAGE) * player.stage3_damage_mult * player.driver_damage_mult)  # D-22 + Driver OVERDRIVE
 	if level >= 2:
 		radius = 220.0                  # L2: 150→220px
-		if _timer.wait_time != 2.5:
-			_timer.wait_time = 2.5      # L2: 3s→2.5s cooldown (D-11) — applied once
+		if _base_cooldown != 2.5:
+			_base_cooldown = 2.5        # L2: 3s→2.5s cooldown (D-11) — applied once
+			_timer.wait_time = _base_cooldown * _cd_mult
 	# Update collision area radius before overlap query
 	if is_instance_valid(_area):
 		for child in _area.get_children():
