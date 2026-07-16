@@ -49,8 +49,36 @@ func _on_enemy_entered(body: Node) -> void:
 		# Ice Trail slow is 1.5s; apply_slow() sets 2.0s — override to 1.5s (D-18)
 		body._slow_timer = SLOW_DURATION
 
+## Frost-patch art, safe-loaded like the audio cues: drop the PNGs at these paths and they
+## appear in game; while missing, the old ColorRect placeholder keeps working. Two variants
+## are picked per-zone by deterministic hash (same on every peer — no sync needed).
+const ART_PATHS: Array[String] = [
+	"res://assets/active/elements/ice_trail_1.png",
+	"res://assets/active/elements/ice_trail_2.png",
+]
+## On-screen footprint of the patch — slightly wider than the 20px slow radius so the
+## art reads as the zone, not as a dot inside it.
+const ART_WIDTH: float = 44.0
+
 func _draw_visual() -> void:
-	# Light-blue ColorRect (40x40px, semi-transparent) — Claude's discretion
+	var available: Array[String] = []
+	for p in ART_PATHS:
+		if ResourceLoader.exists(p):
+			available.append(p)
+	if not available.is_empty():
+		var tex: Texture2D = load(available[absi(str(name).hash()) % available.size()])
+		var spr := Sprite2D.new()
+		spr.texture = tex
+		if tex.get_width() > 0:
+			var s: float = ART_WIDTH / float(tex.get_width())
+			spr.scale = Vector2(s, s)
+		# Slight rotation variety so trails of patches don't read as stamped copies;
+		# hash-derived, so every peer rotates the same zone the same way.
+		spr.rotation = float(absi(str(name).hash()) % 4) * (PI * 0.5)
+		spr.modulate = Color(1.0, 1.0, 1.0, 0.9)
+		add_child(spr)
+		return
+	# Placeholder until the art lands: light-blue semi-transparent square
 	var rect := ColorRect.new()
 	rect.color = Color(0.6, 0.85, 1.0, 0.5)
 	rect.size = Vector2(40.0, 40.0)
