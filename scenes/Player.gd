@@ -54,6 +54,7 @@ var element: String = ""            # D-03: "fire" | "ice" | "earth" | ""
 var shield_active: bool = false     # D-08/D-09: Tank shield active flag (replicated)
 var dash_invincible: bool = false   # D-11: Speedster invincibility frames flag (replicated)
 var _ability_cooldown: float = 0.0  # D-06: single ability cooldown timer
+var _ability_suppress_timer: float = 0.0  # eats the space press that confirmed a card pick
 var _dash_window_timer: float = 0.0 # D-12: Speedster double-dash window
 var _ice_trail_timer: float = 0.0   # D-18: Ice Trail spawn interval
 var _fire_burst_timer: float = 0.0  # D-17: Fire Burst auto-fire interval
@@ -735,6 +736,13 @@ func _tick_ability(delta: float) -> void:
 		_dash_timer -= delta
 		if _dash_timer <= 0.0:
 			dash_invincible = false
+	# Space-confirm carry-over guard: on the host, confirming a card with space clears
+	# is_picking_card synchronously, so the NEXT physics tick still sees that same press
+	# as is_action_just_pressed("role_ability") and would fire the ability. The confirm
+	# branch in _unhandled_input arms this timer (space-confirms only) to eat that press.
+	if _ability_suppress_timer > 0.0:
+		_ability_suppress_timer -= delta
+		return
 	if Input.is_action_just_pressed("role_ability"):
 		if _ability_cooldown <= 0.0:
 			_use_role_ability()
@@ -1426,11 +1434,17 @@ func _unhandled_input(event: InputEvent) -> void:
 			$CardOverlay.navigate(1)
 		get_viewport().set_input_as_handled()
 	elif _is_confirm_key(event): # Enter or Space
+		# Space doubles as role_ability. The is_picking_card freeze does NOT cover the
+		# tick after a host-side confirm (cleared synchronously), where this same press
+		# still reads as just_pressed — arm the suppress window so it can't fire the
+		# ability. Space-confirms only; Enter stays untouched.
+		if event.is_action_pressed("role_ability"):
+			_ability_suppress_timer = 0.25
 		_confirm_card_pick()
 		get_viewport().set_input_as_handled()
 
-## Confirm with Enter or Space. Space also being role_ability is harmless here:
-## while is_picking_card is true the ability dispatch in _physics_process is frozen.
+## Confirm with Enter or Space. Space also being role_ability is handled by the
+## _ability_suppress_timer armed above — see _tick_ability.
 func _is_confirm_key(event: InputEvent) -> bool:
 	if event is InputEventKey and event.pressed and not event.echo:
 		return event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE] \
