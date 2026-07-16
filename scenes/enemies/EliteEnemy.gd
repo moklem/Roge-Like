@@ -4,6 +4,22 @@ extends "res://scenes/enemies/Enemy.gd"
 ## Triggers LIDAR HUD indicator on spawn via Game.gd _spawn_elite_enemy() (D-10).
 ## D-14: separate scene extending Enemy.gd; preserves all Enemy AI via super._ready().
 
+# ─── Art ──────────────────────────────────────────────────────────────────────
+## The elite ships its own animation set ("elite_idle"/"elite_walk"), not the two enemy_N
+## variants. Overriding _anim_set() routes Enemy._setup_enemy_sprite / _update_enemy_visual
+## at its EliteFrames.tres art with no change to the shared sprite plumbing.
+const ELITE_ANIM_SET: String = "elite"
+## Bigger than a rank-and-file enemy (50px) so the elite reads as a mini-boss at a glance,
+## still kept close to its hurtbox (radius 22 → 44px) so players aren't swinging at empty
+## pixels — same reasoning as Boss.BOSS_TARGET_HEIGHT.
+const ELITE_TARGET_HEIGHT: float = 72.0
+
+func _anim_set() -> String:
+	return ELITE_ANIM_SET
+
+func _char_target_height() -> float:
+	return ELITE_TARGET_HEIGHT
+
 func _ready() -> void:
 	# super._ready(): add_to_group("enemies"), set_physics_process(is_multiplayer_authority()),
 	# connects hurtbox body_entered/body_exited. Must be called first.
@@ -25,11 +41,9 @@ func _ready() -> void:
 	CONTACT_DAMAGE = int(CONTACT_DAMAGE * mult)
 	current_hp = MAX_HP
 
-	# Apply distinct visual: dark purple ColorRect, enlarged toward 48×48 (UI-SPEC).
-	# Enemy.tscn uses "Sprite" as the ColorRect child name (Enemy.tscn line 28).
+	# super._ready() → _setup_enemy_sprite() has already hidden $Sprite in favour of the
+	# CharSprite art, so its offsets no longer matter. Its COLOUR still does: Enemy._exit_tree
+	# reads $Sprite.color for the death-burst particles, so keep it the elite's dark-purple
+	# identity colour (UI-SPEC Elite Enemy).
 	if has_node("Sprite"):
-		$Sprite.color = Color(0.55, 0.1, 0.55, 1)   # dark purple (UI-SPEC Elite Enemy color)
-		$Sprite.offset_left  = -24.0
-		$Sprite.offset_top   = -24.0
-		$Sprite.offset_right  = 24.0
-		$Sprite.offset_bottom = 24.0
+		$Sprite.color = Color(0.55, 0.1, 0.55, 1)

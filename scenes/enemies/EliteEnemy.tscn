@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://eliteenemy_phase7"]
 
 [ext_resource type="Script" uid="uid://n7yjfrfx7ja4" path="res://scenes/enemies/EliteEnemy.gd" id="1_elite"]
+[ext_resource type="SpriteFrames" path="res://scenes/enemies/EliteFrames.tres" id="2_elite_frames"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_elite"]
 radius = 18.0
@@ -32,6 +33,11 @@ offset_top = -24.0
 offset_right = 24.0
 offset_bottom = 24.0
 color = Color(0.55, 0.1, 0.55, 1)
+
+[node name="CharSprite" type="AnimatedSprite2D" parent="." unique_id=111111009]
+sprite_frames = ExtResource("2_elite_frames")
+animation = &"elite_idle"
+visible = false
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=111111003]
 shape = SubResource("CapsuleShape2D_elite")
