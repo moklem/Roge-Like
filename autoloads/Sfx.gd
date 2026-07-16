@@ -45,10 +45,7 @@ const CUES: Dictionary = {
 	"earth_shockwave": ["earth_shockwave.wav", -12.0, 0.95, 1.05],
 	"engineer_heal":   ["engineer_heal.wav",   -16.0, 0.98, 1.04],
 	"drone_deploy":    ["drone_deploy.wav",    -14.0, 0.95, 1.05],
-	# --- elemental HUD echoes (onset-gated, see _on_hud_event) ---
-	"ice_ac_hiss":     ["ice_ac_hiss.wav",     -15.0, 0.97, 1.03],
-	"fire_engine":     ["fire_engine.wav",     -15.0, 0.97, 1.03],
-	"earth_servo_hum": ["earth_servo_hum.wav", -16.0, 0.98, 1.02],
+	# --- HUD echoes (onset-gated, see _on_hud_event) ---
 	"lidar_blip":      ["lidar_blip.wav",      -16.0, 0.98, 1.02],
 	# --- pickups, transitions, UI ---
 	"xp_arrive":       [["xp_arrive.wav", "xp_arrive_2.wav"], -14.0, 0.96, 1.10],
@@ -78,13 +75,10 @@ const PRIORITY: Array[String] = [
 
 ## HUD event -> cue. The CARIAD indicators already fire on every peer for exactly the moments
 ## we want to sound, so echoing them here means no extra RPCs and no per-element edits
-## scattered through the gameplay files. Cue character mirrors the indicator's car framing:
-## AC COLD -> compressor hiss, ENGINE OVERHEAT -> engine rattle, SEAT MASSAGE -> servo hum.
+## scattered through the gameplay files. The elemental echoes (AC hiss, engine rattle,
+## servo hum) were cut by team decision (2026-07-16) — only LIDAR keeps an audio echo.
 const HUD_ECHO: Dictionary = {
-	"ac":           "ice_ac_hiss",
-	"engine":       "fire_engine",
-	"seat_massage": "earth_servo_hum",
-	"lidar":        "lidar_blip",
+	"lidar": "lidar_blip",
 }
 
 ## SFX-02: a continuous effect re-emits its HUD event to keep the indicator lit (Earth's heal

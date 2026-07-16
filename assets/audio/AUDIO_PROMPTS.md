@@ -140,39 +140,15 @@ Abschnitt 4 unterscheiden *muss*.)
 
 ---
 
-## 4. Elemente — als CARIAD-HUD-Echo
+## 4. CARIAD-HUD-Echo
 
-Diese vier hängen an den Auto-HUD-Anzeigen, die eh schon aufleuchten. **Der Witz des ganzen Spiels
-steckt genau hier:** Es ist kein Fantasy-Element, es ist eine Fahrzeugfunktion, die durchdreht. Eis
-ist keine Magie — es ist die Klimaanlage. Feuer ist kein Zauber — der Motor überhitzt.
+**Gestrichen (Team-Entscheidung 2026-07-16):** `ice_ac_hiss.wav`, `fire_engine.wav` und
+`earth_servo_hum.wav` werden nicht mehr gebraucht — die Element-Indikatoren leuchten stumm.
+Nur LIDAR behält sein Audio-Echo.
 
-Wer diese vier generisch als „ice spell / fire spell" baut, hat die Pointe verschenkt.
-
-⚠️ **Alle vier werden als *einzelner Anschlag* gehört, nie als Loop** (der Code drosselt Dauereffekte
+⚠️ **Wird als *einzelner Anschlag* gehört, nie als Loop** (der Code drosselt schnelle Wiederholungen
 auf einen Ton beim Aktivieren). Also: klarer Attack vorne, sauberer Abschluss hinten. Baut kein
 Loop-Segment, das mittendrin abgeschnitten wirkt.
-
-### `ice_ac_hiss.wav` — Ice (HUD: „AC ❄️ COLD")
-**Länge:** 0.4–0.6 s
-> A car air-conditioning compressor kicking in hard. A pressurised refrigerant hiss with a
-> mechanical clutch clunk at the front, and a cold crystalline shimmer riding on top as frost forms.
-> Half machine, half ice. Dry, no reverb.
-
-### `fire_engine.wav` — Fire (HUD: „ENGINE 🔥 OVERHEAT")
-**Länge:** 0.4–0.6 s
-> A car engine overheating and detonating. Metallic knocking and rattling under load, boiling
-> coolant hiss, a stressed pressure release. Angry, mechanical, on the edge of failure. Dry, no
-> reverb.
-
-**Achtung:** Kein Lagerfeuer, kein Flammenwerfer. Das ist ein *Motorschaden*.
-
-### `earth_servo_hum.wav` — Earth-Heal (HUD: „SEAT MASSAGE 🌿")
-**Länge:** 0.5–0.7 s
-> A luxury car massage seat activating. A smooth servo motor spinning up into a warm, low kneading
-> hum with a soft pneumatic pulse. Comfortable, plush, slightly absurd. Dry, no reverb.
-
-**Der beste Gag im ganzen Sound-Design.** Das Erd-Element heilt das Team — und klingt wie ein
-Massagesitz in der Oberklasse. Bitte genau so ernst bauen, wie das klingt.
 
 ### `lidar_blip.wav` — Gegner-Welle spawnt (HUD: „LIDAR 🔴")
 **Länge:** 0.3–0.5 s

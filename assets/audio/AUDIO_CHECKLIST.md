@@ -16,11 +16,12 @@ Designer), plus Länge und die Fallstricke. Diese Datei hier ist die Übersicht:
 - **Lautstärke:** egal — die Pegel sind pro Cue im Code gesetzt (`CUES` in `autoloads/Sfx.gd`)
   und sind bewusst leise gemischt. Liefert die Samples normalisiert, wir ziehen im Code runter.
 
-**Stand:** 21 von 37 Dateien vorhanden — der komplette Kampf-, UI- und Stinger-Kern ist da
-(inkl. `game_over.wav` und zwei `xp_arrive`-Varianten). **16 fehlen**, alle in den Tabellen
+**Stand:** 21 von 34 Dateien vorhanden — der komplette Kampf-, UI- und Stinger-Kern ist da
+(inkl. `game_over.wav` und zwei `xp_arrive`-Varianten). **13 fehlen**, alle in den Tabellen
 unten ohne ✅: die 5 Waffen-/Rollen-Cues (`airbag_*`, `dash_shockwave`, `shield_up`,
-`earth_shockwave`), `engineer_heal`, `drone_deploy`, die 4 HUD-Echos, `exit_open`,
-`boss_death`, `big_hit` und die 2 Musik-Stings.
+`earth_shockwave`), `engineer_heal`, `drone_deploy`, `lidar_blip`, `exit_open`,
+`boss_death`, `big_hit` und die 2 Musik-Stings. (Die 3 elementaren HUD-Echos wurden am
+2026-07-16 gestrichen.)
 
 **Varianten:** Ein Cue darf mehrere Dateien haben — einfach mehrere liefern, der Code spielt
 pro Abspielvorgang zufällig eine davon (`xp_arrive.wav` + `xp_arrive_2.wav` machen es vor).
@@ -72,22 +73,19 @@ Alle Waffen sind CARIAD-Autoteile — das darf man hören (Auspuff, Hupe, Antenn
 | engineer_heal | `engineer_heal.wav` | Engineer-Passiv-Heal (alle 5 s) | weiches Heil-Glitzern — **organisch, kein Auto-Sound** |
 | drone_deploy | `drone_deploy.wav` | Engineer setzt Drohne ab | Servo-Surren |
 
-## 4. Elemente — als CARIAD-HUD-Echo
+## 4. CARIAD-HUD-Echo
 
-Diese vier hängen direkt an den HUD-Indikatoren, die eh schon aufleuchten. Deshalb: **der Klang
-soll die Auto-Metapher des Indikators aufgreifen**, nicht generisches Fantasy-Element.
+**Team-Entscheidung 2026-07-16:** Die drei elementaren HUD-Echos (`ice_ac_hiss`, `fire_engine`,
+`earth_servo_hum`) sind **gestrichen** — die Element-Indikatoren leuchten weiterhin, bleiben aber
+stumm. Nur LIDAR behält sein Audio-Echo.
 
 | Cue | Datei | HUD-Indikator | Klang-Richtung |
 |-----|-------|---------------|----------------|
-| ice_ac_hiss | `ice_ac_hiss.wav` | AC ❄️ COLD (Ice) | Klimakompressor-Zischen |
-| fire_engine | `fire_engine.wav` | ENGINE 🔥 OVERHEAT (Fire) | überhitzter Motor, Rattern |
-| earth_servo_hum | `earth_servo_hum.wav` | SEAT MASSAGE 🌿 (Earth-Heal) | Servo-/Massagesitz-Brummen |
 | lidar_blip | `lidar_blip.wav` | LIDAR 🔴 (Gegner-Welle spawnt) | Radar-Blip |
 
-⚠️ **Diese vier werden "onset-gated" abgespielt** (`ONSET_GAP` in `Sfx.gd`): Ein Dauereffekt wie
-der Earth-Heal feuert sein HUD-Event jede Sekunde neu, damit die Anzeige leuchten bleibt — der
-Sound spielt aber **nur einmal beim Aktivieren**, nicht bei jedem Tick. Das ist die Umsetzung von
-SFX-02. Heißt für euch: Diese Samples werden als *einzelner Anschlag* gehört, nicht als Loop.
+⚠️ **Wird "onset-gated" abgespielt** (`ONSET_GAP` in `Sfx.gd`): Ein Event, das schnell
+hintereinander feuert, spielt den Sound **nur einmal beim Aktivieren**, nicht bei jedem Tick
+(SFX-02). Heißt für euch: Das Sample wird als *einzelner Anschlag* gehört, nicht als Loop.
 
 ## 5. Pickups, Übergänge, UI
 
@@ -138,8 +136,10 @@ unterbrechen sie nicht. Bewusst sparsam — sonst nutzt sich der Effekt ab.
 Damit's nicht zur Dauerbeschallung wird — diese Sachen kriegen **keinen** eigenen Cue:
 
 - **Spinning Tires** → läuft über den `hit`-Tick.
-- **Ice-Trail-Zone (Slow pro Gegner)** → Ice hat seine Stimme über `ice_ac_hiss`.
-- **Fire Burst** → läuft über das `fire_engine`-HUD-Echo.
+- **Ice-Trail-Zone (Slow pro Gegner)** → würde bei Swarms zum Dauergeräusch.
+- **Fire Burst** → läuft über den `hit`-Tick der Treffer.
+- **Elementare HUD-Echos (AC/ENGINE/SEAT MASSAGE)** → gestrichen (2026-07-16), Indikatoren
+  leuchten stumm.
 - **Tank-Reflect** → hört man, wenn der reflektierte Schaden landet (`hit`).
 - **Spawn-Telegraph pro einzelnem Gegner** → würde bei Swarms zum Maschinengewehr. Die hörbare
   Spawn-Identität ist stattdessen der `lidar_blip` bei den *Wellen*-Spawns.
