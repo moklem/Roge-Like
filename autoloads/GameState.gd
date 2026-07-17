@@ -7,6 +7,11 @@ var loop_timer: float = 0.0  # seconds remaining; host only writes
 var loop_number: int = 1  # D-16: starts at 1; Phase 8 increments via start_next_loop()
 var revives_used: Dictionary = {}  # peer_id → int (count used this loop)
 
+## Current wave within the active room (1..WAVES_PER_ROOM). Written on every peer by
+## Game._announce_wave (call_local RPC); polled by CarHUD to drive the "WELLE x/3" line.
+var display_wave: int = 1
+const WAVES_PER_ROOM: int = 3
+
 ## Debug/QoL: which room the run begins in (1 = Erba, 2 = Altstadt, 3 = Burg).
 ## Set on every peer via Lobby.start_game(start_room) before the scene change;
 ## read once by Game._ready(). Later loops always cycle 1 → 2 → 3 as usual.

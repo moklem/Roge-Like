@@ -100,6 +100,10 @@ func _show_visual(pos: Vector2) -> void:
 		return
 	Sfx.play("horn_shockwave")  # rides the existing every-peer visual RPC — no new sound RPC
 	_area.global_position = pos
+	# Comic shockwave strip (4 expanding arc rings, ~0.33s) — the final frame's ring sits
+	# just past the 150px damage radius, same read as the old 0.1→2.0 ring tween.
+	if Juice.spawn_anim(pos, "shockwave", RADIUS * 2.3, 6) != null:
+		return
 	var game := get_node_or_null("/root/Game")
 	if game == null:
 		return

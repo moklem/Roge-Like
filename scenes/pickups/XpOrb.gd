@@ -18,6 +18,19 @@ var _collected: bool = false
 func _ready() -> void:
 	# Grouped so Game.gd can purge uncollected orbs on sub-room / room transitions.
 	add_to_group("xp_orbs")
+	# Animated smiley orb (blink/smile loop) — replaces the static sprite when the strip
+	# is delivered; each orb starts on a random frame so a field of drops doesn't blink
+	# in lockstep. Purely cosmetic, so the per-peer randomness needs no sync.
+	var sf: SpriteFrames = Juice.frames("xp_orb_anim")
+	if sf != null:
+		$Sprite.visible = false
+		var spr := AnimatedSprite2D.new()
+		spr.sprite_frames = sf
+		spr.scale = Vector2(0.18, 0.18)  # orb body ~95px in its 128px canvas → ~17px on screen
+		spr.offset = Vector2(2.5, 4.5)   # re-center the body (glow makes the canvas lopsided)
+		add_child(spr)
+		spr.play("default")
+		spr.frame = randi() % sf.get_frame_count("default")
 	body_entered.connect(_on_body_entered)
 	# Same blob shadow as the characters, orb-sized — grounds the pickup in the world
 	# instead of leaving it pasted on top of the floor art.

@@ -77,7 +77,7 @@ var _pending_card_picks: int = 0
 ## drained in _trigger_pending_card_pick.
 var _pending_weapon_choice: bool = false
 
-## Weapons offered by the sub-room weapon-choice overlay (airbag_shield disabled as a weapon).
+## Weapons offered by the sub-room weapon-choice overlay.
 const WEAPON_CHOICE_IDS := ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave"]
 
 ## Driver Mode (CarHUD): team-wide timed effect rolled per sub-room by the host and applied
@@ -91,17 +91,33 @@ var _driver_heal_rate: float = 0.0   # HP/sec while active (authority only)
 var _driver_heal_accum: float = 0.0  # fractional-HP carry for integer heal ticks
 var _driver_timer: float = 0.0
 var _driver_particles: CPUParticles2D = null
+## ECO/SPORT lay ground lines like the dash skids while the mode is active and the player moves.
+var _driver_ground_mode: String = ""     # "eco" | "sport" | ""
+var _driver_line_timer: float = 0.0
+var _driver_line_prev_pos: Vector2 = Vector2.ZERO
 
 ## AUTOBONK character sprites (Tank / Engineer / Speedster use animated PNG art).
 ## Animation key per role; "" means no art → fall back to ColorRect placeholder.
 var _sprite_key: String = ""
 
-## Target on-screen height (px) of the drawn character per evolution stage.
+## Target on-screen SIZE (px) of the drawn character per evolution stage, measured as the
+## geometric mean √(w·h) of the opaque bounding box — NOT height alone. Height-only
+## normalization let a wide, bulky silhouette (Tank stage 3 fills 152px across) render far
+## bigger than a slim one at the same height, and made Tank's stage-2 read as a shrink; the
+## geo-mean equalizes perceived MASS across roles and stages instead (playtest 2026-07-17).
 ## Identical for every role (team decision 2026-07-16: no per-role tweaks — all three
 ## players read the same size within a stage), and the stage growth is deliberately
 ## minimal: evolution should read through the art change, not through a size jump.
-const CHAR_TARGET_HEIGHT := {1: 56.0, 2: 59.0, 3: 62.0}
-## stage → {"scale": Vector2, "offset": Vector2}, filled by _compute_char_fit()
+const CHAR_TARGET_SIZE := {1: 44.0, 2: 46.0, 3: 48.0}
+## Tank-only override (playtest 2026-07-17): the Tank's stage-1 silhouette read a touch too
+## big and stage-2 too small, so its evolution barely registered. Pull stage 1 down and push
+## stages 2/3 up so the growth reads as growth — kept close to CHAR_TARGET_SIZE so the Tank
+## still lands in the same size band as Engineer/Speedster, just with a steeper stage curve.
+const CHAR_TARGET_SIZE_TANK := {1: 37.0, 2: 49.0, 3: 53.0}
+## Engineer-only override (playtest 2026-07-17): stage-1 read a touch too big next to the
+## re-tuned Tank; pull it down, leave stages 2/3 on the common curve.
+const CHAR_TARGET_SIZE_ENGINEER := {1: 40.0, 2: 46.0, 3: 48.0}
+## stage → {"scale": Vector2, "offset": Vector2, "height": float}, filled by _compute_char_fit()
 var _char_fit: Dictionary = {}
 var _uses_char_sprite: bool = false
 var _last_anim_pos: Vector2 = Vector2.ZERO
@@ -153,9 +169,9 @@ func _ready() -> void:
 	GameEvents.driver_mode.connect(_on_driver_mode)
 
 ## Layering so weapon/item visuals never hide the character. WeaponManager sits AFTER the
-## character in the scene tree, so its weapon nodes (orbiting tires, shield/airbag rings,
-## flames, beams) would draw on top. Push the character above those (z=1) and keep the HP
-## bar + labels on top of everything (z=2).
+## character in the scene tree, so its weapon nodes (orbiting tires, flames, beams) would
+## draw on top. Push the character above those (z=1) and keep the HP bar + labels on top
+## of everything (z=2).
 func _setup_draw_layers() -> void:
 	for n in ["Sprite", "CharSprite", "Stage1Container", "Stage2Container", "Stage3Container"]:
 		var node: CanvasItem = get_node_or_null(n)
@@ -197,17 +213,26 @@ func _setup_char_sprite() -> void:
 	# Ground the character: soft blob shadow at the feet, first child (behind sprite AND
 	# the z=0 weapon visuals). Sized for stage 1; _update_char_visual resizes on evolution.
 	_shadow_stage = 1
-	_char_shadow = Juice.add_blob_shadow(self, CHAR_TARGET_HEIGHT[1] * 0.62, CHAR_TARGET_HEIGHT[1] * 0.5)
+	_char_shadow = Juice.add_blob_shadow(self, _char_render_height(1) * 0.62, _char_render_height(1) * 0.5)
 	_last_anim_pos = global_position
 	_update_char_visual(0.0)
 
 ## Visual size normalization — measure the opaque bounding box of each stage's idle art
-## and derive scale + centering offset so the DRAWN character (not the padded canvas) is
-## CHAR_TARGET_HEIGHT px tall for every role. The art canvases are uniform (256px) but the
+## and derive scale + centering offset so the DRAWN character (not the padded canvas) hits
+## CHAR_TARGET_SIZE (geo-mean) for every role. The art canvases are uniform (256px) but the
 ## character fills 50–95% of them depending on role/stage, which made on-screen sizes
 ## wildly inconsistent (Tank even shrank from stage 1 → 2).
+## Per-role target-size table: the Tank uses a steeper stage curve (CHAR_TARGET_SIZE_TANK);
+## every other role shares the common CHAR_TARGET_SIZE.
+func _char_target_table() -> Dictionary:
+	match _sprite_key:
+		"tank": return CHAR_TARGET_SIZE_TANK
+		"engineer": return CHAR_TARGET_SIZE_ENGINEER
+		_: return CHAR_TARGET_SIZE
+
 func _compute_char_fit() -> void:
 	_char_fit.clear()
+	var target: Dictionary = _char_target_table()
 	var frames: SpriteFrames = $CharSprite.sprite_frames
 	if frames == null:
 		return
@@ -224,12 +249,27 @@ func _compute_char_fit() -> void:
 		if img.is_compressed():
 			img.decompress()
 		var used: Rect2i = img.get_used_rect()
-		if used.size.y <= 0:
+		if used.size.x <= 0 or used.size.y <= 0:
 			continue
-		var s: float = CHAR_TARGET_HEIGHT[stage] / float(used.size.y)
+		# Scale by the geometric mean of the opaque box so perceived mass — not just height —
+		# lands on CHAR_TARGET_SIZE. A wide silhouette is pulled down, a slim one pushed up.
+		var geo: float = sqrt(float(used.size.x) * float(used.size.y))
+		var s: float = target[stage] / geo
 		var canvas_center := Vector2(img.get_width(), img.get_height()) * 0.5
 		var used_center := Vector2(used.position) + Vector2(used.size) * 0.5
-		_char_fit[stage] = {"scale": Vector2(s, s), "offset": canvas_center - used_center}
+		_char_fit[stage] = {
+			"scale": Vector2(s, s),
+			"offset": canvas_center - used_center,
+			"height": float(used.size.y) * s,  # rendered px height — drives shadow + downed marker
+		}
+
+## Rendered on-screen height (px) of the drawn character at `stage`. Drives the ground shadow
+## and the downed/revive marker placement. Falls back to the stage target when the fit could
+## not be measured (the geo-mean target is a fair stand-in for an unknown silhouette).
+func _char_render_height(stage: int) -> float:
+	if _char_fit.has(stage):
+		return _char_fit[stage]["height"]
+	return _char_target_table().get(stage, 48.0)
 
 ## Apply the measured fit for the current stage. Falls back to the old fixed scaling when
 ## the fit could not be measured (e.g. texture without retrievable image data).
@@ -364,6 +404,8 @@ var _dash_popped: bool = false
 
 ## ABIL-04/D-20: Tank aura ring pulse — fires once on the shield_active false->true edge.
 var _last_shield_active: bool = false
+## Comic shield bubble strip shown while shield_active (created lazily, reused).
+var _shield_bubble: AnimatedSprite2D = null
 
 ## COOP-01/COOP-03/D-18: tracks is_downed for the every-peer _process diff so the collapse
 ## (rising edge) and success burst + snap-back (falling edge) fire exactly once each.
@@ -431,7 +473,13 @@ func _process(_delta: float) -> void:
 	# PROG-01/D-13: element-colored level-up burst on the is_picking_card rising edge.
 	# is_picking_card is already replicated, so this fires on every peer with zero new RPC.
 	if is_picking_card and not _last_picking_card:
-		Juice.spawn_burst(global_position, Juice.element_color(element))
+		# Level-up: pop the dedicated comic "↑" sprite above the player; degrade to the old
+		# element-colored burst if the art isn't there yet.
+		var levelup_tex: Texture2D = Juice.vfx("levelup")
+		if levelup_tex != null:
+			Juice.spawn_pop(global_position + Vector2(0.0, -20.0), levelup_tex, 72.0)
+		else:
+			Juice.spawn_burst(global_position, Juice.element_color(element))
 	_last_picking_card = is_picking_card
 	# ABIL-02/D-20: Speedster dash afterimage trail — dash_invincible is already replicated,
 	# so this fires in the every-peer _process with zero new RPC and shows on all screens.
@@ -457,10 +505,27 @@ func _process(_delta: float) -> void:
 				_spawn_dash_skid(skid_delta.normalized())
 	_dash_prev_pos = global_position
 	_last_dash_invincible = dash_invincible
-	# ABIL-04/D-20: Tank aura ring pulse — shield_active is already replicated; fires only
-	# on the rising edge (no RPC, no gameplay change).
+	# Driver ECO/SPORT: lay speed/brake lines on the ground while moving — exact dash-skid idiom
+	# (parented to the room ground, rotated to travel dir, fading out), just driven by the mode
+	# rather than the dash. Every-peer, off the replicated position delta, no RPC.
+	if _driver_ground_mode != "":
+		_driver_line_timer -= _delta
+		# Space marks by distance travelled SINCE THE LAST ONE, not per-frame movement:
+		# SPORT halves speed to ~1.7px/frame, which never cleared the old per-frame >3px
+		# gate, so SPORT laid no brake tracks at all. prev_pos now advances only when a mark
+		# is placed, so the trail spaces evenly at any speed (and stops while standing still).
+		var line_moved: Vector2 = global_position - _driver_line_prev_pos
+		if _driver_line_timer <= 0.0 and line_moved.length() >= 6.0:
+			_driver_line_timer = 0.09
+			_spawn_driver_ground_line(_driver_ground_mode, line_moved.normalized())
+			_driver_line_prev_pos = global_position
+	# ABIL-04/D-20: shield_active is already replicated; fires only on the rising edge
+	# (no RPC, no gameplay change). The comic bubble (_show_shield_bubble) carries the
+	# activation moment now — the old flat ColorRect aura pulse was dropped alongside it.
 	if shield_active and not _last_shield_active:
-		_spawn_aura_pulse()
+		_show_shield_bubble()
+	elif not shield_active and _last_shield_active:
+		_hide_shield_bubble()
 	_last_shield_active = shield_active
 	# Driver Mode: count the active effect down on every peer so all mult copies reset in sync.
 	_tick_driver_effect(_delta)
@@ -514,23 +579,9 @@ func _physics_process(delta: float) -> void:
 ## is_multiplayer_authority()), so every teammate sees the heal, satisfying COOP-04's
 ## team-visible healing per D-17.
 func _spawn_heal_particles() -> void:
-	var p := CPUParticles2D.new()
-	p.one_shot = true
-	p.amount = 14
-	p.lifetime = 0.7
-	p.explosiveness = 0.9
-	p.direction = Vector2.UP
-	p.spread = 40.0
-	p.initial_velocity_min = 25.0
-	p.initial_velocity_max = 55.0
-	p.gravity = Vector2(0.0, -30.0)
-	p.scale_amount_min = 2.0
-	p.scale_amount_max = 3.5
-	p.color = Color(0.3, 1.0, 0.45, 0.9)
-	p.z_index = 2
-	p.emitting = true
-	add_child(p)
-	p.finished.connect(p.queue_free)
+	# Green "+" crosses floating up (heal_plus art), or the old green sparkle burst when the art
+	# isn't delivered — both parented via Juice to the FxLayer, sized in on-screen px.
+	Juice.spawn_heal(global_position)
 
 ## DMG-04/D-07: Positions the ghost overlay to span the just-lost HP segment (old_hp→new_hp)
 ## and tweens it to shrink toward the new-value edge while fading to alpha 0 over ~0.4s. The
@@ -589,16 +640,33 @@ func _on_driver_mode(mode: String, duration: float) -> void:
 	match mode:
 		"eco":
 			_driver_speed_mult = 1.5
-			_spawn_driver_particles(Color(0.45, 0.8, 1.0, 0.9))     # light blue
+			_spawn_driver_particles("eco")
+			_pop_driver_badge("eco")
 		"sport":
-			_driver_speed_mult = 0.5                                # half speed (deutlich stärker)
-			_spawn_driver_particles(DRIVER_BRAKE_SMOKE)             # anthracite tyre smoke — see const
+			_driver_speed_mult = 0.5                                       # half speed (deutlich stärker)
+			_spawn_driver_particles("sport")
+			_pop_driver_badge("sport")
 		"repair":
 			_driver_heal_rate = 5.0
-			_spawn_driver_particles(Color(0.3, 1.0, 0.45, 0.95))    # green (like drone/earth heal)
+			_spawn_driver_particles("repair")   # wrench pops once; the +HP fires green heal particles
 		"overdrive":
 			driver_damage_mult = 1.3
-			_spawn_driver_particles(Color(0.7, 0.3, 1.0, 0.9))      # purple
+			_spawn_driver_particles("overdrive")
+
+## One-shot comic badge over the player when ECO/SPORT rolls, exactly like the level-up pop
+## (same Juice.spawn_pop treatment: above the head, back-ease scale-in, rise, fade). Runs on
+## every peer — _on_driver_mode is call_local, so each player shows its own badge.
+## Uses the delivered badge art (badge_eco / badge_sport); degrades to the old speed-streak/
+## brake-puff sprites and finally to a colored burst while art is missing.
+func _pop_driver_badge(mode: String) -> void:
+	var badge: Texture2D = Juice.vfx("badge_eco" if mode == "eco" else "badge_sport")
+	if badge == null:
+		badge = Juice.vfx("speed_streak" if mode == "eco" else "brake_puff")
+	var at: Vector2 = global_position + Vector2(0.0, -20.0)  # above the head, like the level-up pop
+	if badge != null:
+		Juice.spawn_pop(at, badge, 72.0)
+	else:
+		Juice.spawn_burst(at, Color(0.2, 0.6, 1.0) if mode == "eco" else Color(0.55, 0.55, 0.6))
 
 ## Runs on every peer from _process. Ticks the timer; applies heal-over-time on the authority
 ## peer only (health is authority-owned + synced). Resets all mults when the effect ends.
@@ -626,27 +694,114 @@ func _clear_driver_effect() -> void:
 		_driver_particles.emitting = false          # stop new sparkles; let live ones fade out
 		_driver_particles.finished.connect(_driver_particles.queue_free)
 	_driver_particles = null
+	_driver_ground_mode = ""                         # stop laying ECO/SPORT ground lines
 
-## Continuous sparkle emitter around the player for the effect duration (all peers).
-## Emits in a ring around the player so the effect reads clearly on screen.
-func _spawn_driver_particles(color: Color) -> void:
+## Driver mode feedback (all peers — driver_mode is call_local, and every Player connects
+## _on_driver_mode, so each player shows its own). A small minimalistic continuous stream at
+## the feet for the speed/brake modes only (ECO blue streaks, SPORT grey tyre puffs); REPAIR's
+## +HP already fires the green heal particles, OVERDRIVE gets its spark stream. The one-shot
+## mode-icon pop above the player was cut — the CarHUD indicator already names the mode.
+func _spawn_driver_particles(mode: String) -> void:
+	# ECO/SPORT feedback is the ground lines laid per-frame in _process (see _driver_ground_mode).
+	_driver_ground_mode = mode if (mode == "eco" or mode == "sport") else ""
+	if _driver_ground_mode != "":
+		_driver_line_prev_pos = global_position
+		_driver_line_timer = 0.0
+	# OVERDRIVE gets a magenta spark particle stream around the player.
+	elif mode == "overdrive":
+		_spawn_overdrive_stream()
+	# REPAIR gets a steady drift of green "+" crosses for the whole effect — the heal cue
+	# only fires on actual HP ticks (nothing at full HP), this stream marks the mode itself.
+	elif mode == "repair":
+		_spawn_repair_stream()
+
+## OVERDRIVE: continuous magenta spark emitter (overdrive_spark art) ringing the player for the
+## mode duration. Stored in _driver_particles so _clear_driver_effect stops + fades it on end.
+func _spawn_overdrive_stream() -> void:
+	var tex: Texture2D = Juice.vfx("overdrive_spark")
+	if tex == null:
+		return
 	var p := CPUParticles2D.new()
-	p.amount = 20
-	p.lifetime = 1.0
+	p.lifetime = 0.5
+	p.amount = 8
 	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
-	p.emission_sphere_radius = 22.0
-	p.spread = 180.0
+	p.emission_sphere_radius = 20.0
 	p.direction = Vector2.UP
-	p.initial_velocity_min = 20.0
-	p.initial_velocity_max = 55.0
-	p.gravity = Vector2(0.0, -35.0)
-	p.scale_amount_min = 3.0
-	p.scale_amount_max = 5.5
-	p.color = color
+	p.spread = 180.0
+	p.gravity = Vector2(0.0, -20.0)
+	p.texture = tex
+	p.color = Color.WHITE
 	p.z_index = 3
+	_size_particle_texture(p, tex, 22.0)
 	p.emitting = true
 	add_child(p)
 	_driver_particles = p
+
+## REPAIR: "+" crosses drifting up around the player — same stream idiom as
+## _spawn_overdrive_stream (stopped by _clear_driver_effect via _driver_particles).
+## Playtest 2026-07-17: uses the green heal "+" (heal_plus) so REPAIR reads as a heal;
+## the dedicated repair cross stays only as a fallback if the heal art is absent.
+func _spawn_repair_stream() -> void:
+	var tex: Texture2D = Juice.vfx("heal_plus")
+	if tex == null:
+		tex = Juice.vfx("repair_plus")
+	if tex == null:
+		return
+	var p := CPUParticles2D.new()
+	p.lifetime = 0.7
+	p.amount = 6
+	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = 18.0
+	p.direction = Vector2.UP
+	p.spread = 30.0
+	p.initial_velocity_min = 20.0
+	p.initial_velocity_max = 40.0
+	p.gravity = Vector2(0.0, -30.0)
+	p.texture = tex
+	p.color = Color.WHITE
+	p.z_index = 3
+	_size_particle_texture(p, tex, 16.0)
+	p.emitting = true
+	add_child(p)
+	_driver_particles = p
+
+## Lays one speed/brake line flat on the current room's ground, rotated to travel direction,
+## fading out — the exact _spawn_dash_skid idiom (ground parent + tween), reused for the driver
+## modes. ECO uses the blue speedline, SPORT the grey tyre-track brakeline. No-ops without art.
+func _spawn_driver_ground_line(mode: String, dir: Vector2) -> void:
+	var tex: Texture2D = Juice.vfx("speedline" if mode == "eco" else "brakeline")
+	if tex == null or tex.get_width() <= 0:
+		return
+	var game := get_node_or_null("/root/Game")
+	if game == null:
+		return
+	var ground: Node2D = game.get_node_or_null("Room%d/PropShadows" % int(game.get("current_room"))) as Node2D
+	if ground == null:
+		return
+	var mark := Node2D.new()
+	ground.add_child(mark)
+	mark.global_position = global_position + Vector2(0.0, _char_render_height(1) * 0.42)
+	mark.rotation = dir.angle()
+	var spr := Sprite2D.new()
+	spr.texture = tex
+	var length: float = 48.0 if mode == "eco" else 40.0
+	var s: float = length / float(tex.get_width())
+	spr.scale = Vector2(s, s)
+	spr.modulate = Color(1.0, 1.0, 1.0, 0.85)
+	mark.add_child(spr)
+	var tw := mark.create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.tween_interval(0.2)
+	tw.tween_property(mark, "modulate:a", 0.0, 0.6)
+	tw.tween_callback(mark.queue_free)
+	Juice._backstop_free(mark, 2.0)
+
+## Sizes a textured CPUParticles2D so each particle draws ~`target_px` tall (the source art is
+## 512px, so a raw scale_amount would fill the screen). Shared by the driver streams.
+func _size_particle_texture(p: CPUParticles2D, tex: Texture2D, target_px: float) -> void:
+	var s: float = target_px / float(maxi(tex.get_height(), 1))
+	p.scale_amount_min = s * 0.7
+	p.scale_amount_max = s * 1.1
 
 ## HLTH-05: Check if holding E near a downed teammate; send request to host each frame
 func _check_revive(_delta: float) -> void:
@@ -868,7 +1023,9 @@ func _find_nearest_enemy_global() -> Node:
 func _activate_shield(duration: float) -> void:
 	shield_active = true
 	_shield_timer = duration
-	Sfx.play("shield_up")
+	# Pick the sound whose length matches the shield window: the 6s Stage-2 shield gets the
+	# longer cut, everything else the 3s one. Mirrors the strip pick in _show_shield_bubble.
+	Sfx.play("shield_up_s2" if duration >= TANK_SHIELD_S2 else "shield_up")
 
 ## Base tint for the character sprite, applied every frame by the shared modulate reset
 ## (skipped while a hit-flash/collapse/evolution tween owns modulate). Downed grey wins;
@@ -883,26 +1040,35 @@ func _base_sprite_tint() -> Color:
 		return Color(0.55, 0.75, 1.0).lerp(Color(0.75, 0.9, 1.35), pulse)
 	return Color.WHITE
 
-## ABIL-04/D-20: expanding soft ring pulse in the aura's established blue on the
-## shield_active rising edge (mirrors _show_dash_shockwave's scale+fade tween shape).
-## Parented to FxLayer (Juice._fx_layer), not to the player, so it survives the player
-## despawning mid-tween; degrades to a no-op if FxLayer isn't present yet.
-func _spawn_aura_pulse() -> void:
-	var layer := Juice._fx_layer()
-	if layer == null:
+## Comic shield bubble on the shield_active rising edge — every peer runs this off the
+## same replicated flag as the aura pulse, so no new RPC. The two strips are authored to
+## span the exact shield durations (36 frames @ 12fps = 3s, 65 frames @ ~10.8fps = 6s),
+## so playing once tracks the shield window; the falling-edge hide is just a safety net.
+## Stage pick mirrors _use_ability: evolution_stage >= 2 → the 6s Stage-2 shield.
+## No-op when the strips aren't delivered (Juice.frames returns null).
+func _show_shield_bubble() -> void:
+	var strip: String = "shield6" if evolution_stage >= 2 else "shield3"
+	var sf: SpriteFrames = Juice.frames(strip)
+	if sf == null:
 		return
-	const RADIUS: float = 40.0
-	var ring := ColorRect.new()
-	ring.color = Color(0.3, 0.6, 1.0, 0.6)  # aura blue, softer than the solid shield ring
-	ring.size = Vector2(RADIUS * 2.0, RADIUS * 2.0)
-	ring.pivot_offset = Vector2(RADIUS, RADIUS)
-	ring.scale = Vector2(0.3, 0.3)
-	layer.add_child(ring)
-	ring.global_position = global_position - Vector2(RADIUS, RADIUS)
-	var tween := ring.create_tween()
-	tween.tween_property(ring, "scale", Vector2(1.6, 1.6), 0.4)
-	tween.parallel().tween_property(ring, "modulate:a", 0.0, 0.4)
-	tween.tween_callback(ring.queue_free)
+	if _shield_bubble == null or not is_instance_valid(_shield_bubble):
+		_shield_bubble = AnimatedSprite2D.new()
+		_shield_bubble.name = "ShieldBubble"
+		_shield_bubble.z_index = 5
+		# 256×250 canvas with the bubble sitting low-center (ø ~98px around (125.5, 174.5));
+		# the offset re-centers the bubble on the character, the scale wraps the 56-68px art.
+		_shield_bubble.offset = Vector2(2.5, -49.5)
+		_shield_bubble.scale = Vector2(0.78, 0.78)
+		add_child(_shield_bubble)
+	_shield_bubble.sprite_frames = sf
+	_shield_bubble.visible = true
+	_shield_bubble.frame = 0
+	_shield_bubble.play("default")
+
+func _hide_shield_bubble() -> void:
+	if _shield_bubble != null and is_instance_valid(_shield_bubble):
+		_shield_bubble.stop()
+		_shield_bubble.visible = false
 
 # ──────────────────────────────────────────────────────────────────────────────
 # COOP-01/COOP-02/COOP-03/D-18 — Downed collapse, revive ring, revive success
@@ -952,7 +1118,13 @@ func _spawn_downed_dust() -> void:
 ## is_downed falling edge (successful revive). Runs from the every-peer _process diff
 ## (is_downed replicated), so the success feedback is team-visible with zero new RPC.
 func _play_revive_success() -> void:
-	Juice.spawn_burst(global_position, Color(0.4, 1.0, 0.4, 1.0))
+	# Pop the dedicated revive sprite (cross + radiating lines) above the reviving player, or the
+	# old green sparkle burst if the art isn't there. The white ring flash stays either way.
+	var revive_tex: Texture2D = Juice.vfx("revive")
+	if revive_tex != null:
+		Juice.spawn_pop(global_position + Vector2(0.0, -18.0), revive_tex, 68.0)
+	else:
+		Juice.spawn_burst(global_position, Color(0.4, 1.0, 0.4, 1.0))
 	_spawn_success_ring_flash()
 	_downed_collapse_active = true
 	var target: CanvasItem = $CharSprite if _uses_char_sprite else $Sprite
@@ -964,8 +1136,8 @@ func _play_revive_success() -> void:
 		_downed_collapse_active = false
 	)
 
-## COOP-03/D-18: brief white ring flash on successful revive (mirrors _spawn_aura_pulse's
-## scale+fade tween shape). Parented to FxLayer, degrades to a no-op if absent.
+## COOP-03/D-18: brief white ring flash on successful revive (same scale+fade tween shape
+## as _show_dash_shockwave). Parented to FxLayer, degrades to a no-op if absent.
 func _spawn_success_ring_flash() -> void:
 	var layer := Juice._fx_layer()
 	if layer == null:
@@ -1094,7 +1266,7 @@ func _spawn_dash_skid(dir: Vector2) -> void:
 		return
 	var mark := Node2D.new()
 	ground.add_child(mark)
-	mark.global_position = global_position + Vector2(0.0, CHAR_TARGET_HEIGHT[1] * 0.42)
+	mark.global_position = global_position + Vector2(0.0, _char_render_height(1) * 0.42)
 	mark.rotation = dir.angle()
 	var tex: Texture2D = _lazy_skid_tex()
 	if tex != null and tex.get_width() > 0:
@@ -1189,15 +1361,6 @@ func receive_damage(amount: int, attacker_path: String = "", from_elite: bool = 
 	# Phase 6 D-07: invulnerable while picking a card
 	if is_picking_card:
 		return
-	# Phase 6 D-11 airbag migration: airbag_active bool → airbag_count int; Level 2 heals to 25%
-	if health - amount <= 0 and has_node("WeaponManager") and $WeaponManager.airbag_count > 0:
-		var airbag_level: int = $WeaponManager.weapon_level.get("airbag_shield", 1)
-		if airbag_level >= 2:
-			health = maxi(1, MAX_HP >> 2)  # D-11 L2: heal to 25% HP instead of 1
-		else:
-			health = 1                     # D-11 L1: survive at 1 HP
-		$WeaponManager.consume_airbag()
-		return
 	# Plan 02 D-08/D-09: Tank shield intercept — block all damage while active
 	if shield_active:
 		_last_attacker_path = attacker_path
@@ -1207,7 +1370,7 @@ func receive_damage(amount: int, attacker_path: String = "", from_elite: bool = 
 		return  # block damage regardless of stage
 	health -= amount
 	# Phase 7 Plan 03 (HUD-06, D-09): SUSPENSION fires on elite enemy hits only (WR-02 fix).
-	# Placed after health -= amount so blocked/absorbed hits (shield, airbag, dash) never reach here.
+	# Placed after health -= amount so blocked/absorbed hits (shield, dash) never reach here.
 	# WR-02: using from_elite flag instead of amount >= 15 threshold — at loop 3+ normal enemies
 	# deal CONTACT_DAMAGE=15 (int(10 * 1.5)) and would incorrectly trigger SUSPENSION otherwise.
 	# Routing: receive_damage runs on owning peer (may be client) — call host via RPC,
@@ -1286,7 +1449,12 @@ func _play_evolution_transform(stage: int) -> void:
 ## composition. Total charge+reveal stays well within the ~1-1.5s cap (roadmap hard constraint).
 func _reveal_evolution_stage(stage: int, target: CanvasItem, color: Color) -> void:
 	call_deferred("_swap_stage_visual", stage)  # D-13: instant, deferred for physics safety
-	Juice.spawn_burst(global_position, color, 20, 0.5)
+	# Evolution reveal: a shower of gold stars (or the old element-colored burst as fallback).
+	var star_tex: Texture2D = Juice.vfx("star")
+	if star_tex != null:
+		Juice.spawn_tex_burst(global_position, star_tex, 12, 32.0, 0.5, 180.0, 60.0, 160.0)
+	else:
+		Juice.spawn_burst(global_position, color, 20, 0.5)
 	Juice.hitstop(0.08)  # brief snappy beat (D-06), local cosmetic dip only — never engine-global
 	var restore := create_tween()
 	restore.tween_property(target, "modulate", Color.WHITE, 0.15)
@@ -1329,7 +1497,7 @@ func _update_char_visual(delta_t: float) -> void:
 	# Keep the blob shadow matched to the current evolution height.
 	if _char_shadow != null and stage != _shadow_stage:
 		_shadow_stage = stage
-		var h: float = CHAR_TARGET_HEIGHT[stage]
+		var h: float = _char_render_height(stage)
 		Juice.set_blob_shadow_size(_char_shadow, h * 0.62, h * 0.5)
 	_apply_player_bob(spr, move_delta)
 	# DMG-02/COOP-01/COOP-03/PROG-03: skip the per-frame modulate reset while a hit-flash tween,

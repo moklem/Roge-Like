@@ -12,6 +12,10 @@ var _indicators: Dictionary = {}
 var _loop_label: Label = null
 var _last_loop_number: int = 0
 
+## WaveLabel node reference and last-seen wave for change detection (polls GameState.display_wave).
+var _wave_label: Label = null
+var _last_wave: int = 0
+
 ## Driver Mode indicator — a single dynamic panel whose text/color changes per host roll.
 ## Distinct from the 5 reactive indicators: it displays the active team-wide sub-room effect.
 var _driver_panel: PanelContainer = null
@@ -53,6 +57,12 @@ func _ready() -> void:
 	if _loop_label:
 		_loop_label.text = "Loop: %d" % _last_loop_number
 
+	# Cache WaveLabel and set initial text.
+	_wave_label = get_node_or_null("CarHUDPanel/CarHUDContainer/WaveLabel")
+	_last_wave = GameState.display_wave
+	if _wave_label:
+		_wave_label.text = "WELLE %d/%d" % [_last_wave, GameState.WAVES_PER_ROOM]
+
 ## Comic panel + comic font on every label. The indicator labels carry emoji (❄️🔥🌿⚡🔴) which
 ## Bangers has no glyphs for — they survive because FontFile.allow_system_fallback is on, so the
 ## system emoji face fills them in. Verified: the emoji resolve to real glyph widths, not tofu.
@@ -71,6 +81,11 @@ func _apply_comic_style() -> void:
 	if loop != null:
 		loop.add_theme_font_size_override("font_size", 22)
 		loop.add_theme_color_override("font_color", UiStyle.INK)
+	# WaveLabel: the most-glanced line — biggest, ink-dark, so "WELLE x/3" reads at a glance.
+	var wave: Label = get_node_or_null("CarHUDPanel/CarHUDContainer/WaveLabel")
+	if wave != null:
+		wave.add_theme_font_size_override("font_size", 26)
+		wave.add_theme_color_override("font_color", UiStyle.INK)
 
 func _all_labels() -> Array:
 	var out: Array = []
@@ -91,6 +106,11 @@ func _process(_delta: float) -> void:
 		_last_loop_number = GameState.loop_number
 		if _loop_label:
 			_loop_label.text = "Loop: %d" % _last_loop_number
+	# Same polling pattern for the wave line (host-synced via GameState.display_wave).
+	if GameState.display_wave != _last_wave:
+		_last_wave = GameState.display_wave
+		if _wave_label:
+			_wave_label.text = "WELLE %d/%d" % [_last_wave, GameState.WAVES_PER_ROOM]
 
 # ------------------------------------------------------------------------------
 # Indicator setup
@@ -133,7 +153,22 @@ func _on_hud_event(event_name: String) -> void:
 	if _indicators.has(event_name):
 		_activate_indicator(event_name)
 
+## event → pre-colored rim overlay texture flashed around the screen edge alongside the panel
+## blink. Only the climate/comfort trio gets a rim; suspension/lidar stay panel-only.
+const RIM_FOR := {"ac": "rim_cold", "engine": "rim_hot", "seat_massage": "rim_massage"}
+## A sustained effect re-emits its HUD event every ~1s (Earth heal → seat_massage, Fire bursts),
+## which would re-trigger the rim every frame-worth and pin it on-screen. Same onset gate as the
+## Sfx HUD echo: the rim only re-flashes after the event stream has actually gone quiet this long.
+const RIM_ONSET_GAP: float = 1.5
+var _rim_last_seen: Dictionary = {}
+
 func _activate_indicator(event_name: String) -> void:
+	if RIM_FOR.has(event_name):
+		var now: float = float(Time.get_ticks_msec()) / 1000.0
+		var last: float = _rim_last_seen.get(event_name, -1000.0)
+		_rim_last_seen[event_name] = now
+		if now - last >= RIM_ONSET_GAP:
+			Juice.rim_flash(Juice.vfx(RIM_FOR[event_name]))
 	var entry: Dictionary = _indicators[event_name]
 	var panel: PanelContainer = entry["panel"]
 	var lbl: Label              = entry["label"]

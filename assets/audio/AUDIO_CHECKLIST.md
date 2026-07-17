@@ -16,9 +16,9 @@ Designer), plus Länge und die Fallstricke. Diese Datei hier ist die Übersicht:
 - **Lautstärke:** egal — die Pegel sind pro Cue im Code gesetzt (`CUES` in `autoloads/Sfx.gd`)
   und sind bewusst leise gemischt. Liefert die Samples normalisiert, wir ziehen im Code runter.
 
-**Stand:** 21 von 34 Dateien vorhanden — der komplette Kampf-, UI- und Stinger-Kern ist da
-(inkl. `game_over.wav` und zwei `xp_arrive`-Varianten). **13 fehlen**, alle in den Tabellen
-unten ohne ✅: die 5 Waffen-/Rollen-Cues (`airbag_*`, `dash_shockwave`, `shield_up`,
+**Stand:** 23 von 35 Dateien vorhanden — der komplette Kampf-, UI- und Stinger-Kern ist da
+(inkl. `game_over.wav`, zwei `xp_arrive`-Varianten und beide `shield_up`-Längen). **12 fehlen**,
+alle in den Tabellen unten ohne ✅: die 4 Waffen-/Rollen-Cues (`airbag_*`, `dash_shockwave`,
 `earth_shockwave`), `engineer_heal`, `drone_deploy`, `lidar_blip`, `exit_open`,
 `boss_death`, `big_hit` und die 2 Musik-Stings. (Die 3 elementaren HUD-Echos wurden am
 2026-07-16 gestrichen.)
@@ -43,7 +43,7 @@ Downed-Alarm nie von 20 Treffer-Ticks weggedrängt wird. Das passiert automatisc
 
 | Cue | Datei (`res://assets/audio/sfx/…`) | Wann | Klang-Richtung |
 |-----|-----------------------------------|------|----------------|
-| shoot | `shoot.wav` ✅ vorhanden | Screws/Bolts feuern | metallisches "pew" |
+| shoot | `shoot.wav` ✅ vorhanden | Screws/Bolts feuern | Pfeil-Whoosh, auf 0.36s getrimmt (passt ins 0.35s-Feuerintervall) |
 | hit | `hit.mp3` ✅ vorhanden | Gegner nimmt Schaden | subtiler Tick |
 | enemy_die | `enemy_die.wav` ✅ vorhanden | normaler Gegner stirbt | Schrott-Knirschen |
 
@@ -68,7 +68,8 @@ Alle Waffen sind CARIAD-Autoteile — das darf man hören (Auspuff, Hupe, Antenn
 |-----|-------|------|----------------|
 | dash | `dash.wav` ✅ vorhanden | Speedster dasht | Reifenquietschen |
 | dash_shockwave | `dash_shockwave.wav` | Speedster Stage-2 Doppel-Dash landet | dumpfer Impact |
-| shield_up | `shield_up.wav` | Tank-Schild geht hoch | metallischer Clunk |
+| shield_up | `shield_up.wav` ✅ vorhanden | Tank-Schild geht hoch (Stage-1) | Schild-Sound, auf 3.0s getrimmt = Stage-1-Dauer |
+| shield_up_s2 | `shield_up_s2.wav` ✅ vorhanden | Tank-Schild geht hoch (Stage-2) | gleicher Sound, auf 6.0s getrimmt = Stage-2-Dauer |
 | earth_shockwave | `earth_shockwave.wav` | Earth-Schockwelle | tiefes Grollen |
 | engineer_heal | `engineer_heal.wav` | Engineer-Passiv-Heal (alle 5 s) | weiches Heil-Glitzern — **organisch, kein Auto-Sound** |
 | drone_deploy | `drone_deploy.wav` | Engineer setzt Drohne ab | Servo-Surren |

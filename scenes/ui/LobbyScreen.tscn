@@ -9,102 +9,178 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 script = ExtResource("1_lobby")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="."]
+[node name="Main" type="HBoxContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 20.0
+offset_left = 24.0
 offset_top = 20.0
-offset_right = -20.0
+offset_right = -24.0
 offset_bottom = -20.0
+theme_override_constants/separation = 24
 
-[node name="LeftPanel" type="VBoxContainer" parent="HBoxContainer"]
+[node name="LeftPanel" type="VBoxContainer" parent="Main"]
 layout_mode = 2
-size_flags_horizontal = 3
+custom_minimum_size = Vector2(430, 0)
+theme_override_constants/separation = 14
 
-[node name="IPContainer" type="HBoxContainer" parent="HBoxContainer/LeftPanel"]
+[node name="IPCard" type="PanelContainer" parent="Main/LeftPanel"]
 layout_mode = 2
 
-[node name="IPLabel" type="Label" parent="HBoxContainer/LeftPanel/IPContainer"]
+[node name="IPContainer" type="HBoxContainer" parent="Main/LeftPanel/IPCard"]
+layout_mode = 2
+
+[node name="IPLabel" type="Label" parent="Main/LeftPanel/IPCard/IPContainer"]
 layout_mode = 2
 text = "IP: ..."
-size_flags_horizontal = 2
+size_flags_horizontal = 3
 
-[node name="CopyButton" type="Button" parent="HBoxContainer/LeftPanel/IPContainer"]
+[node name="CopyButton" type="Button" parent="Main/LeftPanel/IPCard/IPContainer"]
 layout_mode = 2
 text = "Copy"
 size_flags_horizontal = 0
 custom_minimum_size = Vector2(60, 0)
 
-[node name="Separator1" type="HSeparator" parent="HBoxContainer/LeftPanel"]
+[node name="RoleCard" type="PanelContainer" parent="Main/LeftPanel"]
 layout_mode = 2
 
-[node name="RoleLabel" type="Label" parent="HBoxContainer/LeftPanel"]
+[node name="RoleBox" type="VBoxContainer" parent="Main/LeftPanel/RoleCard"]
 layout_mode = 2
-text = "Pick Role:"
+theme_override_constants/separation = 8
 
-[node name="RoleButtons" type="HBoxContainer" parent="HBoxContainer/LeftPanel"]
+[node name="RoleLabel" type="Label" parent="Main/LeftPanel/RoleCard/RoleBox"]
+layout_mode = 2
+text = "ROLLE"
+
+[node name="RoleButtons" type="HBoxContainer" parent="Main/LeftPanel/RoleCard/RoleBox"]
 layout_mode = 2
 
-[node name="TankButton" type="Button" parent="HBoxContainer/LeftPanel/RoleButtons"]
+[node name="TankButton" type="Button" parent="Main/LeftPanel/RoleCard/RoleBox/RoleButtons"]
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Tank"
 
-[node name="SpeedsterButton" type="Button" parent="HBoxContainer/LeftPanel/RoleButtons"]
+[node name="SpeedsterButton" type="Button" parent="Main/LeftPanel/RoleCard/RoleBox/RoleButtons"]
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Speedster"
 
-[node name="EngineerButton" type="Button" parent="HBoxContainer/LeftPanel/RoleButtons"]
+[node name="EngineerButton" type="Button" parent="Main/LeftPanel/RoleCard/RoleBox/RoleButtons"]
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Engineer"
 
-[node name="Separator2" type="HSeparator" parent="HBoxContainer/LeftPanel"]
+[node name="ElementCard" type="PanelContainer" parent="Main/LeftPanel"]
 layout_mode = 2
 
-[node name="ElementLabel" type="Label" parent="HBoxContainer/LeftPanel"]
+[node name="ElementBox" type="VBoxContainer" parent="Main/LeftPanel/ElementCard"]
 layout_mode = 2
-text = "Pick Element:"
+theme_override_constants/separation = 8
 
-[node name="ElementButtons" type="HBoxContainer" parent="HBoxContainer/LeftPanel"]
+[node name="ElementLabel" type="Label" parent="Main/LeftPanel/ElementCard/ElementBox"]
 layout_mode = 2
+text = "ELEMENT"
 
-[node name="FireButton" type="Button" parent="HBoxContainer/LeftPanel/ElementButtons"]
-layout_mode = 2
-text = "Fire"
-
-[node name="IceButton" type="Button" parent="HBoxContainer/LeftPanel/ElementButtons"]
-layout_mode = 2
-text = "Ice"
-
-[node name="EarthButton" type="Button" parent="HBoxContainer/LeftPanel/ElementButtons"]
-layout_mode = 2
-text = "Earth"
-
-[node name="Separator3" type="HSeparator" parent="HBoxContainer/LeftPanel"]
+[node name="ElementButtons" type="HBoxContainer" parent="Main/LeftPanel/ElementCard/ElementBox"]
 layout_mode = 2
 
-[node name="ReadyButton" type="Button" parent="HBoxContainer/LeftPanel"]
+[node name="FireButton" type="Button" parent="Main/LeftPanel/ElementCard/ElementBox/ElementButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Feuer"
+
+[node name="IceButton" type="Button" parent="Main/LeftPanel/ElementCard/ElementBox/ElementButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Eis"
+
+[node name="EarthButton" type="Button" parent="Main/LeftPanel/ElementCard/ElementBox/ElementButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Erde"
+
+[node name="StartCard" type="PanelContainer" parent="Main/LeftPanel"]
+layout_mode = 2
+
+[node name="StartBox" type="VBoxContainer" parent="Main/LeftPanel/StartCard"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ReadyButton" type="Button" parent="Main/LeftPanel/StartCard/StartBox"]
 layout_mode = 2
 text = "Ready"
 
-[node name="StartButton" type="Button" parent="HBoxContainer/LeftPanel"]
+[node name="StartButton" type="Button" parent="Main/LeftPanel/StartCard/StartBox"]
 layout_mode = 2
 text = "Start Game"
 disabled = true
 visible = false
 
-[node name="StatusLabel" type="Label" parent="HBoxContainer/LeftPanel"]
+[node name="StatusLabel" type="Label" parent="Main/LeftPanel/StartCard/StartBox"]
 layout_mode = 2
 text = ""
 
-[node name="PlayerListPanel" type="VBoxContainer" parent="HBoxContainer"]
+[node name="MiddlePanel" type="VBoxContainer" parent="Main"]
 layout_mode = 2
-custom_minimum_size = Vector2(200, 0)
+size_flags_horizontal = 3
+theme_override_constants/separation = 14
 
-[node name="PlayerListLabel" type="Label" parent="HBoxContainer/PlayerListPanel"]
+[node name="PreviewCard" type="PanelContainer" parent="Main/MiddlePanel"]
 layout_mode = 2
-text = "Players:"
+visible = false
 
-[node name="PlayerList" type="VBoxContainer" parent="HBoxContainer/PlayerListPanel"]
+[node name="PreviewBox" type="VBoxContainer" parent="Main/MiddlePanel/PreviewCard"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PreviewLabel" type="Label" parent="Main/MiddlePanel/PreviewCard/PreviewBox"]
+layout_mode = 2
+text = "VORSCHAU"
+horizontal_alignment = 1
+
+[node name="PreviewImage" type="TextureRect" parent="Main/MiddlePanel/PreviewCard/PreviewBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(230, 230)
+size_flags_horizontal = 4
+expand_mode = 1
+stretch_mode = 5
+
+[node name="PreviewStageLabel" type="Label" parent="Main/MiddlePanel/PreviewCard/PreviewBox"]
+layout_mode = 2
+text = ""
+horizontal_alignment = 1
+
+[node name="RoleInfo" type="Label" parent="Main/MiddlePanel/PreviewCard/PreviewBox"]
+layout_mode = 2
+text = ""
+autowrap_mode = 2
+
+[node name="ElementInfoCard" type="PanelContainer" parent="Main/MiddlePanel"]
+layout_mode = 2
+visible = false
+
+[node name="ElementInfoBox" type="VBoxContainer" parent="Main/MiddlePanel/ElementInfoCard"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ElementInfo" type="Label" parent="Main/MiddlePanel/ElementInfoCard/ElementInfoBox"]
+layout_mode = 2
+text = ""
+autowrap_mode = 2
+
+[node name="PlayerCard" type="PanelContainer" parent="Main"]
+layout_mode = 2
+custom_minimum_size = Vector2(270, 0)
+size_flags_vertical = 0
+
+[node name="PlayerBox" type="VBoxContainer" parent="Main/PlayerCard"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="PlayerListLabel" type="Label" parent="Main/PlayerCard/PlayerBox"]
+layout_mode = 2
+text = "SPIELER"
+
+[node name="PlayerList" type="VBoxContainer" parent="Main/PlayerCard/PlayerBox"]
 layout_mode = 2

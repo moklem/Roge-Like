@@ -14,11 +14,9 @@ const WEAPON_NAMES := {
 	"spinning_tires": "Spinning Tires",
 	"antenna_beam": "Antenna Beam",
 	"horn_shockwave": "Horn Shockwave",
-	"airbag_shield": "Airbag Shield",
 }
 
-## Placeholder icons — swap PNGs for final art, paths stay.
-## NOTE: must live under assets/active/ (assets/placeholders/ has a .gdignore).
+## Weapon/stat icons live here; missing files fall back to icon_generic.png.
 const ICON_DIR := "res://assets/active/ui/icons/"
 const STAT_ICONS := {
 	"Speed": "icon_stat_speed.png",
@@ -203,6 +201,4 @@ func _weapon_upgrade_desc(wid: String, lvl: int) -> String:
 		["antenna_beam", 3]:     return "+10 damage, wider hitbox"
 		["horn_shockwave", 2]:   return "Wider radius, faster cooldown"
 		["horn_shockwave", 3]:   return "Double knockback, brief stun"
-		["airbag_shield", 2]:    return "Absorb hit + heal to 25% HP"
-		["airbag_shield", 3]:    return "2 charges"
 		_:                       return "Upgrade weapon"

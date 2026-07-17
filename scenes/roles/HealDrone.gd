@@ -15,8 +15,8 @@ const DRONE_TEXTURES := {
 	1: preload("res://assets/active/roles/heal_drone_1.png"),
 	2: preload("res://assets/active/roles/heal_drone_2.png"),
 }
-## Target on-screen height (px) per stage — well below the player's 56-68px
-## (Player.CHAR_TARGET_HEIGHT) so the drone reads as the Engineer's equipment
+## Target on-screen height (px) per stage — well below the player's ~50-55px
+## (Player.CHAR_TARGET_SIZE) so the drone reads as the Engineer's equipment
 ## rather than as a second character. Stage 2 is the SMALLER of the two on purpose:
 ## it flies right next to the Engineer, so it must not crowd or upstage him, while
 ## Stage 1 is a planted ground unit standing on its own.
@@ -120,9 +120,13 @@ func _setup_timer() -> void:
 	add_child(_pulse_timer)
 
 func _on_pulse() -> void:
+	var radius: float = PULSE_RADIUS_S2 if stage >= 2 else PULSE_RADIUS_S1
+	# Visible "heartbeat" of the zone: an expanding green ring at the heal radius, spawned on EVERY
+	# peer (the timer autostarts on all of them) — so this must sit ABOVE the authority guard that
+	# gates the actual healing. Cosmetic only, no RPC, mirrors the deploy ring.
+	Juice.spawn_pulse_ring(global_position, radius, Color(0.2, 0.9, 0.3, 1.0))
 	if not is_multiplayer_authority():
 		return
-	var radius: float = PULSE_RADIUS_S2 if stage >= 2 else PULSE_RADIUS_S1
 	var heal: int    = PULSE_HEAL_S2  if stage >= 2 else PULSE_HEAL_S1
 	for p in get_tree().get_nodes_in_group("players"):
 		if p.is_downed:
@@ -141,7 +145,12 @@ func _on_pulse() -> void:
 func _spawn_deploy_effect() -> void:
 	const DEPLOY_COLOR: Color = Color(0.2, 0.9, 0.3, 0.9)  # matches the drone's own green
 	Sfx.play("drone_deploy")  # _ready() runs on every peer (spawner-replicated) — no RPC needed
-	Juice.spawn_burst(global_position, DEPLOY_COLOR, 10, 0.5)
+	# glow-dot pop if the art is there, else the flat green burst.
+	var dot: Texture2D = Juice.vfx("glow_dot")
+	if dot != null:
+		Juice.spawn_tex_burst(global_position, dot, 10, 22.0, 0.5, 180.0, 60.0, 140.0)
+	else:
+		Juice.spawn_burst(global_position, DEPLOY_COLOR, 10, 0.5)
 	var layer := Juice._fx_layer()
 	if layer == null:
 		return

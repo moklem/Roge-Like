@@ -2,30 +2,28 @@ extends Node
 ## Music — global background music (autoload). Survives scene changes because autoloads
 ## persist. Loaded at runtime with existence checks so a missing file never breaks anything.
 ##
-## Track mapping (user):
-##   Menu / Lobby -> Erba_1 (quiet, looping)
-##   In-game      -> permanent random shuffle of the remaining tracks, starting with Erba_2.
-##                   Rotates forever; every finished track picks a new random one.
+## Track mapping (user, fixed order — no shuffle):
+##   Menu / Lobby            -> lobby.mp3 (quiet, looping)
+##   Room 1 (ERBA, all subs) -> Erba.wav
+##   Room 2 subs 1-3         -> altstadt1.mp3
+##   Room 2 subs 4-5         -> altstadt2.wav
+##   Room 2 sub 6 (Übergang) -> Altenburg.wav   (theme starts AT the connector)
+##   Room 3 (Burg Altenburg) -> Altenburg.wav
+## Every track loops until the next zone switches it; re-entering the same zone is a no-op.
 
 ## Lobby/menu track (loops seamlessly, quiet).
-const LOBBY_TRACK := "res://assets/audio/Erba_1.wav"
+const LOBBY_TRACK := "res://assets/audio/lobby.mp3"
 
-## In-game shuffle always opens with Erba_2, then rotates randomly through the whole pool.
-const INGAME_FIRST := "res://assets/audio/Erba_2.wav"
-const INGAME_POOL: Array[String] = [
-	"res://assets/audio/Erba_2.wav",
-	"res://assets/audio/Theme_1.wav",
-	"res://assets/audio/Lobby_1.wav",
-	"res://assets/audio/ingame.mp3",
-]
+const TRACK_ERBA       := "res://assets/audio/Erba.wav"
+const TRACK_ALTSTADT_1 := "res://assets/audio/altstadt1.mp3"
+const TRACK_ALTSTADT_2 := "res://assets/audio/altstadt2.wav"
+const TRACK_ALTENBURG  := "res://assets/audio/Altenburg.wav"
 
 ## Menu/lobby stays quiet ("leise"); in-game a touch louder but not blasting.
 const LOBBY_DB  := -20.0
 const INGAME_DB := -12.0
 
 var _player: AudioStreamPlayer = null
-var _mode: String = ""            # "single" (looping track) or "shuffle" (random rotation)
-var _pool: Array[String] = []     # shuffle pool
 var _current_path: String = ""
 var _volume_db: float = -12.0
 var _sting: AudioStreamPlayer = null
@@ -39,28 +37,48 @@ func _ready() -> void:
 	_sting.bus = "Music"
 	add_child(_sting)
 
-## Main-menu music — same quiet Erba_1 track as the lobby.
+## Safety net: WAV tracks loop via their .import settings (edit/loop_mode=Forward), so
+## `finished` never fires for them. If a track ends anyway (e.g. a re-imported file lost
+## its loop flag), restart it instead of falling silent.
+func _on_finished() -> void:
+	if not _current_path.is_empty():
+		_play_path(_current_path, true)
+
+## Main-menu music — same quiet lobby track as the lobby.
 func play_menu() -> void:
 	_play_single(LOBBY_TRACK, LOBBY_DB)
 
-## Lobby music — quiet, looping Erba_1.
+## Lobby music — quiet, looping lobby track.
 func play_lobby() -> void:
 	_play_single(LOBBY_TRACK, LOBBY_DB)
 
-## In-game — permanent random shuffle, first track Erba_2. Started on match load and left
-## running across all rooms (no per-room restart; the autoload persists the rotation).
-func play_ingame() -> void:
-	_play_shuffle(INGAME_POOL, INGAME_DB, INGAME_FIRST)
+## In-game — fixed track per zone. Called on match start and on every room/sub-room
+## transition; _play_single no-ops when the mapped track is already running, so crossing
+## sub-rooms inside the same zone never restarts the music.
+func play_zone(room: int, sub_room: int) -> void:
+	_play_single(_zone_track(room, sub_room), INGAME_DB)
+
+func _zone_track(room: int, sub_room: int) -> String:
+	match room:
+		1:
+			return TRACK_ERBA
+		2:
+			if sub_room <= 3:
+				return TRACK_ALTSTADT_1
+			if sub_room <= 5:
+				return TRACK_ALTSTADT_2
+			return TRACK_ALTENBURG  # sub 6 = Übergang: Altenburg theme starts here
+		_:
+			return TRACK_ALTENBURG
 
 func stop() -> void:
 	if _player:
 		_player.stop()
 	if _sting:
 		_sting.stop()
-	_mode = ""
 	_current_path = ""
 
-## Two — and only two — moments get a music reaction, layered OVER the running shuffle rather
+## Two — and only two — moments get a music reaction, layered OVER the running track rather
 ## than interrupting it: the evolution transform and the boss death that ends the loop. Boss
 ## phase changes stay SFX-only, so the music layer keeps marking the genuine climaxes.
 ## Same safe-load discipline as everything else: a missing sting file is silent, not a crash.
@@ -74,7 +92,7 @@ func play_evolution_sting() -> void:
 func play_boss_death_sting() -> void:
 	_play_sting(BOSS_DEATH_STING)
 
-## Fire-and-forget one-shot on its own player, so it overlaps the shuffle instead of stopping
+## Fire-and-forget one-shot on its own player, so it overlaps the music instead of stopping
 ## it. Loop is forced off — a sting that looped would never stop.
 func _play_sting(path: String) -> void:
 	if _sting == null or not ResourceLoader.exists(path):
@@ -94,30 +112,17 @@ func _play_sting(path: String) -> void:
 func _play_single(path: String, volume_db: float) -> void:
 	if _player == null:
 		return
-	if _mode == "single" and _current_path == path and _player.playing:
+	if _current_path == path and _player.playing:
 		return
-	_mode = "single"
-	_pool = []
 	_volume_db = volume_db
 	_current_path = path
 	_play_path(path, true)
 
-## Permanent random rotation. No-op if a shuffle is already running (don't restart on
-## repeated calls / scene re-enter). Opens with `first`, then random picks on every finish.
-func _play_shuffle(pool: Array[String], volume_db: float, first: String) -> void:
-	if _player == null:
-		return
-	if _mode == "shuffle" and _player.playing:
-		return
-	_mode = "shuffle"
-	_pool = pool.duplicate()
-	_volume_db = volume_db
-	var start: String = first if ResourceLoader.exists(first) else _random_from_pool("")
-	_current_path = start
-	_play_path(start, false)
-
-## Loads and plays a single stream. `loop` at the stream level for single tracks; shuffle
-## tracks play once (loop off) so the `finished` signal advances the rotation.
+## Loads and plays a single stream, looping at the stream level.
+## WAV loop points come from the .import settings (edit/loop_mode=Forward) — forcing
+## LOOP_FORWARD at runtime on a stream imported without markers leaves loop_end at 0
+## and plays pure silence, so WAVs are deliberately left untouched here (Pitfall).
+## A WAV that slips through without an import loop is caught by _on_finished instead.
 func _play_path(path: String, loop: bool) -> void:
 	if _player == null or path.is_empty():
 		return
@@ -126,32 +131,8 @@ func _play_path(path: String, loop: bool) -> void:
 	var stream: AudioStream = load(path)
 	if stream is AudioStreamMP3:
 		stream.loop = loop
-	elif stream is AudioStreamWAV:
-		stream.loop_mode = AudioStreamWAV.LOOP_FORWARD if loop else AudioStreamWAV.LOOP_DISABLED
 	elif stream is AudioStreamOggVorbis:
 		stream.loop = loop
 	_player.stream = stream
 	_player.volume_db = _volume_db
 	_player.play()
-
-## Shuffle advance: a track finished, roll a new random one and keep going forever.
-func _on_finished() -> void:
-	if _mode != "shuffle":
-		return
-	var next: String = _random_from_pool(_current_path)
-	_current_path = next
-	_play_path(next, false)
-
-## Random existing track from the pool, avoiding an immediate repeat when possible.
-func _random_from_pool(exclude: String) -> String:
-	var candidates: Array[String] = []
-	for p in _pool:
-		if ResourceLoader.exists(p) and p != exclude:
-			candidates.append(p)
-	if candidates.is_empty():
-		for p in _pool:
-			if ResourceLoader.exists(p):
-				candidates.append(p)
-	if candidates.is_empty():
-		return ""
-	return candidates[randi() % candidates.size()]

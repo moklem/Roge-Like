@@ -9,7 +9,7 @@ const ENEMY_SCENE     := preload("res://scenes/enemies/Enemy.tscn")
 const BULLET_SCENE    := preload("res://scenes/projectiles/Bullet.tscn")
 const ORB_SCENE       := preload("res://scenes/pickups/XpOrb.tscn")
 ## Weapons are no longer ground drops — unlocked via the sub-room weapon-choice overlay
-## (end of sub-rooms 2 and 4). airbag_shield disabled as a weapon.
+## (end of sub-rooms 2 and 4).
 const WEAPON_CHOICE_IDS := ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave"]
 ## Phase 5 Plan 03 (D-14, D-15, D-21): Engineer Heal Drone spawnable scene
 const HEAL_DRONE_SCENE := preload("res://scenes/roles/HealDrone.tscn")
@@ -94,14 +94,14 @@ var _revive_progress: Dictionary = {}
 var _hud_hp_label: Label = null
 var _hud_ability_label: Label = null
 var _hud_wave_label: Label = null
+var _hud_info_panel: PanelContainer = null
 # WR-05: _hud_event_label removed — CarHUD (Phase 7) is now the sole HUD-event consumer.
 
 ## Phase 5 Plan 03 (D-13, ROLE-07): Engineer passive heal accumulator (host-only)
 var _engineer_passive_accum: float = 0.0
 
-## Phase 5 Plan 05 (D-19, ELEM-05/06): Earth element accumulators (host-only)
+## Phase 5 Plan 05 (D-19, ELEM-05): Earth element heal accumulator (host-only)
 var _earth_heal_accum: float = 0.0
-var _earth_shock_accum: float = 0.0
 
 ## Phase 7 Plan 03 (D-13, HUD-07): Elite enemy spawn timer accumulators (host-only)
 var _elite_spawn_timer: float = 0.0
@@ -117,8 +117,6 @@ var _last_suspension_emit: float = -100.0
 var countdown_active: bool = true
 
 func _ready() -> void:
-	# In-game music starts as soon as the match scene loads (replaces the quiet lobby track).
-	Music.play_ingame()
 	# P7: custom spawn_functions forward data Dictionary to every peer automatically
 	$MultiplayerSpawner.spawn_function = _do_spawn         # players (existing)
 	$EnemySpawner.spawn_function  = _do_spawn_enemy
@@ -140,6 +138,8 @@ func _ready() -> void:
 	# NOT inside $HUD — CarHUD is layer=3, must not conflict with existing HUD CanvasLayer
 	var _car_hud := CAR_HUD_SCENE.instantiate()
 	add_child(_car_hud)
+	# Tab-Stats-HUD (layer 5): local hold-to-view stats overlay, top-right. Per peer, never synced.
+	add_child(load("res://scenes/ui/StatsHUD.tscn").instantiate())
 	# ESC settings overlay (layer 6 — above CarHUD's 3 and Juice's vignette layer 4). Purely
 	# local: it never pauses the tree, it only freezes the owning peer's own input.
 	add_child(PAUSE_MENU_SCENE.instantiate())
@@ -158,6 +158,8 @@ func _ready() -> void:
 	## The host picks the starting room in the lobby; every peer received the same
 	## value via Lobby.start_game(start_room) before this scene loaded.
 	current_room = clampi(GameState.start_room, 1, 3)
+	# Zone music starts as soon as the match scene loads (replaces the quiet lobby track).
+	Music.play_zone(current_room, 1)
 	## Build sub-room 1 of the starting room immediately on all peers (deterministic
 	## from static data; no RPC needed for first load).
 	var _first_rect: Rect2 = _room_builder.build_sub_room(current_room, 1, self)
@@ -270,6 +272,8 @@ func _transition_to_room(next_room: int) -> void:
 	current_room = next_room
 	## Phase 9 (D-10, MAP-01): Reset sub-room counter on location transition
 	current_sub_room = 1
+	## Fixed zone soundtrack — switches track when the new location maps to a different one.
+	Music.play_zone(current_room, current_sub_room)
 	## Phase 9 (D-12): Reset connector exit trigger guard + exit-open gate + wave-advance guard
 	_connector_triggered = false
 	_exit_open = false
@@ -394,6 +398,9 @@ func _cancel_driver_roll() -> void:
 func _transition_to_sub_room(next: int) -> void:
 	Sfx.play("transition")
 	current_sub_room = next
+	## Fixed zone soundtrack — Altstadt swaps at sub 4, Altenburg theme starts at the
+	## Übergang connector (sub 6). No-op while the mapped track is unchanged.
+	Music.play_zone(current_room, current_sub_room)
 	_current_wave = 1
 	_wave_advancing = false
 	_connector_triggered = false
@@ -604,7 +611,7 @@ func _on_boss_died(_pos: Vector2) -> void:
 	_spawn_enemies.call_deferred()
 
 # ==============================================================================
-# PLAYER HUD (top-right: HP + Ability status for local peer)
+# PLAYER HUD (bottom-left: HP + Ability status for local peer)
 # ==============================================================================
 
 func _setup_player_hud() -> void:
@@ -613,14 +620,19 @@ func _setup_player_hud() -> void:
 		return
 	var panel := PanelContainer.new()
 	panel.name = "PlayerInfoPanel"
-	panel.anchor_left = 1.0
-	panel.anchor_right = 1.0
-	panel.anchor_top = 0.0
-	panel.anchor_bottom = 0.0
-	panel.offset_left = -415
-	panel.offset_right = -210
-	panel.offset_top = 10
-	panel.offset_bottom = 10  # grows with content
+	# Bottom-left corner, growing upward with content — the Tab-StatsHUD opens in this
+	# same spot (and hides this panel while held), so HP and stats share one screen home.
+	panel.anchor_left = 0.0
+	panel.anchor_right = 0.0
+	panel.anchor_top = 1.0
+	panel.anchor_bottom = 1.0
+	panel.offset_left = 10
+	panel.offset_right = 215
+	panel.offset_top = -10
+	panel.offset_bottom = -10
+	panel.grow_horizontal = Control.GROW_DIRECTION_END
+	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_hud_info_panel = panel
 	# Comic UI pass: paper panel with ink border (matches PlayerHUD/menu styling)
 	panel.add_theme_stylebox_override("panel", UiStyle.comic_box(
 		Color(UiStyle.PAPER.r, UiStyle.PAPER.g, UiStyle.PAPER.b, 0.95)))
@@ -650,6 +662,10 @@ func _setup_player_hud() -> void:
 func _update_player_hud() -> void:
 	if _hud_hp_label == null:
 		return
+	# While the Tab-StatsHUD is held open it occupies this same bottom-left spot (and
+	# already shows HP), so the small HP card steps aside instead of stacking under it.
+	if _hud_info_panel != null:
+		_hud_info_panel.visible = not Input.is_action_pressed("stats")
 	var local_id := multiplayer.get_unique_id()
 	var local_player: Node = null
 	for p in get_tree().get_nodes_in_group("players"):
@@ -786,22 +802,30 @@ func _spawn_pos_is_clear(pos: Vector2) -> bool:
 
 ## True when the TileMap cell carries a collision polygon (wall or obstacle tile).
 ## Layout-independent: reads the tile's collision data rather than comparing atlas coords.
+## Walls live on layer 0 but obstacles/houses are painted on layer 1 (RoomBuilder step 3),
+## so EVERY layer must be checked — otherwise a wave spawns on top of a barrel/crate/house.
+## Deco also sits on layer 1 but carries no collision polygon, so it correctly reads as open.
 func _cell_is_solid(tilemap: TileMap, cell: Vector2i) -> bool:
-	var src_id: int = tilemap.get_cell_source_id(0, cell)
-	if src_id == -1:
-		return false  # empty cell — treat as open
-	var src := tilemap.tile_set.get_source(src_id) as TileSetAtlasSource
-	if src == null:
-		return false
-	var td := src.get_tile_data(tilemap.get_cell_atlas_coords(0, cell), 0)
-	if td == null:
-		return false
-	return td.get_collision_polygons_count(0) > 0
+	for layer in range(tilemap.get_layers_count()):
+		var src_id: int = tilemap.get_cell_source_id(layer, cell)
+		if src_id == -1:
+			continue  # empty on this layer — check the next
+		var src := tilemap.tile_set.get_source(src_id) as TileSetAtlasSource
+		if src == null:
+			continue
+		var td := src.get_tile_data(tilemap.get_cell_atlas_coords(layer, cell), 0)
+		if td == null:
+			continue
+		if td.get_collision_polygons_count(0) > 0:
+			return true
+	return false
 
 ## Syncs the wave display counter to all peers and shows a brief centre banner.
 @rpc("authority", "call_local", "reliable")
 func _announce_wave(wave: int) -> void:
 	_display_wave = wave
+	# Publish to GameState so CarHUD's "WELLE x/3" line can poll it (mirrors loop_number).
+	GameState.display_wave = wave
 	_show_wave_banner(wave)
 
 ## Wave banner removed — the centred "Welle x / y" / "LETZTE WELLE!" text is no
@@ -919,12 +943,15 @@ func _do_spawn_bullet(data: Dictionary) -> Node:
 	if b.force_burn:
 		b.modulate = Color(1.0, 0.5, 0.0)  # orange modulate (D-17, D-ELEM-07 visual)
 	elif b.element_proc:
-		# Tint the buffed shot by element so the proc is visible: fire→orange, ice→blue.
+		# Tint the buffed shot by element so the proc is visible: fire→orange, ice→blue,
+		# earth→pebble-brown (not green — matches the enemy-side slow tint, see Enemy.gd).
 		var oe: String = Lobby.players.get(b.owner_peer_id, {}).get("element", "").to_lower()
 		if oe == "fire":
 			b.modulate = Color(1.0, 0.5, 0.0)
 		elif oe == "ice":
 			b.modulate = Color(0.4, 0.7, 1.0)
+		elif oe == "earth":
+			b.modulate = Color(0.62, 0.42, 0.2)
 	return b
 
 # ==============================================================================
@@ -1027,7 +1054,12 @@ func _update_revive_bar(target_id: int, progress: float) -> void:
 ## Reuses the shared Juice.spawn_burst/ImpactBurst builder (T-10-24 mitigation: bounded,
 ## backstop-cleaned FxLayer burst — no new particle factory).
 func _on_big_hit(pos: Vector2) -> void:
-	Juice.spawn_burst(pos, Color(1.0, 1.0, 1.0, 1.0), 20, 0.5)
+	# Big significant-hit pop: glowing dots (or the old white burst as fallback).
+	var dot: Texture2D = Juice.vfx("glow_dot")
+	if dot != null:
+		Juice.spawn_tex_burst(pos, dot, 14, 26.0, 0.5, 180.0, 80.0, 180.0)
+	else:
+		Juice.spawn_burst(pos, Color(1.0, 1.0, 1.0, 1.0), 20, 0.5)
 
 # ==============================================================================
 # WEAPON UNLOCK (WEAP-02, WEAP-03)
@@ -1358,16 +1390,18 @@ func _do_spawn_ice_trail(data: Dictionary) -> Node:
 	return zone
 
 # ==============================================================================
-# EARTH ELEMENT (D-19, ELEM-05/06/07 — Phase 5 Plan 05)
+# EARTH ELEMENT (D-19, ELEM-05/07 — Phase 5 Plan 05)
 # ==============================================================================
 
-## D-19 (ELEM-05/06/07): Tick Earth element passive heal and periodic shockwave.
+## D-19 (ELEM-05/07): Tick Earth element passive team heal.
 ## Runs ONLY on host (inside _process which guards is_server()).
-## Determines if at least one Earth player is alive; if so, accumulates timers.
-## T-05-15: All damage and heal calls are host-only; HUD emit is host-only (T-05-18).
-## Phase 6 D-21: heal rate and shockwave cooldown scale with element_tier.
+## Determines if at least one Earth player is alive; if so, accumulates the heal timer.
+## T-05-15: All heal calls are host-only; HUD emit is host-only (T-05-18).
+## Phase 6 D-21: heal rate scales with element_tier. The old periodic shockwave (ELEM-06)
+## was cut in favor of Earth's on-hit slow proc (Bullet.gd) — Earth's damage/CC now comes
+## from shooting, matching Fire's burn and Ice's slow instead of a separate passive nova.
 func _tick_earth_effects(delta: float) -> void:
-	# Collect all alive Earth players — effects active when at least one exists
+	# Collect all alive Earth players — effect active when at least one exists
 	var earth_players: Array = []
 	for p in get_tree().get_nodes_in_group("players"):
 		if p.element == "earth" and not p.is_downed:
@@ -1375,14 +1409,13 @@ func _tick_earth_effects(delta: float) -> void:
 	if earth_players.is_empty():
 		return
 
-	# D-21: Use highest element_tier among alive Earth players for tier-scaled values
+	# D-21: Use highest element_tier among alive Earth players for tier-scaled heal rate
 	var element_tier: int = 1
 	for ep in earth_players:
 		element_tier = maxi(element_tier, ep.element_tier)
 	element_tier = clamp(element_tier, 1, 3)
-	# D-21 tier arrays: index by tier (T1=2 HP/s, T2=4, T3=6; cooldown T1=8s, T2=6s, T3=5s)
+	# D-21 tier array: index by tier (T1=2 HP/s, T2=4, T3=6)
 	var heal_rate: int = [2, 2, 4, 6][element_tier]
-	var sw_cooldown: float = [8.0, 8.0, 6.0, 5.0][element_tier]
 
 	# --- ELEM-05: Team Heal scaled by element_tier HP/sec to ALL players (no proximity) ---
 	_earth_heal_accum += delta
@@ -1398,48 +1431,3 @@ func _tick_earth_effects(delta: float) -> void:
 				target.receive_heal.rpc_id(target.peer_id, heal_rate)
 		# ELEM-07: Earth heal fires SEAT MASSAGE HUD (T-05-18: host-only emit)
 		GameEvents.emit_hud.rpc("seat_massage")  # CR-03: .rpc() broadcasts to all client CarHUDs
-
-	# --- ELEM-06: Shockwave at element_tier-scaled interval — knockback + 15 damage ---
-	_earth_shock_accum += delta
-	if _earth_shock_accum >= sw_cooldown:
-		_earth_shock_accum = 0.0
-		for earth_player in earth_players:
-			var earth_pos: Vector2 = earth_player.global_position
-			# Visual ring broadcast to all peers (call_local so host also sees it)
-			_show_earth_shockwave.rpc(earth_pos)
-			# Host-only damage + knockback (T-05-15)
-			for enemy in get_tree().get_nodes_in_group("enemies"):
-				var dist: float = enemy.global_position.distance_to(earth_pos)
-				if dist <= 120.0:
-					enemy.take_damage(15)
-					# Knockback: push enemy away from Earth player (D-19)
-					if is_instance_valid(enemy) and not enemy.is_queued_for_deletion():
-						enemy.velocity += (enemy.global_position - earth_pos).normalized() * 350.0
-					# D-21 Tier 3: shockwave also briefly slows enemies (×0.5 for 1s)
-					if element_tier >= 3 and is_instance_valid(enemy) and not enemy.is_queued_for_deletion():
-						enemy.velocity *= 0.5
-						get_tree().create_timer(1.0).timeout.connect(func():
-							if is_instance_valid(enemy) and not enemy.is_queued_for_deletion():
-								enemy.velocity *= 2.0
-						)
-		# ELEM-07: Earth shockwave fires SEAT MASSAGE HUD (T-05-18: host-only, one emit per wave)
-		GameEvents.emit_hud.rpc("seat_massage")  # CR-03: .rpc() broadcasts to all client CarHUDs
-
-## D-19 (ELEM-06): Broadcast expanding green ring visual to all peers.
-## Clone of HornShockwave._show_visual with RADIUS=120 and Earth green color.
-## call_local so host also renders the ring.
-@rpc("authority", "call_local", "unreliable_ordered")
-func _show_earth_shockwave(pos: Vector2) -> void:
-	Sfx.play("earth_shockwave")  # rides the existing every-peer ring RPC
-	const RADIUS: float = 120.0
-	var ring := ColorRect.new()
-	ring.color = Color(0.4, 0.8, 0.2, 0.8)
-	ring.size = Vector2(RADIUS * 2.0, RADIUS * 2.0)
-	ring.pivot_offset = Vector2(RADIUS, RADIUS)
-	ring.position = pos - Vector2(RADIUS, RADIUS)
-	ring.scale = Vector2(0.1, 0.1)
-	add_child(ring)
-	var tween := ring.create_tween()
-	tween.tween_property(ring, "scale", Vector2(2.0, 2.0), 0.35)
-	tween.parallel().tween_property(ring, "modulate:a", 0.0, 0.35)
-	tween.tween_callback(ring.queue_free)

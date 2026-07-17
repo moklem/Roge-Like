@@ -29,12 +29,23 @@ func activate() -> void:
 		circle.radius = 14.0
 		shape.shape = circle
 		tire.add_child(shape)
-		# ColorRect visual — small dark circle (tire placeholder)
-		var visual := ColorRect.new()
-		visual.color = Color(0.2, 0.2, 0.2)  # dark grey tire
-		visual.size = Vector2(16, 16)
-		visual.position = Vector2(-8, -8)
-		tire.add_child(visual)
+		# Comic tire art (rolling 3-frame loop), staggered per orbit slot so the five
+		# tires don't spin in lockstep. Falls back to the flat dark square when missing.
+		var sf: SpriteFrames = Juice.frames("tire")
+		if sf != null:
+			var spr := AnimatedSprite2D.new()
+			spr.sprite_frames = sf
+			spr.scale = Vector2(0.234, 0.234)  # 128px canvas → ~30px, matches the 14px hitbox
+			tire.add_child(spr)
+			spr.play("default")
+			spr.frame = i % sf.get_frame_count("default")
+		else:
+			# ColorRect visual — small dark circle (tire placeholder)
+			var visual := ColorRect.new()
+			visual.color = Color(0.2, 0.2, 0.2)  # dark grey tire
+			visual.size = Vector2(16, 16)
+			visual.position = Vector2(-8, -8)
+			tire.add_child(visual)
 		# Tires beyond index 2 start hidden (visible only when level allows)
 		if i >= 3:
 			tire.visible = false

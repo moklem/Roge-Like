@@ -29,20 +29,23 @@ const SFX_DIR: String = "res://assets/audio/sfx/"
 ## (ui_click at -2) is compensating for a genuinely quiet sample.
 const CUES: Dictionary = {
 	# --- combat (routine) ---
-	"shoot":           ["shoot.wav",           -19.5, 0.95, 1.08],
+	"shoot":           ["shoot.wav",           -19.0, 0.95, 1.08],  # arrow whoosh, trimmed to 0.36s to seat inside the 0.35s L3 fire interval
 	"hit":             ["hit.mp3",             -13.0, 0.92, 1.10],
+	# Same tick as "hit" but ~8 dB down: layered UNDER the death cue on a killing blow so the
+	# kill keeps its confirming click without doubling the normal hit's loudness (Enemy._exit_tree).
+	"hit_kill":        ["hit.mp3",             -21.0, 0.92, 1.10],
 	"enemy_die":       ["enemy_die.wav",       -16.0, 0.90, 1.10],
 	# --- weapons ---
-	"exhaust_flames":  ["exhaust_flames.wav",  -15.5, 0.95, 1.05],
+	"exhaust_flames":  ["exhaust_flames.wav",  -22.0, 0.95, 1.05],  # playtest: was -15.5, too loud on repeat
 	"antenna_beam":    ["antenna_beam.wav",    -19.0, 0.95, 1.05],
 	"horn_shockwave":  ["horn_shockwave.wav",  -14.0, 0.95, 1.05],  # playtest: louder than the leveled -20
-	"airbag_arm":      ["airbag_arm.wav",      -14.0, 1.00, 1.00],
-	"airbag_break":    ["airbag_break.wav",    -11.0, 0.95, 1.05],
 	# --- role abilities ---
 	"dash":            ["dash.wav",             -9.0, 0.95, 1.08],
 	"dash_shockwave":  ["dash_shockwave.wav",  -12.0, 0.95, 1.05],
+	# Two lengths cut from one shield sample so the sound spans the exact shield window:
+	# 3.0s for the Stage-1 shield, 6.0s for the Stage-2 shield (see Player._activate_shield).
 	"shield_up":       ["shield_up.wav",       -14.0, 0.95, 1.05],
-	"earth_shockwave": ["earth_shockwave.wav", -12.0, 0.95, 1.05],
+	"shield_up_s2":    ["shield_up_s2.wav",    -14.0, 0.95, 1.05],
 	"engineer_heal":   ["engineer_heal.wav",   -16.0, 0.98, 1.04],
 	"drone_deploy":    ["drone_deploy.wav",    -14.0, 0.95, 1.05],
 	# --- HUD echoes (onset-gated, see _on_hud_event) ---

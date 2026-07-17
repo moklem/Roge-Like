@@ -13,6 +13,7 @@ const DAMAGE: int = 25
 var _timer: Timer = null
 var _area: Area2D = null
 var _beam_visual: ColorRect = null
+var _beam_anim: AnimatedSprite2D = null  # comic beam strip; null → ColorRect fallback
 
 func activate(weapon_manager: Node) -> void:
 	_setup_area()
@@ -47,14 +48,32 @@ func _setup_area() -> void:
 	# Offset shape so origin is at player, beam extends forward
 	shape.position = Vector2(BEAM_LENGTH / 2.0, 0.0)
 	_area.add_child(shape)
-	# ColorRect beam visual
-	_beam_visual = ColorRect.new()
-	_beam_visual.name = "BeamVisual"
-	_beam_visual.color = Color(0.0, 1.0, 0.8, 0.85)  # cyan-teal antenna beam
-	_beam_visual.size = Vector2(BEAM_LENGTH, BEAM_WIDTH)
-	_beam_visual.position = Vector2(0.0, -BEAM_WIDTH / 2.0)
-	_beam_visual.visible = false
-	_area.add_child(_beam_visual)
+	# Comic beam strip (fires from the origin out along +X, matching the area rotation).
+	# Falls back to the old flat cyan rect when the art isn't delivered.
+	var sf: SpriteFrames = Juice.frames("beam")
+	if sf != null:
+		_beam_anim = AnimatedSprite2D.new()
+		_beam_anim.name = "BeamAnim"
+		_beam_anim.sprite_frames = sf
+		_beam_anim.centered = false
+		# 512×318 canvas, beam core on y≈160; x stretched so the drawn beam (~495px of
+		# canvas) spans BEAM_LENGTH, y compressed so the halo rings hug the thin beam.
+		_beam_anim.offset = Vector2(0.0, -160.0)
+		_beam_anim.scale = Vector2(BEAM_LENGTH / 495.0, 0.32)
+		_beam_anim.visible = false
+		_beam_anim.animation_finished.connect(func():
+			if is_instance_valid(_beam_anim):
+				_beam_anim.visible = false)
+		_area.add_child(_beam_anim)
+	else:
+		# ColorRect beam visual
+		_beam_visual = ColorRect.new()
+		_beam_visual.name = "BeamVisual"
+		_beam_visual.color = Color(0.0, 1.0, 0.8, 0.85)  # cyan-teal antenna beam
+		_beam_visual.size = Vector2(BEAM_LENGTH, BEAM_WIDTH)
+		_beam_visual.position = Vector2(0.0, -BEAM_WIDTH / 2.0)
+		_beam_visual.visible = false
+		_area.add_child(_beam_visual)
 	add_child(_area)
 
 func _setup_timer(weapon_manager: Node) -> void:
@@ -135,7 +154,11 @@ func _show_visual(dir: Vector2, pos: Vector2) -> void:
 	Sfx.play("antenna_beam")  # rides the existing every-peer visual RPC — no new sound RPC
 	_area.global_position = pos
 	_area.rotation = dir.angle()
-	if _beam_visual:
+	if _beam_anim != null and is_instance_valid(_beam_anim):
+		_beam_anim.visible = true
+		_beam_anim.frame = 0
+		_beam_anim.play("default")  # one-shot; animation_finished hides it again
+	elif _beam_visual:
 		_beam_visual.visible = true
 		var tween := create_tween()
 		tween.tween_interval(0.2)

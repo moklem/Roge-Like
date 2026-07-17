@@ -6,3 +6,12 @@
 
 # macOS
 .DS_Store
+
+# Export-Builds (nie committen)
+export/
+build/
+builds/
+*.exe
+*.pck
+*.dmg
+*.apk

@@ -23,7 +23,8 @@ static func build(
 	initial_velocity_min: float = 40.0,
 	initial_velocity_max: float = 120.0,
 	scale_min: float = 2.5,
-	scale_max: float = 4.5
+	scale_max: float = 4.5,
+	texture: Texture2D = null
 ) -> CPUParticles2D:
 	var p := CPUParticles2D.new()
 	p.one_shot = true
@@ -39,6 +40,16 @@ static func build(
 	p.scale_amount_max = scale_max
 	p.color = color
 	p.z_index = 5
+	# Textured bursts carry the pre-colored comic sprites (glow_dot, poof, ember, …). The caller
+	# passes color=WHITE so the sprite's OWN colors show through, and this alpha ramp fades each
+	# particle out over its life instead of hard-vanishing (the flat colored-square bursts, texture
+	# left null, keep their original pop-out look). Godot's CPUParticles2D.color_ramp is a Gradient.
+	if texture != null:
+		p.texture = texture
+		var ramp := Gradient.new()
+		ramp.offsets = PackedFloat32Array([0.0, 0.7, 1.0])
+		ramp.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 0.85), Color(1, 1, 1, 0.0)])
+		p.color_ramp = ramp
 	p.emitting = true
 	p.finished.connect(p.queue_free)
 	return p

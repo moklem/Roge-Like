@@ -1,10 +1,11 @@
 extends Node2D
 ## IceTrailZone — frost patch spawned by Ice element player movement.
-## D-18 (ELEM-04): Slows enemies that enter (50% speed, 1.5 sec override).
+## D-18 (ELEM-04): Freezes enemies that enter — near-total stop (5% speed) for 1.5 sec.
 ## Lifetime 2 seconds, then queue_free.
 ## Host-authoritative: spawned by Game.gd IceTrailSpawner (host-only spawn).
 ## Clients see zone via IceTrailSpawner replication (P7).
 
+const FREEZE_MULT: float = 0.05
 const SLOW_DURATION: float = 1.5
 const LIFETIME: float = 2.0
 const ZONE_RADIUS: float = 20.0
@@ -45,9 +46,7 @@ func _on_enemy_entered(body: Node) -> void:
 	if not is_multiplayer_authority():
 		return
 	if body.is_in_group("enemies") and body.has_method("apply_slow"):
-		body.apply_slow()
-		# Ice Trail slow is 1.5s; apply_slow() sets 2.0s — override to 1.5s (D-18)
-		body._slow_timer = SLOW_DURATION
+		body.apply_slow(FREEZE_MULT, SLOW_DURATION, "ice")
 
 ## Frost-patch art, safe-loaded like the audio cues: drop the PNGs at these paths and they
 ## appear in game; while missing, the old ColorRect placeholder keeps working. Two variants

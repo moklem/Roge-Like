@@ -26,6 +26,9 @@ properties/3/replication_mode = 2
 properties/4/path = NodePath(".:is_slowed")
 properties/4/spawn = true
 properties/4/replication_mode = 2
+properties/5/path = NodePath(".:slow_source")
+properties/5/spawn = true
+properties/5/replication_mode = 2
 
 [node name="Enemy" type="CharacterBody2D" unique_id=969772550]
 motion_mode = 1

@@ -36,8 +36,26 @@ func _ready() -> void:
 	add_to_group("bullets")
 	# Rotate sprite to face travel direction
 	rotation = direction.angle()
+	_setup_screw_visual()
 	body_entered.connect(_on_body_entered)
 	area_entered.connect(_on_area_entered)
+
+## Comic screw art (head left, tip right — matches the +X flight axis this node rotates
+## along). Safe-loaded via Juice.frames: when the strip is missing the yellow ColorRect
+## in Bullet.tscn simply stays visible instead.
+func _setup_screw_visual() -> void:
+	var sf: SpriteFrames = Juice.frames("screw")
+	if sf == null:
+		return
+	$Sprite.visible = false
+	var spr := AnimatedSprite2D.new()
+	spr.sprite_frames = sf
+	# 128px canvas, screw body ~124px long → ~20px on screen; the offset re-centers the
+	# node origin on the screw body (the art sits slightly high in its canvas).
+	spr.scale = Vector2(0.16, 0.16)
+	spr.offset = Vector2(-1.0, 11.5)
+	add_child(spr)
+	spr.play("default")
 
 func _physics_process(delta: float) -> void:
 	# ALL peers simulate local movement — this is what makes bullets look smooth on clients
@@ -78,7 +96,7 @@ func _on_area_entered(area: Node) -> void:
 		enemy.take_damage(int(float(BULLET_DAMAGE) * damage_mult))
 	# Phase 5 ELEM-01/03/07: Element proc — must stay inside the authority guard above (Pitfall 5).
 	# force_burn=true (Fire Burst, ELEM-02) and element_proc=true (every-Nth-shot buff) both
-	# guarantee the effect; element_proc dispatches on the owner's element (fire/ice).
+	# guarantee the effect; element_proc dispatches on the owner's element (fire/ice/earth).
 	if force_burn:
 		if enemy.has_method("apply_burn"):
 			enemy.apply_burn()
@@ -94,8 +112,17 @@ func _on_area_entered(area: Node) -> void:
 					GameEvents.emit_hud.rpc("engine")
 			"ice":
 				if enemy.has_method("apply_slow"):
-					enemy.apply_slow()
+					enemy.apply_slow(0.5, 2.0, "ice")
 				if multiplayer.is_server():
 					GameEvents.emit_hud.rpc("ac")
+			"earth":
+				# Earth's on-hit proc — same 50%/2s slow Ice's proc uses, tagged "earth" so
+				# Enemy._process tints it green and pops pebble fleck instead of ice shard.
+				# No emit_hud here (unlike fire/ice): "seat_massage" is Earth's heal cue —
+				# firing it on every combat hit too would spam the green screen rim/CarHUD
+				# panel on top of the heal's own pulse. The enemy tint + pebble are proc
+				# feedback enough; the screen stays quiet for this one.
+				if enemy.has_method("apply_slow"):
+					enemy.apply_slow(0.5, 2.0, "earth")
 	# CMBT-05: despawn bullet — propagates to all clients via BulletSpawner
 	queue_free()

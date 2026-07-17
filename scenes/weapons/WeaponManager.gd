@@ -4,13 +4,13 @@ extends Node
 ## D-07: Authority pattern — owning peer's WM calls fire; host spawns projectile.
 ## D-08: ScrewsAndBolts migrated from Player._try_fire (always unlocked on start).
 ## D-15: Max 6 weapons; add_weapon returns false if full (silent cap, no UI in Phase 4).
-## D-16: reset() called from game-over path; clears all weapons and airbag charge.
+## D-16: reset() called from game-over path; clears all weapons.
 
 ## Weapon cap: start weapon + 2 picked via the sub-room weapon-choice overlay (end of sub-rooms 2 and 4).
 const MAX_WEAPONS: int = 3
 const WEAPON_IDS: Array[String] = [
 	"screws_and_bolts", "exhaust_flames", "spinning_tires",
-	"antenna_beam", "horn_shockwave", "airbag_shield"
+	"antenna_beam", "horn_shockwave"
 ]
 
 ## Set true to skip screws auto-fire and start with a random weapon for testing.
@@ -19,9 +19,6 @@ const DEBUG_WEAPON_TEST: bool = false
 ## D-02: weapon_id → int (always 1 at unlock in Phase 4; Phase 6 card picks increment this)
 var unlocked_weapons: Array[String] = []
 var weapon_level: Dictionary = {}
-## Phase 6 D-11: Airbag death-prevention charge count (int replaces previous bool flag)
-var airbag_count: int = 0            # Phase 6 D-11: int count; L3=2 charges
-const MAX_AIRBAG_CHARGES: int = 2    # Level 3 dual-charge (D-11)
 
 ## Screws-and-bolts fire cooldown (migrated from Player.FIRE_INTERVAL)
 const SCREWS_INTERVAL: float = 0.5
@@ -38,7 +35,7 @@ func _ready() -> void:
 	# D-08: ScrewsAndBolts is always unlocked — migrated from Player._try_fire
 	add_weapon("screws_and_bolts")
 	if DEBUG_WEAPON_TEST:
-		var others: Array[String] = ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave", "airbag_shield"]
+		var others: Array[String] = ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave"]
 		add_weapon(others[absi(get_parent().peer_id) % others.size()])
 
 ## Called by Player._physics_process each frame (replaces _fire_cooldown block in Player.gd).
@@ -72,10 +69,10 @@ func _fire_screws() -> void:
 	# Subtle shoot cue — _fire_screws only runs on the owning peer (tick() authority guard),
 	# so each player hears their own default attack, once per volley.
 	Sfx.shoot()
-	# Element buff: count volleys for fire/ice players; every ELEMENT_PROC_INTERVAL-th volley
-	# the bolts carry the element proc (guaranteed burn/slow + CarHUD pulse on hit).
+	# Element buff: count volleys for fire/ice/earth players; every ELEMENT_PROC_INTERVAL-th
+	# volley the bolts carry the element proc (guaranteed burn/slow + CarHUD pulse on hit).
 	var element_proc: bool = false
-	if player.element == "fire" or player.element == "ice":
+	if player.element == "fire" or player.element == "ice" or player.element == "earth":
 		_shot_count += 1
 		if _shot_count >= ELEMENT_PROC_INTERVAL:
 			_shot_count = 0
@@ -137,26 +134,13 @@ func _find_nearest_enemy(player: Node) -> Node:
 	return nearest
 
 ## WEAP-03: Add weapon by ID. Returns false silently if at cap (D-15) or already unlocked (D-01).
-## Special case: airbag_shield can be 're-armed' (charge incremented up to cap) even when already
-## in unlocked_weapons, as long as under the charge cap (D-13: pick up again to re-arm).
 func add_weapon(weapon_id: String) -> bool:
 	if unlocked_weapons.size() >= MAX_WEAPONS:
 		return false  # D-15: silent cap
-	# Phase 6 D-13 special case: airbag_shield re-arm — second pickup adds a charge (up to cap)
-	if weapon_id == "airbag_shield" and unlocked_weapons.has(weapon_id):
-		var lvl: int = weapon_level.get("airbag_shield", 1)
-		var cap: int = MAX_AIRBAG_CHARGES if lvl >= 3 else 1
-		if airbag_count < cap:
-			airbag_count = mini(airbag_count + 1, cap)
-			return true
-		return false  # already at cap — silently ignore (D-01)
 	if unlocked_weapons.has(weapon_id):
 		return false  # D-01: already unlocked — silent ignore (no upgrade in Phase 4)
 	unlocked_weapons.append(weapon_id)
 	weapon_level[weapon_id] = 1  # D-02: Phase 6 will increment this via card picks
-	# Phase 6 D-11: Airbag is a passive charge, not a timer weapon
-	if weapon_id == "airbag_shield":
-		airbag_count = 1              # arm with 1 charge on first unlock
 	_activate_weapon_node(weapon_id)
 	return true
 
@@ -164,17 +148,15 @@ func add_weapon(weapon_id: String) -> bool:
 ## Called from GameState._broadcast_game_over (wired in Plan 05).
 func reset() -> void:
 	# Deactivate all weapon nodes
-	for weapon_id in ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave", "airbag_shield"]:
+	for weapon_id in ["exhaust_flames", "spinning_tires", "antenna_beam", "horn_shockwave"]:
 		var node_names := {"exhaust_flames": "ExhaustFlames", "spinning_tires": "SpinningTires",
-						   "antenna_beam": "AntennaBeam", "horn_shockwave": "HornShockwave",
-						   "airbag_shield": "AirbagShield"}
+						   "antenna_beam": "AntennaBeam", "horn_shockwave": "HornShockwave"}
 		var node_name: String = node_names.get(weapon_id, "")
 		if node_name != "" and has_node(node_name):
 			get_node(node_name).deactivate()
 			get_node(node_name).queue_free()
 	unlocked_weapons = []
 	weapon_level = {}
-	airbag_count = 0
 	_screws_interval = SCREWS_INTERVAL
 	_screws_cooldown = 0.0
 
@@ -202,11 +184,6 @@ func _activate_weapon_node(weapon_id: String) -> void:
 			wep.name = "HornShockwave"
 			call_deferred("add_child", wep)
 			call_deferred("_deferred_activate_shockwave", wep)
-		"airbag_shield":
-			var wep: Node = load("res://scenes/weapons/AirbagShield.gd").new()
-			wep.name = "AirbagShield"
-			call_deferred("add_child", wep)
-			call_deferred("_deferred_activate_airbag", wep)
 
 func _deferred_activate_exhaust(wep: Node) -> void:
 	if is_instance_valid(wep):
@@ -227,10 +204,6 @@ func _deferred_activate_shockwave(wep: Node) -> void:
 		wep.activate(self)
 		wep.apply_cooldown_mult(get_parent().cooldown_mult)
 
-func _deferred_activate_airbag(wep: Node) -> void:
-	if is_instance_valid(wep):
-		wep.activate()
-
 ## Cooldown card (XP-04): re-scale the fire timers of every active weapon. Called from
 ## Game._apply_stat_boost_rpc on the owning peer whenever the multiplier changes; newly
 ## activated weapons pick it up in the _deferred_activate_* helpers instead.
@@ -238,15 +211,6 @@ func apply_cooldown_mult(mult: float) -> void:
 	for node_name in ["ExhaustFlames", "AntennaBeam", "HornShockwave"]:
 		if has_node(node_name):
 			get_node(node_name).apply_cooldown_mult(mult)
-
-## Called by Player.gd receive_damage after airbag absorbs a lethal hit.
-## Phase 6 D-11: Decrements charge count; hides ring only when count reaches 0.
-func consume_airbag() -> void:
-	airbag_count = maxi(airbag_count - 1, 0)
-	Sfx.play("airbag_break")  # owner-only, like the receive_damage path that calls this
-	if airbag_count == 0:
-		if has_node("AirbagShield"):
-			get_node("AirbagShield").hide_ring()
 
 ## Phase 6 (XP-08, D-11): Increment weapon level for a card pick. Called on owning peer
 ## by host via rpc_id from Game.gd _apply_card_effect.

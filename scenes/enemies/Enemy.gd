@@ -34,6 +34,10 @@ var speed_multiplier: float = 1.0   # D-18 Ice Slow: reduces to 0.5 for 2 sec
 var _slow_timer: float = 0.0        # counts down slow duration
 var _burn_timer: float = 0.0        # counts down burn duration (max 3 sec)
 var _burn_tick_timer: float = 0.0   # 1-sec interval for burn damage ticks
+## Which element applied the current slow ("ice" or "earth") — the slow itself is a single
+## generic effect (one timer, no stacking), this field only picks the tint/VFX/impact color
+## so Ice's and Earth's procs read as their own element instead of both looking like Ice.
+var slow_source: String = "ice"
 
 ## Phase 10-08/ABIL-01: Synced via MultiplayerSynchronizer (SceneReplicationConfig
 ## properties/3, properties/4). Set/cleared host-only inside apply_burn()/apply_slow()/
@@ -60,7 +64,7 @@ var _health_ghost_tween: Tween = null
 ## (EliteEnemy) keep the flat ColorRect placeholder.
 ## Two art variants; the pick derives from the node name, which the MultiplayerSpawner
 ## keeps identical on every peer, so all clients show the same variant.
-const ENEMY_TARGET_HEIGHT: float = 50.0  # on-screen height of the drawn character (px)
+const ENEMY_TARGET_HEIGHT: float = 42.0  # on-screen height of the drawn character (px); playtest: 50→42, a touch smaller
 var _uses_char_sprite: bool = false
 var _variant: int = 1
 
@@ -90,6 +94,9 @@ const LEAN_WALK_RAD: float = 0.07  # lean into the travel direction (~4°)
 
 func _ready() -> void:
 	add_to_group("enemies")
+	# LIDAR spawn-in: scan ring + brief orange glow on every peer. Deferred so the spawner's
+	# position (applied around add_child) is final before the effect reads global_position.
+	call_deferred("_play_spawn_fx")
 	# WR-03: set current_hp here so any bare instantiation (without _do_spawn_enemy) gets the
 	# correct value. _do_spawn_enemy and EliteEnemy._ready() overwrite current_hp after this.
 	current_hp = MAX_HP
@@ -226,13 +233,19 @@ func _process(_delta: float) -> void:
 	if is_burning:
 		status_tint = Color(1.0, 0.6, 0.2)  # orange tint
 	elif is_slowed:
-		status_tint = Color(0.5, 0.7, 1.0)  # blue tint
+		# Ice reads blue (element_color). Earth deliberately does NOT reuse element_color's
+		# green here — on an enemy sprite that reads as poison/nature, not "stuck in rock".
+		# Pebble-brown instead, matching the pebble hit fleck below.
+		status_tint = Color(0.62, 0.42, 0.2) if slow_source == "earth" else Juice.element_color(slow_source)
 	if modulate.r != status_tint.r or modulate.g != status_tint.g or modulate.b != status_tint.b:
 		modulate = Color(status_tint.r, status_tint.g, status_tint.b, modulate.a)
 	# Subtle hit cue on damage. current_hp is replicated, so this fires on every peer
 	# (host applies damage directly; clients see the synced drop) for any damage source.
 	if current_hp < _last_hp_seen:
-		Sfx.hit()
+		# The killing blow (hp hits 0) skips the full-volume tick here — _exit_tree lays the quiet
+		# "hit_kill" layer under the death cue instead, so a kill isn't a loud hit + a death sound.
+		if current_hp > 0:
+			Sfx.hit()
 		# DMG-01/D-04: pooled damage number (element-colored via _impact_color, white for a
 		# plain hit) plus the tiered impact reaction (flash always, spark/squash/recoil from
 		# medium, hit-stop + ring on heavy). Runs on every peer, no authority guard, no new
@@ -246,7 +259,14 @@ func _process(_delta: float) -> void:
 		# the shared bounded Juice.spawn_burst/FxLayer pool — no second uncapped spawn path.
 		# Reads the now-replicated flags, so this renders identically on host and client.
 		if is_burning or is_slowed:
-			Juice.spawn_burst(global_position, _impact_color(), 8, 0.4)
+			# Element-specific comic fleck: ember for fire, ice shard for Ice's slow, pebble for
+			# Earth's slow. Falls back to the flat element-colored burst when the art isn't there.
+			var elem_tex: Texture2D = Juice.vfx("ember") if is_burning \
+				else (Juice.vfx("pebble") if slow_source == "earth" else Juice.vfx("shard"))
+			if elem_tex != null:
+				Juice.spawn_tex_burst(global_position, elem_tex, 6, 24.0, 0.4)
+			else:
+				Juice.spawn_burst(global_position, _impact_color(), 8, 0.4)
 		# DMG-04/D-07: HP bar ghost chip-away for the segment just lost.
 		_update_health_ghost(_last_hp_seen, current_hp)
 	_last_hp_seen = current_hp
@@ -267,15 +287,14 @@ func _hit_direction() -> Vector2:
 	return away.normalized() if away.length() > 0.01 else Vector2.UP
 
 ## Impact color hook (DMG-07/D-02). Reads the replicated is_burning/is_slowed flags
-## (ABIL-01) so sparks/bursts are element-colored via the shared Juice.element_color lookup
-## — never a hand-rolled second color table. Earth applies no per-hit enemy status, so an
-## earth-dealt basic hit falls through to neutral white here (earth's green lives at its own
-## ability presentation sites per the locked "no new synced state" constraint).
+## (ABIL-01) so sparks/bursts are element-colored. is_slowed now carries either Ice or
+## Earth's proc (see slow_source) — Ice follows the shared element_color, Earth uses the
+## same pebble-brown as the status tint (not element_color's green — see _process).
 func _impact_color() -> Color:
 	if is_burning:
 		return Juice.element_color("fire")
 	if is_slowed:
-		return Juice.element_color("ice")
+		return Color(0.62, 0.42, 0.2) if slow_source == "earth" else Juice.element_color(slow_source)
 	return Color.WHITE
 
 ## DMG-04/D-07: Positions the ghost overlay to span the just-lost HP segment (old_hp→new_hp)
@@ -378,18 +397,37 @@ func take_damage(amount: int) -> void:
 ## (Pitfall 3/4 — never RPC-target a randi()-named Enemy node). Guarded to real deaths only:
 ## the group-purge path (Game.gd room-transition cleanup) frees enemies with HP still
 ## remaining and must not spawn death VFX.
+## LIDAR materialize effect at the spawn point. Guarded against the node already being gone by
+## the time this deferred call runs (fast spawn→purge on room transitions).
+func _play_spawn_fx() -> void:
+	if not is_inside_tree():
+		return
+	# LIDAR reticle is reserved for ELITE spawns — the "something big just showed up" tell — not
+	# every trash mob. is_elite is set in EliteEnemy._ready(), which has already run by the time
+	# this deferred call fires (call_deferred resolves after the whole _ready chain).
+	if not is_elite:
+		return
+	# Pass self so the scan reticle parents to THIS enemy (sits on it, rides its position) rather
+	# than a captured world point that could read as being at the player.
+	Juice.spawn_lidar_spawn(global_position, self)
+
 func _exit_tree() -> void:
 	if current_hp > 0:
 		return
 	# Read the dying enemy's own live color so normal/Elite/Boss read differently (D-04)
 	# with no per-subclass edit — EliteEnemy/Boss both set their own $Sprite.color.
 	var death_color: Color = $Sprite.color if has_node("Sprite") else Color(0.8, 0.2, 0.2, 1)
-	Juice.spawn_burst(global_position, death_color, 14, 0.6)
+	# Kid-friendly comic "POOF" (smoke puff + glow dots), never gore. death_color is the fallback
+	# tint used only until the vfx art is delivered — see Juice.spawn_death_pop.
+	Juice.spawn_death_pop(global_position, death_color)
 	# Boss overrides _enter_phase (EliteEnemy does not), so has_method is a cheap boss check
 	# alongside is_elite — both get the heavier ~0.12s hit-stop; normal kills stay ~0.07s.
 	var is_boss: bool = has_method("_enter_phase")
 	var stop_dur: float = 0.12 if (is_elite or is_boss) else 0.07
 	Juice.hitstop(stop_dur)
+	# Quiet confirming click, laid UNDER whichever death cue fires below so every kill lands with a
+	# hit-marker tick even though the full-volume "hit" was suppressed on the fatal blow (see _process).
+	Sfx.play("hit_kill")
 	# Death cue rides the same every-peer path as the burst above. The three kill tiers get three
 	# different cues so a swarm kill never sounds like the boss going down: routine scrap crunch,
 	# a reserved-voice fanfare for elites, and a full stinger + music resolve for the boss.
@@ -430,12 +468,15 @@ func apply_burn() -> void:
 	_burn_tick_timer = 1.0
 	is_burning = true  # ABIL-01: replicated flag; _process (every peer) applies the orange tint
 
-## Phase 5: Apply Ice Slow to this enemy (D-18). Called by Bullet.gd on host after proc check.
-## Slows to 50% speed for 2 seconds.
-func apply_slow() -> void:
-	speed_multiplier = 0.5
-	_slow_timer = 2.0
-	is_slowed = true  # ABIL-01: replicated flag; _process (every peer) applies the blue tint
+## Phase 5: Apply a Slow to this enemy — Ice's on-hit proc (D-18), Earth's on-hit proc, and
+## IceTrailZone's stronger freeze all funnel through here with their own mult/duration.
+## Called by Bullet.gd / IceTrailZone.gd on host after their own proc check. Does not stack —
+## a fresh application always overwrites the timer and source (matches apply_burn's refresh).
+func apply_slow(mult: float = 0.5, duration: float = 2.0, source: String = "ice") -> void:
+	speed_multiplier = mult
+	_slow_timer = duration
+	slow_source = source
+	is_slowed = true  # ABIL-01: replicated flag; _process (every peer) applies the tint
 
 ## D-10: Host-only contact damage — once per contact
 func _on_hurtbox_body_entered(body: Node) -> void:

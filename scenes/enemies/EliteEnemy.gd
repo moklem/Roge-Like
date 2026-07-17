@@ -12,7 +12,7 @@ const ELITE_ANIM_SET: String = "elite"
 ## Bigger than a rank-and-file enemy (50px) so the elite reads as a mini-boss at a glance,
 ## still kept close to its hurtbox (radius 22 → 44px) so players aren't swinging at empty
 ## pixels — same reasoning as Boss.BOSS_TARGET_HEIGHT.
-const ELITE_TARGET_HEIGHT: float = 72.0
+const ELITE_TARGET_HEIGHT: float = 62.0  # playtest: 72→62, scaled down with normal enemies
 
 func _anim_set() -> String:
 	return ELITE_ANIM_SET

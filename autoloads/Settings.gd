@@ -18,6 +18,21 @@ var shake_intensity: int = SHAKE_NORMAL
 var music_volume: float = 1.0
 var sfx_volume: float = 1.0
 
+## Music mute toggle (main-menu corner button). Independent of music_volume so
+## unmuting restores the previous slider position.
+var music_muted: bool = false
+
+## Mutes/unmutes the Music bus. No-op when the "Music" bus doesn't exist (Pitfall 7).
+func set_music_muted(muted: bool) -> void:
+	music_muted = muted
+	var idx := AudioServer.get_bus_index("Music")
+	if idx >= 0:
+		AudioServer.set_bus_mute(idx, muted)
+
+func toggle_music_muted() -> bool:
+	set_music_muted(not music_muted)
+	return music_muted
+
 ## Trauma multiplier per intensity tier (UI-SPEC table: Off 0.0x, Low 0.4x, Normal 1.0x).
 ## D-11: this setting governs screen shake ONLY — hit-stop/flash/particles always play.
 func shake_multiplier() -> float:

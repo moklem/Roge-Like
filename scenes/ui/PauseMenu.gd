@@ -75,5 +75,8 @@ func _on_shake_cycle_pressed() -> void:
 ## isn't left holding a half-dead connection.
 func _on_quit_pressed() -> void:
 	_apply_open(false)
+	# Quitting mid-run skips the game-over path, so reset team XP/level/loop state
+	# here too — otherwise the next run starts with the abandoned run's progression.
+	GameState.reset_for_new_run()
 	Lobby.remove_multiplayer_peer()
 	get_tree().change_scene_to_file("res://scenes/ui/MainMenu.tscn")

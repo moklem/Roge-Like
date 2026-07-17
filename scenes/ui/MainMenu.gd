@@ -8,6 +8,7 @@ extends Control
 @onready var ip_line: LineEdit = $VBoxContainer/IPLineEdit
 @onready var status_label: Label = $VBoxContainer/StatusLabel
 @onready var settings_button: Button = $VBoxContainer/SettingsButton
+@onready var music_mute_button: Button = $MusicMuteButton
 
 @onready var settings_panel: Panel = $SettingsPanel
 @onready var shake_cycle_button: Button = $SettingsPanel/SettingsVBox/ShakeGroup/ShakeCycleButton
@@ -33,6 +34,7 @@ func _ready() -> void:
 	shake_cycle_button.text = Settings.shake_label()
 	music_slider.value = Settings.music_volume
 	sfx_slider.value = Settings.sfx_volume
+	music_mute_button.text = _mute_label()
 
 	# Quiet main-menu theme before the game starts (lobby switches to its own track).
 	Music.play_menu()
@@ -40,6 +42,7 @@ func _ready() -> void:
 	host_button.pressed.connect(_on_host_pressed)
 	join_button.pressed.connect(_on_join_pressed)
 	settings_button.pressed.connect(_on_settings_pressed)
+	music_mute_button.pressed.connect(_on_music_mute_pressed)
 	close_button.pressed.connect(_on_close_settings_pressed)
 	shake_cycle_button.pressed.connect(_on_shake_cycle_pressed)
 	music_slider.value_changed.connect(_on_music_slider_changed)
@@ -92,6 +95,15 @@ func _on_connection_failed() -> void:
 	status_label.text = "Connection failed. Check IP and try again."
 	host_button.disabled = false
 	join_button.disabled = false
+
+## Corner music-mute toggle. Mutes the whole Music bus via Settings, so the state
+## survives scene changes (Settings is an autoload) and covers lobby + in-game too.
+func _on_music_mute_pressed() -> void:
+	Settings.toggle_music_muted()
+	music_mute_button.text = _mute_label()
+
+func _mute_label() -> String:
+	return "MUSIC: OFF" if Settings.music_muted else "MUSIC: ON"
 
 ## D-08: opens the Settings sub-panel. Local menu state only — never synced (D-10).
 func _on_settings_pressed() -> void:

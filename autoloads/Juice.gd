@@ -77,6 +77,284 @@ func _process(delta: float) -> void:
 	_update_vignette(delta)
 
 # ------------------------------------------------------------------------------
+# VFX texture registry — the hand-drawn/generated comic particle sprites under
+# assets/active/vfx/. Safe-loaded (missing file → vfx() returns null → the textured
+# spawners fall back to the flat colored-square burst), exactly like Sfx cues: every
+# call site can be wired ahead of the art landing without crashing.
+# ------------------------------------------------------------------------------
+const VFX_DIR: String = "res://assets/active/vfx/"
+## "glow_dot" is deliberately NOT here — it's a code-generated soft radial glow (see
+## _make_glow_texture), registered under the same key in _ready. A flat white glow tints
+## cleanly and reads better than a hard pre-colored orb.
+const VFX_NAMES: Array[String] = [
+	"spark", "poof", "star", "heal_plus",
+	"ember", "shard", "pebble", "levelup", "revive",
+	# ground speed lines, lidar spawn ring, and the AC/climate rim overlays
+	"speedline", "brakeline", "scan_ring",
+	"speed_streak", "brake_puff", "overdrive_spark",
+	# driver-mode REPAIR plus-cross stream + the ECO/SPORT mode badges
+	"repair_plus", "badge_eco", "badge_sport",
+	"rim_cold", "rim_hot", "rim_massage",
+]
+var _vfx: Dictionary = {}   # name -> Texture2D (absent when the file isn't there)
+var _glow_tex: GradientTexture2D = null
+
+func _ready() -> void:
+	for n in VFX_NAMES:
+		var path: String = VFX_DIR + n + ".png"
+		if ResourceLoader.exists(path):
+			_vfx[n] = load(path)
+	_vfx["glow_dot"] = _make_glow_texture()
+
+## Soft white radial glow (transparent edge), generated once — the same GradientTexture2D
+## idiom as the blob shadow. Used for the death-pop dots, drone deploy and big-hit sprays;
+## being white it tints cleanly, unlike a pre-colored orb sprite.
+func _make_glow_texture() -> GradientTexture2D:
+	if _glow_tex == null:
+		var grad := Gradient.new()
+		grad.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
+		grad.colors = PackedColorArray([
+			Color(1, 1, 1, 1), Color(1, 1, 1, 0.55), Color(1, 1, 1, 0.0),
+		])
+		_glow_tex = GradientTexture2D.new()
+		_glow_tex.gradient = grad
+		_glow_tex.fill = GradientTexture2D.FILL_RADIAL
+		_glow_tex.fill_from = Vector2(0.5, 0.5)
+		_glow_tex.fill_to = Vector2(0.5, 0.0)
+		_glow_tex.width = 64
+		_glow_tex.height = 64
+	return _glow_tex
+
+## The comic particle sprite by name, or null when it hasn't been delivered (callers
+## then degrade to the flat colored burst). See VFX_NAMES for the catalog.
+func vfx(name: String) -> Texture2D:
+	return _vfx.get(name, null)
+
+# ------------------------------------------------------------------------------
+# Frame-sequence registry — the multi-frame weapon/pickup animations delivered as
+# <dir>/<name>_NN.png strips. Same safe-load contract as vfx(): frames() returns null
+# when the art isn't there, so every call site keeps its ColorRect fallback.
+# fps values are tuned per set: the two shield strips are authored to span the Tank
+# shield durations exactly (36f/3s, 65f/6s), the loops are just pleasant cycle speeds.
+# ------------------------------------------------------------------------------
+const FRAME_SETS: Dictionary = {
+	"screw":       {"dir": "res://assets/active/weapons/",  "count": 6,  "fps": 15.0, "loop": true},
+	"tire":        {"dir": "res://assets/active/weapons/",  "count": 3,  "fps": 12.0, "loop": true},
+	"exhaust":     {"dir": "res://assets/active/weapons/",  "count": 12, "fps": 24.0, "loop": false},
+	"beam":        {"dir": "res://assets/active/weapons/",  "count": 15, "fps": 30.0, "loop": false},
+	"shockwave":   {"dir": "res://assets/active/weapons/",  "count": 4,  "fps": 12.0, "loop": false},
+	"shield3":     {"dir": "res://assets/active/weapons/",  "count": 36, "fps": 12.0, "loop": false},
+	"shield6":     {"dir": "res://assets/active/weapons/",  "count": 65, "fps": 65.0 / 6.0, "loop": false},
+	"xp_orb_anim": {"dir": "res://assets/active/pickups/",  "count": 26, "fps": 10.0, "loop": true},
+}
+var _frame_sets: Dictionary = {}  # name -> SpriteFrames (built lazily, shared by all users)
+
+## The animation strip by name as a shared SpriteFrames ("default" animation), or null
+## when the frames haven't been delivered — callers then keep their old flat visuals.
+func frames(name: String) -> SpriteFrames:
+	if _frame_sets.has(name):
+		return _frame_sets[name]
+	if not FRAME_SETS.has(name):
+		return null
+	var cfg: Dictionary = FRAME_SETS[name]
+	var sf := SpriteFrames.new()
+	sf.set_animation_speed("default", cfg["fps"])
+	sf.set_animation_loop("default", cfg["loop"])
+	for i in range(1, int(cfg["count"]) + 1):
+		var path: String = "%s%s_%02d.png" % [cfg["dir"], name, i]
+		if not ResourceLoader.exists(path):
+			return null  # incomplete strip — treat as not delivered
+		sf.add_frame("default", load(path))
+	_frame_sets[name] = sf
+	return sf
+
+## One-shot frame animation at `pos` on the FxLayer — plays "default" once, frees itself.
+## `target_px` is the on-screen height; silently no-ops when strip or layer is missing.
+func spawn_anim(pos: Vector2, name: String, target_px: float, z: int = 6) -> AnimatedSprite2D:
+	var sf := frames(name)
+	var layer := _fx_layer()
+	if sf == null or layer == null:
+		return null
+	var spr := AnimatedSprite2D.new()
+	spr.sprite_frames = sf
+	spr.z_index = z
+	var tex: Texture2D = sf.get_frame_texture("default", 0)
+	var s: float = target_px / float(maxi(tex.get_height(), 1))
+	spr.scale = Vector2(s, s)
+	layer.add_child(spr)
+	spr.global_position = pos
+	spr.play("default")
+	spr.animation_finished.connect(spr.queue_free)
+	_backstop_free(spr, float(sf.get_frame_count("default")) / maxf(sf.get_animation_speed("default"), 1.0) + 0.5)
+	return spr
+
+# ------------------------------------------------------------------------------
+# Textured comic-pop spawners. These sit on top of spawn_burst/ImpactBurst but size the
+# particles in ON-SCREEN pixels (the source PNGs are ~512px, so a raw scale_amount of 3
+# would fill the screen) and keep the sprite's OWN colors (color=WHITE), since the art is
+# already colored per element/effect and multiplying it would just muddy it.
+# ------------------------------------------------------------------------------
+
+## A short burst of `amount` copies of `tex`, each drawn ~`target_px` tall, thrown along `dir`.
+## Silently no-ops if the texture is missing or the FxLayer isn't up yet (main menu).
+func spawn_tex_burst(pos: Vector2, tex: Texture2D, amount: int, target_px: float, lifetime: float,
+		spread: float = 180.0, vmin: float = 40.0, vmax: float = 120.0, dir: Vector2 = Vector2.UP,
+		gravity: Vector2 = Vector2(0.0, 60.0), tint: Color = Color.WHITE) -> void:
+	var layer := _fx_layer()
+	if layer == null or tex == null:
+		return
+	var s: float = target_px / float(maxi(tex.get_height(), 1))
+	# tint stays WHITE for the pre-colored comic sprites (shows their own colors); a caller passes
+	# a real color only for the neutral white code-glow (e.g. the orange LIDAR spawn glow).
+	var p := ImpactBurst.build(tint, amount, lifetime, dir, spread, vmin, vmax, s * 0.8, s * 1.25, tex)
+	p.gravity = gravity
+	layer.add_child(p)
+	p.global_position = pos
+	_backstop_free(p, lifetime + 0.5)
+
+## Single big comic sprite that scale-pops in, drifts up and fades — for the one-shot "moment"
+## art that already carries its own radiating lines (level-up arrow, revive cross). Not a burst.
+func spawn_pop(pos: Vector2, tex: Texture2D, target_px: float = 72.0, rise: float = 26.0, hold: float = 0.45) -> void:
+	var layer := _fx_layer()
+	if layer == null or tex == null:
+		return
+	var s := Sprite2D.new()
+	s.texture = tex
+	s.z_index = 7
+	var sc: float = target_px / float(maxi(tex.get_height(), 1))
+	s.scale = Vector2(sc, sc) * 0.4
+	layer.add_child(s)
+	s.global_position = pos
+	# set_ignore_time_scale so the pop still animates through the kill/heal hit-stop dip.
+	var tw := s.create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.tween_property(s, "scale", Vector2(sc, sc), 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(s, "global_position:y", pos.y - rise, 0.22 + hold)
+	tw.tween_interval(hold)
+	tw.tween_property(s, "modulate:a", 0.0, 0.28)
+	tw.tween_callback(s.queue_free)
+
+## Death "POOF": a slow fat smoke puff plus a spray of glowing dots, both comic-colored. Falls
+## back to the flat colored death burst when the art is absent (fallback_color = the dying
+## enemy's own tint, so normal/Elite/Boss still read differently).
+func spawn_death_pop(pos: Vector2, fallback_color: Color) -> void:
+	var poof := vfx("poof")
+	var dot := vfx("glow_dot")
+	if poof == null and dot == null:
+		spawn_burst(pos, fallback_color, 14, 0.6)  # art not delivered yet — old look
+		return
+	if poof != null:
+		spawn_tex_burst(pos, poof, 3, 60.0, 0.55, 140.0, 8.0, 34.0, Vector2.UP, Vector2(0.0, -12.0))
+	if dot != null:
+		spawn_tex_burst(pos, dot, 8, 22.0, 0.5, 180.0, 70.0, 150.0)
+
+## Heal cue: a few "+" crosses floating up. Falls back to the old green up-burst when absent.
+func spawn_heal(pos: Vector2) -> void:
+	var tex := vfx("heal_plus")
+	if tex == null:
+		spawn_burst(pos, Color(0.3, 1.0, 0.45, 0.9), 12, 0.7)
+		return
+	spawn_tex_burst(pos, tex, 6, 19.0, 0.7, 40.0, 28.0, 62.0, Vector2.UP, Vector2(0.0, -30.0))  # playtest: 26→19px, smaller heal crosses
+
+## Expanding tinted ring at `pos` — the shared "pulse/shockwave" marker used by the drone heal
+## pulse (same ColorRect + scale/fade idiom as _impact_ring and the deploy pop).
+func spawn_pulse_ring(pos: Vector2, radius: float, color: Color) -> void:
+	var layer := _fx_layer()
+	if layer == null:
+		return
+	var ring := ColorRect.new()
+	ring.color = Color(color.r, color.g, color.b, 0.5)
+	ring.size = Vector2(radius * 2.0, radius * 2.0)
+	ring.pivot_offset = Vector2(radius, radius)
+	ring.scale = Vector2(0.35, 0.35)
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(ring)
+	ring.global_position = pos - Vector2(radius, radius)
+	var tween := ring.create_tween()
+	tween.tween_property(ring, "scale", Vector2(1.0, 1.0), 0.45)
+	tween.parallel().tween_property(ring, "modulate:a", 0.0, 0.45)
+	tween.tween_callback(ring.queue_free)
+
+## Enemy spawn-in "materialize": a scan_ring that expands + rotates + fades, plus a brief simple
+## orange glow (kept short/light on purpose). No-ops without the art. Runs on every peer from
+## Enemy._ready (spawner-replicated), so no RPC.
+func spawn_lidar_spawn(pos: Vector2, attach_to: Node2D = null) -> void:
+	var layer := _fx_layer()
+	if layer == null:
+		return
+	var ring_tex := vfx("scan_ring")
+	if ring_tex != null:
+		var ring := Sprite2D.new()
+		ring.texture = ring_tex
+		ring.z_index = 6
+		# ~130px on screen: the art is thin radar arcs on a 512px canvas, so a small target would
+		# thin the lines below a pixel and vanish. A detection-reticle-sized ring keeps them crisp.
+		var sc: float = 130.0 / float(maxi(ring_tex.get_height(), 1))
+		ring.scale = Vector2(sc, sc) * 0.55
+		# Parent to the spawning enemy when given, so the reticle sits ON the enemy (and rides its
+		# position) instead of a captured world point. Falls back to the FxLayer at `pos` otherwise.
+		if attach_to != null and is_instance_valid(attach_to):
+			attach_to.add_child(ring)
+			ring.position = Vector2.ZERO
+		else:
+			layer.add_child(ring)
+			ring.global_position = pos
+		var tw := ring.create_tween()
+		tw.set_parallel(true)
+		tw.tween_property(ring, "scale", Vector2(sc, sc), 0.5).set_ease(Tween.EASE_OUT)
+		tw.tween_property(ring, "rotation", 0.6, 0.5)
+		tw.tween_property(ring, "modulate:a", 0.0, 0.5).set_delay(0.15)
+		tw.chain().tween_callback(ring.queue_free)
+	# Short, simple orange glow — the code glow tinted, just a few quick specks.
+	spawn_tex_burst(pos, _make_glow_texture(), 5, 18.0, 0.25, 180.0, 30.0, 80.0,
+		Vector2.UP, Vector2.ZERO, Color(0.95, 0.5, 0.12, 1.0))
+
+# ------------------------------------------------------------------------------
+# Screen-edge rim overlay — a brief colored glow around the viewport rim for the CarHUD
+# climate/comfort events (AC COLD blue / AC HOT red / Seat Massage green). Same fullscreen
+# TextureRect-on-a-CanvasLayer idiom as the damage vignette, but the texture is swapped per
+# call (pre-colored rim_* art) and pulsed out. Local/cosmetic; caller runs on every peer.
+# ------------------------------------------------------------------------------
+var _rim: TextureRect = null
+var _rim_tween: Tween = null
+
+## Flash the rim overlay with `tex` (one of the pre-colored rim_* textures), fading out after a
+## short hold. A new flash replaces any in-flight one. No-ops if the texture is missing.
+func rim_flash(tex: Texture2D, peak: float = 0.5) -> void:
+	if tex == null:
+		return
+	var r := _ensure_rim()
+	r.texture = tex
+	r.visible = true
+	if _rim_tween != null and _rim_tween.is_valid():
+		_rim_tween.kill()
+	r.modulate.a = peak
+	_rim_tween = create_tween()
+	_rim_tween.tween_interval(0.5)
+	_rim_tween.tween_property(r, "modulate:a", 0.0, 0.7)
+	_rim_tween.tween_callback(func() -> void:
+		if is_instance_valid(r):
+			r.visible = false
+	)
+
+func _ensure_rim() -> TextureRect:
+	if is_instance_valid(_rim):
+		return _rim
+	var layer := CanvasLayer.new()
+	layer.name = "RimLayer"
+	layer.layer = 4  # same band as the vignette, above the HUD layers
+	add_child(layer)
+	var rect := TextureRect.new()
+	rect.name = "RimOverlay"
+	rect.stretch_mode = TextureRect.STRETCH_SCALE
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rect.visible = false
+	layer.add_child(rect)
+	rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_rim = rect
+	return _rim
+
+# ------------------------------------------------------------------------------
 # Shared element-color lookup (single source of truth, reused by every later wave:
 # damage numbers, element hit VFX, level-up burst, evolution burst — UI-SPEC table).
 # ------------------------------------------------------------------------------
@@ -373,7 +651,15 @@ func _spawn_spark(pos: Vector2, dir: Vector2, color: Color, severity: float) -> 
 		return
 	var amount: int = 4 + int(round(severity * 8.0))      # ~4 on a chip hit, ~12 on a heavy one
 	var speed: float = 90.0 + severity * 160.0
-	var p := ImpactBurst.build(color, amount, 0.28, dir, 38.0, speed * 0.5, speed, 1.6, 3.0)
+	# The spark sprite (a small comic twinkle) carries its own color, so pass WHITE and size it
+	# in on-screen px; without the art we keep the original tiny colored-streak look (color/scale).
+	var tex := vfx("spark")
+	var p: CPUParticles2D
+	if tex != null:
+		var s: float = 18.0 / float(maxi(tex.get_height(), 1))
+		p = ImpactBurst.build(Color.WHITE, amount, 0.28, dir, 38.0, speed * 0.5, speed, s * 0.7, s * 1.2, tex)
+	else:
+		p = ImpactBurst.build(color, amount, 0.28, dir, 38.0, speed * 0.5, speed, 1.6, 3.0)
 	p.gravity = Vector2.ZERO
 	layer.add_child(p)
 	p.global_position = pos
