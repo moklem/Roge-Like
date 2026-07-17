@@ -4,20 +4,20 @@ extends Node
 ##
 ## Track mapping (user, fixed order — no shuffle):
 ##   Menu / Lobby            -> lobby.mp3 (quiet, looping)
-##   Room 1 (ERBA, all subs) -> Erba.wav
+##   Room 1 (ERBA, all subs) -> Erba.ogg
 ##   Room 2 subs 1-3         -> altstadt1.mp3
-##   Room 2 subs 4-5         -> altstadt2.wav
-##   Room 2 sub 6 (Übergang) -> Altenburg.wav   (theme starts AT the connector)
-##   Room 3 (Burg Altenburg) -> Altenburg.wav
+##   Room 2 subs 4-5         -> altstadt2.ogg
+##   Room 2 sub 6 (Übergang) -> Altenburg.ogg   (theme starts AT the connector)
+##   Room 3 (Burg Altenburg) -> Altenburg.ogg
 ## Every track loops until the next zone switches it; re-entering the same zone is a no-op.
 
 ## Lobby/menu track (loops seamlessly, quiet).
 const LOBBY_TRACK := "res://assets/audio/lobby.mp3"
 
-const TRACK_ERBA       := "res://assets/audio/Erba.wav"
+const TRACK_ERBA       := "res://assets/audio/Erba.ogg"
 const TRACK_ALTSTADT_1 := "res://assets/audio/altstadt1.mp3"
-const TRACK_ALTSTADT_2 := "res://assets/audio/altstadt2.wav"
-const TRACK_ALTENBURG  := "res://assets/audio/Altenburg.wav"
+const TRACK_ALTSTADT_2 := "res://assets/audio/altstadt2.ogg"
+const TRACK_ALTENBURG  := "res://assets/audio/Altenburg.ogg"
 
 ## Menu/lobby stays quiet ("leise"); in-game a touch louder but not blasting.
 const LOBBY_DB  := -20.0
