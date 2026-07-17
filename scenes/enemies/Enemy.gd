@@ -29,6 +29,14 @@ var state: int = 0  # 0 = IDLE, 1 = CHASE
 ## D-10: Track which player peer_ids are currently in contact to prevent repeated damage
 var _players_in_contact: Dictionary = {}
 
+## Net-smoothing: the synchronizer replicates synced_position (20 Hz, on-change) instead of
+## writing .position directly; .position itself is spawn-only. The host mirrors position into
+## synced_position, clients glide toward it in _process — so remote movement renders at full
+## frame rate instead of stepping at the replication interval. Boss/Elite inherit this as-is.
+var synced_position: Vector2
+const NET_SNAP_DIST: float = 128.0  # gaps larger than this snap (spawn placement, resets)
+const NET_LERP_RATE: float = 18.0   # exponential smoothing rate — higher tracks tighter
+
 ## Phase 5: Status effect fields (D-17 Burn DoT, D-18 Ice Slow)
 var speed_multiplier: float = 1.0   # D-18 Ice Slow: reduces to 0.5 for 2 sec
 var _slow_timer: float = 0.0        # counts down slow duration
@@ -103,6 +111,8 @@ func _ready() -> void:
 	_last_hp_seen = current_hp
 	# P6: NavigationAgent2D must not run on clients — only host runs AI
 	set_physics_process(is_multiplayer_authority())
+	# Net-smoothing seed: without this, the first client-side lerp would pull toward (0,0).
+	synced_position = position
 	# HurtboxArea (collision_layer=16, mask=32) detects bullet hits via area_entered
 	# and player body overlap via body_entered (players on layer 2, enemy CharacterBody2D mask includes layer 2)
 	$HurtboxArea.body_entered.connect(_on_hurtbox_body_entered)
@@ -222,6 +232,13 @@ func _apply_char_bob(spr: AnimatedSprite2D, walking: bool, dir_x: float) -> void
 ## WR-003: Health bar update runs on ALL peers so clients see synced current_hp.
 ## _physics_process is disabled on clients (P6 guard), so health bar must live here.
 func _process(_delta: float) -> void:
+	# Net-smoothing (see synced_position above): host publishes, clients interpolate.
+	if is_multiplayer_authority():
+		synced_position = position
+	elif position.distance_squared_to(synced_position) > NET_SNAP_DIST * NET_SNAP_DIST:
+		position = synced_position
+	else:
+		position = position.lerp(synced_position, 1.0 - exp(-NET_LERP_RATE * _delta))
 	if has_node("HealthBar"):
 		$HealthBar.value = float(current_hp) / float(MAX_HP) * 100.0
 	# ABIL-01 fix: react to the now-replicated is_burning/is_slowed flags. Only the RGB

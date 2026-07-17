@@ -57,11 +57,20 @@ var _sprite: Sprite2D = null
 var _sprite_base_offset: Vector2 = Vector2.ZERO   # unflipped centering offset from _fit_sprite
 var _bob_t: float = 0.0
 
+## Net-smoothing (same pattern as Player/Enemy): the synchronizer replicates synced_position
+## (20 Hz, on-change) instead of .position; the host publishes, clients glide toward it so
+## the Stage-2 follow flight reads smooth on every screen.
+var synced_position: Vector2
+const NET_SNAP_DIST: float = 128.0
+const NET_LERP_RATE: float = 18.0
+
 func _ready() -> void:
 	# CRITICAL (Pitfall 2): drone authority stays with host (default).
 	# owning_peer is a data field only — do not transfer authority to it.
 	# Grouped so Game.gd can despawn active drones on sub-room / room transitions.
 	add_to_group("drones")
+	# Net-smoothing seed: without this, the first client-side lerp would pull toward (0,0).
+	synced_position = position
 	_setup_area()
 	_setup_timer()
 	_draw_visual()
@@ -192,6 +201,14 @@ func _draw_visual() -> void:
 ## replicated and is what the heal pulse measures range from, so bobbing it would jitter
 ## both the network state and the heal zone.
 func _process(delta: float) -> void:
+	# Net-smoothing (see synced_position above): host publishes, clients interpolate toward
+	# the replicated value so the Stage-2 follow flight reads smooth on every screen.
+	if is_multiplayer_authority():
+		synced_position = position
+	elif position.distance_squared_to(synced_position) > NET_SNAP_DIST * NET_SNAP_DIST:
+		position = synced_position
+	else:
+		position = position.lerp(synced_position, 1.0 - exp(-NET_LERP_RATE * delta))
 	if stage < 2 or _sprite == null:
 		return
 	_bob_t += delta * BOB_SPEED

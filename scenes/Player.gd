@@ -145,6 +145,8 @@ var _dash_timer: float = 0.0            # counts down i-frame duration after das
 func _ready() -> void:
 	# Set authority based on peer_id — only the owning peer controls this player
 	set_multiplayer_authority(peer_id)
+	# Net-smoothing seed: without this, the first remote-side lerp would pull toward (0,0).
+	synced_position = position
 	# Required for enemy group discovery and game-over check
 	add_to_group("players")
 	# Update role label display (MOVE-04)
@@ -421,7 +423,22 @@ var _downed_collapse_active: bool = false
 var _revive_ring: Node2D = null
 var _revive_ring_progress: float = 0.0
 
+## Net-smoothing: the synchronizer replicates synced_position (20 Hz, on-change) instead of
+## writing .position directly; .position itself is spawn-only. The owning peer mirrors its
+## position into synced_position, every other peer glides toward it in _process — teammates
+## move at full frame rate instead of stepping at the replication interval.
+var synced_position: Vector2
+const NET_SNAP_DIST: float = 128.0  # gaps larger than this snap (room warps, spawns)
+const NET_LERP_RATE: float = 18.0   # exponential smoothing rate — higher tracks tighter
+
 func _process(_delta: float) -> void:
+	# Net-smoothing (see synced_position above): authority publishes, remotes interpolate.
+	if is_multiplayer_authority():
+		synced_position = position
+	elif position.distance_squared_to(synced_position) > NET_SNAP_DIST * NET_SNAP_DIST:
+		position = synced_position
+	else:
+		position = position.lerp(synced_position, 1.0 - exp(-NET_LERP_RATE * _delta))
 	# AUTOBONK: drive animated character art (walk/idle, flip, stage) on all peers
 	if _uses_char_sprite:
 		_update_char_visual(_delta)
