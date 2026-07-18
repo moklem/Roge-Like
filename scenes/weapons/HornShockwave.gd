@@ -1,22 +1,27 @@
 extends Node
-## HornShockwave — 360° radial Area2D burst centered on player. Fires every 3s.
+## HornShockwave — 360° radial burst centered on player. Fires every 3s.
 ## D-12: ~150px radius, hits all enemies in range simultaneously.
-## Visual: brief expanding ring (ColorRect scaled up then freed via Tween).
+## Visual: brief expanding ring (comic strip, ColorRect fallback).
 ## W2: Authority guard prevents non-owning peers from triggering damage.
+##
+## Hit detection is direct distance math over the "enemies" group, NOT a physics overlap
+## query. WeaponManager is a plain Node, which breaks the CanvasItem transform chain, so an
+## Area2D parented under here does not follow the player — it stays wherever it was last
+## placed. Teleporting it to the player and calling get_overlapping_bodies() in the same
+## frame then reads the overlap set from the LAST physics step, i.e. the PREVIOUS fire
+## position 3s ago. AntennaBeam uses this same math approach for the same reason.
 
 const COOLDOWN: float = 3.0
 const RADIUS: float = 150.0
 const DAMAGE: int = 30
 
 var _timer: Timer = null
-var _area: Area2D = null
 ## Base fire interval before the Cooldown card multiplier — L2 lowers it to 2.5.
 var _base_cooldown: float = COOLDOWN
 ## Cooldown card (XP-04): current multiplier, applied whenever wait_time is written.
 var _cd_mult: float = 1.0
 
 func activate(weapon_manager: Node) -> void:
-	_setup_area()
 	_setup_timer(weapon_manager)
 
 func apply_cooldown_mult(mult: float) -> void:
@@ -29,23 +34,6 @@ func deactivate() -> void:
 		_timer.stop()
 		_timer.queue_free()
 		_timer = null
-	if _area and is_instance_valid(_area):
-		_area.queue_free()
-		_area = null
-
-func _setup_area() -> void:
-	_area = Area2D.new()
-	_area.name = "ShockwaveArea"
-	_area.collision_layer = 0
-	_area.collision_mask = 4   # layer 3 "enemies"
-	_area.monitoring = true
-	_area.monitorable = false
-	var shape := CollisionShape2D.new()
-	var circle := CircleShape2D.new()
-	circle.radius = RADIUS
-	shape.shape = circle
-	_area.add_child(shape)
-	add_child(_area)
 
 func _setup_timer(weapon_manager: Node) -> void:
 	_timer = Timer.new()
@@ -63,43 +51,58 @@ func _on_fire_timer(weapon_manager: Node) -> void:
 		return
 	# Phase 6 D-11: Level scaling for Horn Shockwave
 	var level: int = weapon_manager.weapon_level.get("horn_shockwave", 1)
-	var radius: float = RADIUS          # L1: 150px
-	var damage: int = int(float(DAMAGE) * player.stage3_damage_mult * player.driver_damage_mult)  # D-22 + Driver OVERDRIVE
-	if level >= 2:
-		radius = 220.0                  # L2: 150→220px
-		if _base_cooldown != 2.5:
-			_base_cooldown = 2.5        # L2: 3s→2.5s cooldown (D-11) — applied once
-			_timer.wait_time = _base_cooldown * _cd_mult
-	# Update collision area radius before overlap query
-	if is_instance_valid(_area):
-		for child in _area.get_children():
-			if child is CollisionShape2D and child.shape is CircleShape2D:
-				child.shape.radius = radius
-				break
+	if level >= 2 and _base_cooldown != 2.5:
+		_base_cooldown = 2.5        # L2: 3s→2.5s cooldown (D-11) — applied once
+		_timer.wait_time = _base_cooldown * _cd_mult
 	_show_visual.rpc(player.global_position)
+	# Damage resolves host-side. A client is authority over its own player but is NOT the
+	# server, so it has to ask the host to apply the hit — without this hop the client's
+	# shockwave was visual-only and dealt no damage at all.
+	if multiplayer.is_server():
+		_apply_damage(player.global_position, level, player.peer_id)
+	else:
+		_apply_damage.rpc_id(1, player.global_position, level, player.peer_id)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _apply_damage(origin: Vector2, level: int = 1, shooter_peer_id: int = 0) -> void:
 	if not multiplayer.is_server():
 		return
-	_area.global_position = player.global_position
-	for body in _area.get_overlapping_bodies():
-		if not body.is_in_group("enemies"):
+	var radius: float = RADIUS if level < 2 else 220.0   # L2: 150→220px
+	# Stage 3 damage multiplier (D-22) + Driver OVERDRIVE — look up shooter by peer_id,
+	# since on the host this may be resolving a remote player's shot.
+	var stage_mult: float = 1.0
+	if shooter_peer_id != 0:
+		for p in get_tree().get_nodes_in_group("players"):
+			if p.peer_id == shooter_peer_id:
+				stage_mult = p.stage3_damage_mult * p.driver_damage_mult
+				break
+	var damage: int = int(float(DAMAGE) * stage_mult)
+	var radius_sq: float = radius * radius
+	for enemy in get_tree().get_nodes_in_group("enemies"):
+		if not is_instance_valid(enemy):
 			continue
-		body.take_damage(damage)
-		# L2: Knockback — push enemy away from player
+		if origin.distance_squared_to(enemy.global_position) > radius_sq:
+			continue
+		enemy.take_damage(damage)
+		# take_damage frees the enemy on the killing blow — re-check before touching it.
+		if not is_instance_valid(enemy) or enemy.is_queued_for_deletion():
+			continue
+		# L2: Knockback — push enemy away from the blast origin
 		if level >= 2:
 			var knockback: float = 300.0 if level < 3 else 600.0  # L3: ×2 knockback
-			var push_dir: Vector2 = (body.global_position - player.global_position).normalized()
-			if is_instance_valid(body) and not body.is_queued_for_deletion():
-				body.velocity += push_dir * knockback
-		# L3: Brief stun — zero velocity (enemy AI will re-path naturally after)
-		if level >= 3 and is_instance_valid(body) and not body.is_queued_for_deletion():
-			body.velocity = Vector2.ZERO
+			enemy.velocity += (enemy.global_position - origin).normalized() * knockback
+		# L3: Brief stun — zero velocity (enemy AI will re-path naturally after).
+		# NOTE: this cancels the L3 knockback applied just above, so L3 is stun-only in
+		# practice. Pre-existing behaviour, preserved here deliberately — see the balance
+		# discussion before changing it.
+		if level >= 3:
+			enemy.velocity = Vector2.ZERO
 
 @rpc("any_peer", "call_local", "unreliable_ordered")
 func _show_visual(pos: Vector2) -> void:
-	if not is_instance_valid(_area):
+	if not is_inside_tree():
 		return
 	Sfx.play("horn_shockwave")  # rides the existing every-peer visual RPC — no new sound RPC
-	_area.global_position = pos
 	# Comic shockwave strip (4 expanding arc rings, ~0.33s) — the final frame's ring sits
 	# just past the 150px damage radius, same read as the old 0.1→2.0 ring tween.
 	if Juice.spawn_anim(pos, "shockwave", RADIUS * 2.3, 6) != null:

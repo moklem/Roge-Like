@@ -116,6 +116,19 @@ var _earth_heal_accum: float = 0.0
 var _elite_spawn_timer: float = 0.0
 var _elite_spawn_interval: float = 0.0  # randomized in _ready via randf_range(45, 90)
 
+## Staggered enemy spawning (host-only). Instantiating a whole wave in one frame caused a hard
+## FPS drop (scene instancing + navmesh agent setup + replication packets all in one tick), so
+## every wave/swarm is queued here and drained a few enemies at a time over several frames.
+## Entries: {"point": Vector2, "type": String, "room_id": int, "lidar": bool}.
+var _spawn_queue: Array[Dictionary] = []
+var _spawn_batch_timer: float = 0.0
+
+## Enemies released per batch, and the pause between batches. 3 per 0.25s spreads a 20-enemy
+## wave over ~1.7s — still reads as one wave arriving, but leaves enough frames between batches
+## for the instancing cost to settle.
+const SPAWN_BATCH_SIZE: int = 3
+const SPAWN_BATCH_INTERVAL: float = 0.25
+
 ## SUSPENSION indicator debounce — minimum seconds between elite-hit pulses (host-only).
 const SUSPENSION_DEBOUNCE: float = 1.5
 var _last_suspension_emit: float = -100.0
@@ -482,6 +495,10 @@ func _transition_to_sub_room(next: int) -> void:
 func _purge_transient_entities() -> void:
 	if not multiplayer.is_server():
 		return
+	# Drop pending staggered spawns too — otherwise a wave queued for the room we are leaving
+	# would trickle into the freshly purged one.
+	_spawn_queue.clear()
+	_spawn_batch_timer = 0.0
 	var entities := get_node_or_null("Entities")
 	if entities == null:
 		return
@@ -510,6 +527,10 @@ func _check_sub_room_clear() -> void:
 	# Guard 2: a wave advance is already scheduled this frame — two enemies dying in the same
 	# frame queue this check twice; without the flag both would advance the wave (skip/double).
 	if _wave_advancing:
+		return
+	# Guard 3: enemies of this wave are still queued for staggered release, so a zero live count
+	# right now does not mean the wave is cleared — it means it hasn't finished arriving.
+	if not _spawn_queue.is_empty():
 		return
 	var alive: int = 0
 	for e in get_tree().get_nodes_in_group("enemies"):
@@ -615,16 +636,15 @@ func _spawn_mob_swarm(boss_phase: int) -> void:
 	var normal_count: int = roundi((5 + GameState.loop_number * 3) * GameState.get_difficulty_player_spawn_mult())
 	# D-15: 1 elite normally; 2 elites in Phase 3 swarm
 	var elite_count: int = 2 if boss_phase == 3 else 1
-	# Spawn normal enemies at random swarm points
+	# Queued, not spawned inline — a loop-5 swarm is 20+ enemies and tanked the framerate when
+	# it all instanced in one frame. _drain_spawn_queue releases them over the next second.
+	# safe=true: a swarm dropped on top of a player mid-boss-fight is an unavoidable death, so
+	# these go through the same player-clearance checks as a normal wave.
 	for _i in range(normal_count):
-		var pt: Vector2 = swarm_pts[randi() % swarm_pts.size()].global_position
-		$EnemySpawner.spawn.call_deferred({"pos": pt, "room_id": 3})
-	# Spawn elites — each fires LIDAR (D-15, ROOM-06)
+		_queue_enemy_spawn(_pick_enemy_spawn_point(swarm_pts), "", 3, true, false)
+	# Elites — each fires LIDAR as it actually spawns (D-15, ROOM-06)
 	for _j in range(elite_count):
-		var pt: Vector2 = swarm_pts[randi() % swarm_pts.size()].global_position
-		$EnemySpawner.spawn.call_deferred({"type": "elite", "pos": pt, "room_id": 3})
-		# D-15, ROOM-06: one LIDAR indicator per elite spawned (mirrors _spawn_elite_enemy at line ~593)
-		GameEvents.emit_hud.rpc("lidar")
+		_queue_enemy_spawn(_pick_enemy_spawn_point(swarm_pts), "elite", 3, true, true)
 
 ## D-17, LOOP-03: Boss defeated for real (second life already spent) — advance the loop, but
 ## let players stay in the arena to catch their breath instead of yanking them straight back
@@ -919,23 +939,97 @@ func _spawn_wave() -> void:
 	# Wave 1=50%, Wave 2=100%, Wave 3=150% — linear ramp across three waves
 	var wave_mult: float = 0.5 + (_current_wave - 1) * 0.5
 	var spawn_count: int = maxi(2, roundi(scaled_base * wave_mult))
+	# Queued rather than spawned inline — _drain_spawn_queue releases them in small batches.
 	for i in range(spawn_count):
-		var pt: Vector2 = _safe_enemy_spawn_pos(pts[randi() % pts.size()].global_position)
-		$EnemySpawner.spawn({"pos": pt, "room_id": current_room})
+		_queue_enemy_spawn(_pick_enemy_spawn_point(pts), "", current_room, true, false)
 	# Wave 3 always adds one elite to signal the final push
 	if _current_wave == WAVES_PER_ROOM:
-		var ep: Vector2 = _safe_enemy_spawn_pos(pts[randi() % pts.size()].global_position)
-		$EnemySpawner.spawn({"type": "elite", "pos": ep, "room_id": current_room})
-		GameEvents.emit_hud.rpc("lidar")
+		_queue_enemy_spawn(_pick_enemy_spawn_point(pts), "elite", current_room, true, true)
+
+## Adds one enemy to the staggered spawn queue. `safe` runs the position through
+## _safe_enemy_spawn_pos at release time (not queue time) so separation checks see the enemies
+## released in earlier batches. `lidar` fires the HUD ping when this one actually spawns.
+func _queue_enemy_spawn(point: Vector2, type: String, room_id: int, safe: bool, lidar: bool) -> void:
+	_spawn_queue.append({"point": point, "type": type, "room_id": room_id, "safe": safe, "lidar": lidar})
+
+## Host-only: releases up to SPAWN_BATCH_SIZE queued enemies every SPAWN_BATCH_INTERVAL seconds.
+## Entries whose room is no longer the active one are dropped — a room transition purges enemies,
+## so a wave queued for the room we just left must not trickle into the new one.
+func _drain_spawn_queue(delta: float) -> void:
+	if _spawn_queue.is_empty():
+		_spawn_batch_timer = 0.0
+		return
+	_spawn_batch_timer += delta
+	if _spawn_batch_timer < SPAWN_BATCH_INTERVAL:
+		return
+	_spawn_batch_timer = 0.0
+	var released: int = 0
+	while released < SPAWN_BATCH_SIZE and not _spawn_queue.is_empty():
+		var entry: Dictionary = _spawn_queue.pop_front()
+		if entry["room_id"] != current_room:
+			continue  # stale — belongs to a room we have already left
+		var pos: Vector2 = entry["point"]
+		if entry["safe"]:
+			# Points are chosen when the wave is queued, but a batch releases up to a second
+			# later — by then a player may have walked onto the point. Re-pick from the room's
+			# points first (cheap, keeps enemies at authored positions), then nudge off walls
+			# and any remaining overlap.
+			if _nearest_player_distance(pos) < MIN_PLAYER_SPAWN_DISTANCE:
+				var live_pts: Array = Array(get_node("Room%d/EnemySpawnPoints" % current_room).get_children())
+				if not live_pts.is_empty():
+					pos = _pick_enemy_spawn_point(live_pts)
+			pos = _safe_enemy_spawn_pos(pos)
+		var data: Dictionary = {"pos": pos, "room_id": entry["room_id"]}
+		if entry["type"] != "":
+			data["type"] = entry["type"]
+		$EnemySpawner.spawn(data)
+		if entry["lidar"]:
+			GameEvents.emit_hud.rpc("lidar")
+		released += 1
 
 ## Minimum gap between a fresh spawn and any enemy already in the room. Kept in step with
 ## Enemy.SEPARATION_RADIUS so a wave never starts out overlapping and then has to unstack.
 const MIN_SPAWN_SEPARATION: float = 28.0
 
+## Minimum gap between a fresh spawn and any living player. Authored spawn points are fixed
+## while players roam freely, so a player standing on (or beside) a spawn point used to receive
+## a wave directly on top of them — instant contact damage with no reaction time. 160px is 5
+## tiles: outside melee range and far enough that the approach is visible before it lands.
+const MIN_PLAYER_SPAWN_DISTANCE: float = 160.0
+
+## Distance to the closest player, or INF when no players exist.
+func _nearest_player_distance(pos: Vector2) -> float:
+	var best: float = INF
+	for p in get_tree().get_nodes_in_group("players"):
+		if p is Node2D:
+			best = minf(best, p.global_position.distance_to(pos))
+	return best
+
+## Picks which authored spawn point a wave enemy comes from, preferring points that are not
+## near a player. Random among all points at a safe distance; if the players are covering every
+## point (small sub-room, or both players camping the spawns), falls back to the point they are
+## furthest from rather than picking blindly.
+func _pick_enemy_spawn_point(pts: Array) -> Vector2:
+	var safe_pts: Array = []
+	var farthest: Vector2 = pts[0].global_position
+	var farthest_dist: float = -1.0
+	for pt in pts:
+		var p: Vector2 = pt.global_position
+		var d: float = _nearest_player_distance(p)
+		if d >= MIN_PLAYER_SPAWN_DISTANCE:
+			safe_pts.append(p)
+		if d > farthest_dist:
+			farthest_dist = d
+			farthest = p
+	if safe_pts.is_empty():
+		return farthest
+	return safe_pts[randi() % safe_pts.size()]
+
 ## Returns a spawn position guaranteed to sit on a non-solid (floor) cell that no other enemy
-## is already standing on. Authored spawn points occasionally overlap a wall/obstacle tile,
-## and several enemies of one wave routinely draw the same point; this snaps outward to the
-## nearest cell that is both open and unoccupied.
+## is already standing on and that no player is standing next to. Authored spawn points
+## occasionally overlap a wall/obstacle tile, several enemies of one wave routinely draw the
+## same point, and a player may be standing right on it; this snaps outward to the nearest cell
+## that is open, unoccupied and clear of players.
 func _safe_enemy_spawn_pos(world_pos: Vector2) -> Vector2:
 	var tilemap: TileMap = get_node_or_null("Room%d/TileMap" % current_room)
 	if tilemap == null:
@@ -943,7 +1037,11 @@ func _safe_enemy_spawn_pos(world_pos: Vector2) -> Vector2:
 	var origin_cell: Vector2i = tilemap.local_to_map(tilemap.to_local(world_pos))
 	if not _cell_is_solid(tilemap, origin_cell) and _spawn_pos_is_clear(world_pos):
 		return world_pos
-	# Spiral outward ring by ring to find the nearest open, unoccupied cell.
+	# Spiral outward ring by ring to find the nearest open, unoccupied cell. While searching,
+	# remember the open cell furthest from any player so a fully-blocked search still has a
+	# better answer than "spawn where we were told".
+	var fallback: Vector2 = world_pos
+	var fallback_dist: float = _nearest_player_distance(world_pos)
 	for radius in range(1, 8):
 		for dx in range(-radius, radius + 1):
 			for dy in range(-radius, radius + 1):
@@ -956,16 +1054,22 @@ func _safe_enemy_spawn_pos(world_pos: Vector2) -> Vector2:
 				var candidate: Vector2 = tilemap.to_global(tilemap.map_to_local(cell))
 				if _spawn_pos_is_clear(candidate):
 					return candidate
-	return world_pos  # fallback — nothing free nearby; Enemy's separation push unstacks it
+				var cand_dist: float = _nearest_player_distance(candidate)
+				if cand_dist > fallback_dist:
+					fallback_dist = cand_dist
+					fallback = candidate
+	# Nothing fully clear nearby — use the open cell we found that is furthest from the players.
+	# Enemy separation unstacks any enemy overlap; player overlap is the one we must not hand back.
+	return fallback
 
-## True when no already-spawned enemy sits within MIN_SPAWN_SEPARATION of `pos`. Enemies of the
-## same wave are spawned one after another and enter the "enemies" group on _ready(), so each
-## successive spawn in a wave sees the ones placed before it.
+## True when `pos` is free of both already-spawned enemies and players. Enemies of the same wave
+## are spawned one after another and enter the "enemies" group on _ready(), so each successive
+## spawn in a wave sees the ones placed before it.
 func _spawn_pos_is_clear(pos: Vector2) -> bool:
 	for e in get_tree().get_nodes_in_group("enemies"):
 		if e is Node2D and e.global_position.distance_to(pos) < MIN_SPAWN_SEPARATION:
 			return false
-	return true
+	return _nearest_player_distance(pos) >= MIN_PLAYER_SPAWN_DISTANCE
 
 ## True when the TileMap cell carries a collision polygon (wall or obstacle tile).
 ## Layout-independent: reads the tile's collision data rather than comparing atlas coords.
@@ -1430,6 +1534,8 @@ func _process(delta: float) -> void:
 		# Phase 7 Plan 03 (D-13, HUD-07): Periodic bonus-elite spawn + LIDAR HUD pulse (host-only).
 		# The elite is wave-independent so normal enemies still come in exactly 3 fixed waves.
 		_tick_elite_spawn(delta)
+		# Release queued wave/swarm enemies a few per batch so a big wave never lands in one frame.
+		_drain_spawn_queue(delta)
 		## Phase 9 (D-08, D-12): Edge-walk progression. Once a sub-room's exit gap is open
 		## (_exit_open, sub-rooms 1–5) or we are in the connector corridor (sub_room 6), a
 		## player reaching the right edge advances the run:
@@ -1511,7 +1617,7 @@ func _tick_elite_spawn(delta: float) -> void:
 	if sp == null or sp.get_child_count() == 0:
 		return
 	var pts: Array = sp.get_children()
-	var pos: Vector2 = _safe_enemy_spawn_pos(pts[randi() % pts.size()].global_position)
+	var pos: Vector2 = _safe_enemy_spawn_pos(_pick_enemy_spawn_point(pts))
 	# call_deferred — physics-safe spawn (mirrors _on_enemy_died pattern).
 	# wave_independent flag keeps it out of the 3-wave clear count.
 	$EnemySpawner.spawn.call_deferred({"type": "elite", "pos": pos, "room_id": current_room, "wave_independent": true})

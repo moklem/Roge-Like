@@ -37,6 +37,14 @@ var synced_position: Vector2
 const NET_SNAP_DIST: float = 128.0  # gaps larger than this snap (spawn placement, resets)
 const NET_LERP_RATE: float = 18.0   # exponential smoothing rate — higher tracks tighter
 
+## Navigation repath throttle (host-only, used in _physics_process). Writing target_position
+## every frame makes NavigationAgent2D re-solve the path every frame for every enemy; at ~10 Hz
+## plus a "player moved a lot" trigger the chase looks identical but costs a tenth as much.
+const NAV_REPATH_INTERVAL: float = 0.1
+const NAV_REPATH_MOVE_SQ: float = 24.0 * 24.0  # px² the target may drift before an early repath
+var _nav_repath_timer: float = 999.0           # large seed: always repath on the very first tick
+var _nav_last_target: Vector2 = Vector2.ZERO
+
 ## Phase 5: Status effect fields (D-17 Burn DoT, D-18 Ice Slow)
 var speed_multiplier: float = 1.0   # D-18 Ice Slow: reduces to 0.5 for 2 sec
 var _slow_timer: float = 0.0        # counts down slow duration
@@ -99,6 +107,29 @@ const BOB_WALK_AMP: float = 3.0    # hop height in SCREEN px (divided by sprite 
 const BOB_IDLE_HZ: float = 0.9     # breathing rate when standing
 const BOB_IDLE_AMP: float = 1.4    # breathing rise in SCREEN px
 const LEAN_WALK_RAD: float = 0.07  # lean into the travel direction (~4°)
+
+## Per-physics-frame group cache, shared by every enemy instance (static — subclasses included).
+## Each enemy used to call get_tree().get_nodes_in_group() twice per frame, and each of those
+## calls allocates a fresh Array: at 30 enemies that is 60 allocations every physics tick, which
+## dominated the frame cost far more than the O(n²) distance maths itself. Now the two arrays are
+## built once per tick and every enemy reads the same ones.
+##
+## Nodes freed later in the same tick stay in these arrays until the next refresh, so every
+## consumer must check is_instance_valid() — the live group lookup used to make that implicit.
+static var _cache_frame: int = -1
+static var _cached_enemies: Array = []
+static var _cached_players: Array = []
+
+## Called at the top of both consumers rather than once from _physics_process: Boss overrides
+## _physics_process with early-return paths, so a single call site could be skipped. The
+## frame-int compare makes every call after the first one per tick essentially free.
+static func _refresh_group_cache(tree: SceneTree) -> void:
+	var frame: int = Engine.get_physics_frames()
+	if frame == _cache_frame:
+		return
+	_cache_frame = frame
+	_cached_enemies = tree.get_nodes_in_group("enemies")
+	_cached_players = tree.get_nodes_in_group("players")
 
 func _ready() -> void:
 	add_to_group("enemies")
@@ -341,14 +372,24 @@ func _update_health_ghost(old_hp: int, new_hp: int) -> void:
 	)
 
 func _physics_process(_delta: float) -> void:
+	_nav_repath_timer += _delta
 	var target := _find_nearest_player()
 	if target == null or global_position.distance_to(target.global_position) > DETECT_RADIUS:
 		state = 0
 		velocity = Vector2.ZERO
 	else:
 		state = 1
-		# D-01: Update target every frame for responsive chase
-		$NavigationAgent2D.target_position = target.global_position
+		# D-01 revised: the target used to be written every frame, which re-dirtied the agent's
+		# path and forced a fresh path solve per enemy per tick — the single biggest cost in a
+		# large swarm. Now it repaths at NAV_REPATH_INTERVAL, or immediately if the player has
+		# moved far enough that the existing path is stale. get_next_path_position() below still
+		# runs every frame, so movement stays smooth against the cached path.
+		var tgt: Vector2 = target.global_position
+		if _nav_repath_timer >= NAV_REPATH_INTERVAL \
+				or tgt.distance_squared_to(_nav_last_target) >= NAV_REPATH_MOVE_SQ:
+			_nav_repath_timer = 0.0
+			_nav_last_target = tgt
+			$NavigationAgent2D.target_position = tgt
 		# Pitfall 1: Check is_navigation_finished() to prevent jitter when adjacent
 		if not $NavigationAgent2D.is_navigation_finished():
 			var next: Vector2 = $NavigationAgent2D.get_next_path_position()
@@ -363,17 +404,21 @@ func _physics_process(_delta: float) -> void:
 	_tick_status_effects(_delta)
 
 ## Steering force away from every other enemy that is closer than SEPARATION_RADIUS, with a
-## linear falloff so a barely-touching neighbour barely pushes. O(n²) over the enemy group,
-## which is fine at this game's densities (8-12 per wave, ~20 late-loop).
+## linear falloff so a barely-touching neighbour barely pushes. Still O(n²) over the enemy group,
+## but it reads the shared per-frame cache instead of allocating its own array, so the constant
+## factor is now a squared-distance compare per pair.
 func _separation_push() -> Vector2:
+	_refresh_group_cache(get_tree())
 	var push := Vector2.ZERO
-	for other in get_tree().get_nodes_in_group("enemies"):
-		if other == self or not other is Node2D:
+	var radius_sq: float = SEPARATION_RADIUS * SEPARATION_RADIUS
+	for other in _cached_enemies:
+		if other == self or not is_instance_valid(other) or not other is Node2D:
 			continue
 		var offset: Vector2 = global_position - other.global_position
-		var dist: float = offset.length()
-		if dist >= SEPARATION_RADIUS:
+		# Squared compare first — most pairs in a swarm are out of range and this skips the sqrt.
+		if offset.length_squared() >= radius_sq:
 			continue
+		var dist: float = offset.length()
 		if dist < 0.01:
 			# Exactly stacked — two enemies off the same spawn point. There is no meaningful
 			# direction to push along, so pick one at random and let the falloff sort it out.
@@ -383,9 +428,12 @@ func _separation_push() -> Vector2:
 	return push
 
 func _find_nearest_player() -> Node:
+	_refresh_group_cache(get_tree())
 	var nearest: Node = null
 	var nearest_dist: float = INF
-	for p in get_tree().get_nodes_in_group("players"):
+	for p in _cached_players:
+		if not is_instance_valid(p):
+			continue
 		if p.is_downed:
 			continue
 		if p.is_picking_card:
