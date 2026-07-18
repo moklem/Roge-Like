@@ -40,11 +40,24 @@ const DIFFICULTY_SPAWN_MULT: Dictionary = {
 }
 
 ## Continuous in-run ramp (2026-07-18 playtest feedback): enemies should keep getting
-## stronger the longer a run goes, not just jump at loop boundaries. +5% stat mult per
-## minute survived (tuned down from an initial 10% — felt too steep). Host-only write
+## stronger the longer a run goes, not just jump at loop boundaries. Host-only write
 ## (see _process); not synced to clients (same convention as loop_number/loop_timer).
+##
+## Linear-then-exponential blend: the first TIME_LINEAR_PHASE_MINUTES grow at a flat
+## +5%/min (matches the original tuning so early game stays exactly as playtested), then
+## the same 5%/min rate switches from additive to compounding, so long runs accelerate
+## instead of climbing at a constant rate forever.
 var run_elapsed_time: float = 0.0
 const TIME_STAT_MULT_PER_MINUTE: float = 0.05
+const TIME_LINEAR_PHASE_MINUTES: float = 5.0
+
+func _time_stat_mult() -> float:
+	var minutes: float = run_elapsed_time / 60.0
+	if minutes <= TIME_LINEAR_PHASE_MINUTES:
+		return 1.0 + minutes * TIME_STAT_MULT_PER_MINUTE
+	var mult_at_threshold: float = 1.0 + TIME_LINEAR_PHASE_MINUTES * TIME_STAT_MULT_PER_MINUTE
+	var extra_minutes: float = minutes - TIME_LINEAR_PHASE_MINUTES
+	return mult_at_threshold * pow(1.0 + TIME_STAT_MULT_PER_MINUTE, extra_minutes)
 
 ## Small stat bump per weapon any player has picked up this run (host-authoritative,
 ## incremented identically on every peer inside Game.gd's weapon_unlocked call_local RPC —
@@ -58,12 +71,12 @@ func get_player_count() -> int:
 	return maxi(1, get_tree().get_nodes_in_group("players").size())
 
 ## Combined difficulty-tier + player-count + time + weapon-count factor for enemy HP/damage.
+## Tier/player/weapon stay linear; the time term is the linear-then-exponential blend above.
 func get_difficulty_player_stat_mult() -> float:
 	var tier_mult: float = DIFFICULTY_STAT_MULT.get(difficulty, 1.0)
 	var player_mult: float = 1.0 + (get_player_count() - 1) * 0.20
-	var time_mult: float = 1.0 + (run_elapsed_time / 60.0) * TIME_STAT_MULT_PER_MINUTE
 	var weapon_mult: float = 1.0 + weapons_acquired_count * WEAPON_STAT_MULT_PER_WEAPON
-	return tier_mult * player_mult * time_mult * weapon_mult
+	return tier_mult * player_mult * _time_stat_mult() * weapon_mult
 
 ## Combined difficulty-tier + player-count factor for enemy spawn counts.
 ## Weighted higher than the stat mult — more players means more targets, not just tougher ones.
@@ -155,10 +168,21 @@ func _sync_team_xp(xp_value: int, level_value: int, levels_gained: int) -> void:
 		if p.peer_id == local_id:
 			p.xp = xp_value
 			p.level = level_value
-			for i in range(levels_gained):
-				p._trigger_card_pick()
+			# Evolution charge-up/reveal should be seen, not instantly buried under the level-up
+			# cards — check BEFORE _check_stage_threshold mutates evolution_stage, then hold the
+			# card overlay back until the transform's had its moment on screen.
+			var will_evolve: bool = levels_gained > 0 and p.has_method("_will_evolve") and p._will_evolve()
 			if levels_gained > 0 and p.has_method("_check_stage_threshold"):
 				p._check_stage_threshold()
+			if will_evolve:
+				var t := p.get_tree().create_timer(p.EVOLUTION_REVEAL_DELAY)
+				t.timeout.connect(func() -> void:
+					for i in range(levels_gained):
+						p._trigger_card_pick()
+				)
+			else:
+				for i in range(levels_gained):
+					p._trigger_card_pick()
 			if p.has_method("_update_xp_hud"):
 				p._update_xp_hud()
 			return

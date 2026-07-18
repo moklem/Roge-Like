@@ -33,6 +33,10 @@ const ENGINEER_DRONE_COOLDOWN: float = 18.0  # drone lives 10s, 8s gap before re
 const XP_PER_ORB: int = 15           # D-01 tuned: 5→15 to hit Stage 2 in ~8-12 min
 const STAGE2_LEVEL: int = 5          # D-03: Proto-Bot at Level 5 (cumulative 700 XP)
 const STAGE3_LEVEL: int = 10         # D-04: Full AutoBot at Level 10 (cumulative 2700 XP)
+## Charge-up (0.5s) + reveal beat (see _play_evolution_transform) — the level-up card overlay
+## is held back this long so the evolution transform is actually visible instead of being
+## instantly buried under the card choices.
+const EVOLUTION_REVEAL_DELAY: float = 0.9
 
 @export var peer_id: int = 0
 @export var role_label: String = ""
@@ -1565,6 +1569,13 @@ func _check_stage_threshold() -> void:
 	if level >= STAGE3_LEVEL and evolution_stage < 3:
 		set_evolution_stage.rpc(3)
 		set_evolution_stage(3)
+
+## Whether _check_stage_threshold (called right after this) will kick off the evolution
+## charge-up/reveal — used by GameState._sync_team_xp to hold the level-up cards back
+## until the transform has had its moment on screen.
+func _will_evolve() -> bool:
+	return (level >= STAGE2_LEVEL and evolution_stage < 2) \
+		or (level >= STAGE3_LEVEL and evolution_stage < 3)
 
 ## Phase 6 (XP-03, XP-04, XP-05, XP-06): Build eligible card pool for this player.
 func _build_card_pool() -> Array:
