@@ -28,7 +28,6 @@ Juice="*res://autoloads/Juice.gd"
 
 window/size/viewport_width=1352
 window/stretch/mode="canvas_items"
-window/stretch/aspect="keep"
 
 [importer_defaults]
 

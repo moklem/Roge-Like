@@ -17,6 +17,69 @@ const WAVES_PER_ROOM: int = 3
 ## read once by Game._ready(). Later loops always cycle 1 → 2 → 3 as usual.
 var start_room: int = 1
 
+## Difficulty tier, host-picked in the lobby. Set on every peer via
+## Lobby.start_game(start_room, difficulty) (call_local RPC) before the scene change —
+## same delivery channel as start_room, so it's already correct before any enemy spawns.
+const DIFFICULTY_EASY: int = 0
+const DIFFICULTY_NORMAL: int = 1
+const DIFFICULTY_HARD: int = 2
+var difficulty: int = DIFFICULTY_NORMAL
+
+## Tier → multiplier tables. Stats lean lighter than spawn density (blended scaling design).
+## Stat tiers bumped after playtest feedback that Hard still felt easy (2026-07-18):
+## Normal gets a modest bump, Hard a meaningful one.
+const DIFFICULTY_STAT_MULT: Dictionary = {
+	DIFFICULTY_EASY: 0.80,
+	DIFFICULTY_NORMAL: 1.15,
+	DIFFICULTY_HARD: 1.6,
+}
+const DIFFICULTY_SPAWN_MULT: Dictionary = {
+	DIFFICULTY_EASY: 0.75,
+	DIFFICULTY_NORMAL: 1.0,
+	DIFFICULTY_HARD: 1.35,
+}
+
+## Continuous in-run ramp (2026-07-18 playtest feedback): enemies should keep getting
+## stronger the longer a run goes, not just jump at loop boundaries. +5% stat mult per
+## minute survived (tuned down from an initial 10% — felt too steep). Host-only write
+## (see _process); not synced to clients (same convention as loop_number/loop_timer).
+var run_elapsed_time: float = 0.0
+const TIME_STAT_MULT_PER_MINUTE: float = 0.05
+
+## Small stat bump per weapon any player has picked up this run (host-authoritative,
+## incremented identically on every peer inside Game.gd's weapon_unlocked call_local RPC —
+## see 2026-07-18 playtest feedback: enemies should keep pace as the team gets stronger).
+var weapons_acquired_count: int = 0
+const WEAPON_STAT_MULT_PER_WEAPON: float = 0.05
+
+## Live player count, same lookup team_xp_threshold() already uses to scale the team XP bar —
+## reused here so enemy scaling and XP scaling agree on party size via one consistent source.
+func get_player_count() -> int:
+	return maxi(1, get_tree().get_nodes_in_group("players").size())
+
+## Combined difficulty-tier + player-count + time + weapon-count factor for enemy HP/damage.
+func get_difficulty_player_stat_mult() -> float:
+	var tier_mult: float = DIFFICULTY_STAT_MULT.get(difficulty, 1.0)
+	var player_mult: float = 1.0 + (get_player_count() - 1) * 0.20
+	var time_mult: float = 1.0 + (run_elapsed_time / 60.0) * TIME_STAT_MULT_PER_MINUTE
+	var weapon_mult: float = 1.0 + weapons_acquired_count * WEAPON_STAT_MULT_PER_WEAPON
+	return tier_mult * player_mult * time_mult * weapon_mult
+
+## Combined difficulty-tier + player-count factor for enemy spawn counts.
+## Weighted higher than the stat mult — more players means more targets, not just tougher ones.
+func get_difficulty_player_spawn_mult() -> float:
+	var tier_mult: float = DIFFICULTY_SPAWN_MULT.get(difficulty, 1.0)
+	return tier_mult * (1.0 + (get_player_count() - 1) * 0.40)
+
+## Boss-only extra factor on top of get_difficulty_player_stat_mult() (2026-07-18 playtest
+## feedback: the boss stayed too easy even after the general enemy scaling pass, because it
+## doesn't keep pace with card/weapon/evolution stacking the way a per-loop trash mob does).
+## +15% boss HP/damage per team level above 1.
+const BOSS_LEVEL_STAT_MULT_PER_LEVEL: float = 0.15
+
+func get_boss_level_mult() -> float:
+	return 1.0 + (team_level - 1) * BOSS_LEVEL_STAT_MULT_PER_LEVEL
+
 ## TEAM XP: shared progression — every orb feeds one team pool (host-authoritative).
 ## Thresholds scale with party size so 1/2/3-player runs level at a similar pace.
 const TEAM_XP_BASE: int = 200
@@ -50,6 +113,7 @@ func _process(delta: float) -> void:
 		return  # D-13: only host ticks timer
 	if loop_timer > 0.0:
 		loop_timer -= delta
+	run_elapsed_time += delta
 
 ## XP needed to advance FROM team level lvl to lvl+1.
 ## Scaled by party size: more players collect more orbs, so the bar grows with the team.
@@ -143,6 +207,8 @@ func reset_for_new_run() -> void:
 	revives_used = {}
 	team_xp = 0
 	team_level = 1
+	run_elapsed_time = 0.0
+	weapons_acquired_count = 0
 
 ## D-14: Broadcast game over to all peers including host (call_local)
 @rpc("authority", "call_local", "reliable")

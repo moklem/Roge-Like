@@ -141,8 +141,9 @@ func set_player_ready(is_ready: bool) -> void:
 	player_list_changed.emit()
 
 @rpc("authority", "call_local", "reliable")
-func start_game(start_room: int = 1) -> void:
-	## Runs on every peer (call_local): the host's room choice arrives as the RPC
-	## argument, so all peers agree on the starting room before Game loads.
+func start_game(start_room: int = 1, difficulty: int = GameState.DIFFICULTY_NORMAL) -> void:
+	## Runs on every peer (call_local): the host's room + difficulty choice arrives as the
+	## RPC arguments, so all peers agree on both before Game loads and any enemy spawns.
 	GameState.start_room = clampi(start_room, 1, 3)
+	GameState.difficulty = clampi(difficulty, GameState.DIFFICULTY_EASY, GameState.DIFFICULTY_HARD)
 	get_tree().change_scene_to_file("res://scenes/Game.tscn")

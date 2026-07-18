@@ -38,6 +38,11 @@ var _is_host: bool = false
 var _selected_room: int = 1
 var _room_buttons: Array = []  ## [{"id": int, "btn": Button}, …]
 
+## Host-only difficulty picker, same shape as the room picker. _selected_difficulty is the
+## GameState.DIFFICULTY_* id (0=Easy, 1=Normal, 2=Hard) sent to start_game.
+var _selected_difficulty: int = GameState.DIFFICULTY_NORMAL
+var _difficulty_buttons: Array = []  ## [{"id": int, "btn": Button}, …]
+
 ## Role → character-sprite key (matches assets/active/players/<key>_<stage>_idle.png).
 const ROLE_SPRITE_KEY := {"Tank": "tank", "Speedster": "speedster", "Engineer": "engineer"}
 const PLAYER_SPRITE_DIR := "res://assets/active/players/"
@@ -85,6 +90,7 @@ func _ready() -> void:
 		start_btn.visible = true
 		copy_btn.visible = true
 		_build_room_picker()
+		_build_difficulty_picker()
 	else:
 		ip_label.text = "Connected to host"
 		copy_btn.visible = false
@@ -187,6 +193,46 @@ func _on_room_pressed(room_id: int) -> void:
 func _refresh_room_buttons() -> void:
 	for entry in _room_buttons:
 		entry["btn"].modulate = Color(1, 1, 0.5) if entry["id"] == _selected_room else Color(1, 1, 1)
+
+## Host-only: three difficulty buttons + header, inserted directly under the room picker.
+func _build_difficulty_picker() -> void:
+	var panel := start_btn.get_parent()
+	var box := VBoxContainer.new()
+	box.name = "DifficultyPicker"
+	var header := Label.new()
+	header.text = "Schwierigkeit:"
+	box.add_child(header)
+	var row := HBoxContainer.new()
+	for entry in [
+		[GameState.DIFFICULTY_EASY, "Easy"],
+		[GameState.DIFFICULTY_NORMAL, "Normal"],
+		[GameState.DIFFICULTY_HARD, "Hard"],
+	]:
+		var b := Button.new()
+		b.text = entry[1]
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.pressed.connect(_on_difficulty_pressed.bind(entry[0]))
+		row.add_child(b)
+		_difficulty_buttons.append({"id": entry[0], "btn": b})
+	box.add_child(row)
+	panel.add_child(box)
+	# RoomPicker was just inserted right after start_btn — stack this picker under it.
+	var room_picker := panel.get_node("RoomPicker")
+	panel.move_child(box, room_picker.get_index() + 1)
+	UiStyle.style_buttons(box)
+	UiStyle.style_labels(box)
+	_ink_labels(box)
+	UiStyle.wire_click_cue(box)
+	_refresh_difficulty_buttons()
+
+func _on_difficulty_pressed(tier: int) -> void:
+	_selected_difficulty = tier
+	_refresh_difficulty_buttons()
+
+## Highlight the chosen difficulty (yellow tint) like the room picker does.
+func _refresh_difficulty_buttons() -> void:
+	for entry in _difficulty_buttons:
+		entry["btn"].modulate = Color(1, 1, 0.5) if entry["id"] == _selected_difficulty else Color(1, 1, 1)
 
 # ------------------------------------------------------------------------------
 # Preview + element info cards (hover-driven, hidden when nothing to show)
@@ -315,7 +361,7 @@ func _on_start_pressed() -> void:
 	if not Lobby.all_players_ready():
 		status_label.text = "Waiting for all players to ready up..."
 		return
-	Lobby.start_game.rpc(_selected_room)
+	Lobby.start_game.rpc(_selected_room, _selected_difficulty)
 
 func _set_picks_disabled(disabled: bool) -> void:
 	# D-02: lock/unlock role and element buttons

@@ -579,8 +579,8 @@ func _spawn_mob_swarm(boss_phase: int) -> void:
 	var swarm_pts: Array = swarm_points_node.get_children()
 	if swarm_pts.is_empty():
 		return
-	# D-16: normal count scales with loop_number
-	var normal_count: int = 5 + (GameState.loop_number * 3)
+	# D-16: normal count scales with loop_number, plus difficulty tier + player count
+	var normal_count: int = roundi((5 + GameState.loop_number * 3) * GameState.get_difficulty_player_spawn_mult())
 	# D-15: 1 elite normally; 2 elites in Phase 3 swarm
 	var elite_count: int = 2 if boss_phase == 3 else 1
 	# Spawn normal enemies at random swarm points
@@ -748,7 +748,7 @@ func _spawn_wave() -> void:
 	if pts.is_empty():
 		return
 	var base_count: int = INITIAL_ENEMY_COUNT_R2 if current_room == 2 else INITIAL_ENEMY_COUNT
-	var scaled_base: int = roundi(base_count * pow(1.5, GameState.loop_number - 1))
+	var scaled_base: int = roundi(base_count * pow(1.5, GameState.loop_number - 1) * GameState.get_difficulty_player_spawn_mult())
 	# Wave 1=50%, Wave 2=100%, Wave 3=150% — linear ramp across three waves
 	var wave_mult: float = 0.5 + (_current_wave - 1) * 0.5
 	var spawn_count: int = maxi(2, roundi(scaled_base * wave_mult))
@@ -856,9 +856,10 @@ func _do_spawn_enemy(data: Dictionary) -> Node:
 	#   (see EliteEnemy.gd _ready). Setting mult here would be overwritten by EliteEnemy._ready()
 	#   so only normal enemies receive the scaling multiplication in this function.
 	# Phase 8 Plan 03 (D-11): Boss applies its own loop scaling in _ready() — exclude boss too.
-	# At loop_number=1: mult=1.0 → no change (baseline preserved, Pitfall 6).
+	# At loop_number=1: loop factor is 1.0 (baseline preserved, Pitfall 6). Difficulty tier,
+	# player count, run time, and weapon count compose on top of it — see GameState.
 	if enemy_type != "elite" and enemy_type != "boss":
-		var mult: float = 1.0 + (GameState.loop_number - 1) * 0.25
+		var mult: float = (1.0 + (GameState.loop_number - 1) * 0.25) * GameState.get_difficulty_player_stat_mult()
 		e.MAX_HP = int(e.MAX_HP * mult)
 		e.CONTACT_DAMAGE = int(e.CONTACT_DAMAGE * mult)
 		e.current_hp = e.MAX_HP
@@ -1086,7 +1087,11 @@ func weapon_unlocked(weapon_id: String, collector_peer_id: int) -> void:
 	for p in get_tree().get_nodes_in_group("players"):
 		if p.peer_id == collector_peer_id:
 			if p.has_node("WeaponManager"):
-				p.get_node("WeaponManager").add_weapon(weapon_id)
+				# Runs identically on every peer (call_local) for this one pickup event, so
+				# the counter stays consistent without a separate sync RPC. Only bump on an
+				# actual pickup — add_weapon() returns false on the silent cap/duplicate case.
+				if p.get_node("WeaponManager").add_weapon(weapon_id):
+					GameState.weapons_acquired_count += 1
 			return
 
 # ==============================================================================

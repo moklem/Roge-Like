@@ -1,6 +1,7 @@
 extends "res://scenes/enemies/Enemy.gd"
 ## Boss — host-authoritative 3-phase state machine extending Enemy.gd.
-## D-11: 1000 base HP scaled by 1.0 + (loop_number-1)*0.25 per loop.
+## D-11: 1000 base HP scaled by 1.0 + (loop_number-1)*0.25 per loop, further scaled by
+## difficulty tier, player count, run time, and weapon count (GameState.get_difficulty_player_stat_mult).
 ## D-12: Phase 1 (100-66% HP) slow melee charge; Phase 2 (66-33% HP) adds ranged volley;
 ##       Phase 3 (33-0% HP) both + 1.5x speed enrage.
 ## D-13: Phase transitions broadcast color change to all peers via RPC.
@@ -69,8 +70,11 @@ const SHOOT_COOLDOWN_P3: float = 1.2
 # ─── Ready ────────────────────────────────────────────────────────────────────
 func _ready() -> void:
 	super._ready()
-	# D-11: scale HP by loop — same formula as regular enemies
-	var mult: float = 1.0 + (GameState.loop_number - 1) * 0.25
+	# D-11: scale HP by loop — same formula as regular enemies, plus difficulty tier + player
+	# count + run time + weapon count, plus a boss-only team-level factor (2026-07-18: the
+	# boss needs to keep pace with card/weapon/evolution stacking, which trash mobs don't
+	# need to since they don't survive long enough to matter).
+	var mult: float = (1.0 + (GameState.loop_number - 1) * 0.25) * GameState.get_difficulty_player_stat_mult() * GameState.get_boss_level_mult()
 	_boss_max_hp = int(1000 * mult)
 	MAX_HP = _boss_max_hp
 	current_hp = MAX_HP
