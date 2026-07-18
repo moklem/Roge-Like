@@ -30,6 +30,9 @@ const ROOM_BUILDER_SCRIPT := preload("res://scenes/RoomBuilder.gd")
 
 ## D-13: Revive duration 3-4 seconds (mirrors Player.REVIVE_DURATION)
 const REVIVE_DURATION: float = 3.5
+## Boss break room: how long after the final kill before the exit door appears — roughly
+## matches Boss._trigger_final_death's burst duration so the door doesn't compete with it.
+const BOSS_DEATH_VFX_DELAY: float = 1.1
 ## D-19: Max enemies to spawn at game start (Room 1 baseline)
 const INITIAL_ENEMY_COUNT: int = 8
 ## Phase 8 Plan 03 (D-07): Room 2 baseline enemy count — 1.5× Room 1 baseline (8 × 1.5 = 12)
@@ -45,6 +48,12 @@ var _wave_advancing: bool = false
 
 ## Phase 8 Plan 03 (D-04): Active room tracker — 1=Room1, 2=Room2, 3=Room3 (boss arena)
 var current_room: int = 1
+
+## Boss break room: the door back to Room 1 spawned after the boss's final death. Tracked so
+## _spawn_boss can clear a leftover one before the next loop's boss arena is built, and so a
+## second player's trigger can't double-fire the transition while it's in flight.
+var _boss_exit_door: Node2D = null
+var _boss_exit_door_used: bool = false
 
 ## Phase 9 (D-10, MAP-01): Sub-room tracker within each location. 1–5. Reset to 1 on room transition.
 var current_sub_room: int = 1
@@ -233,8 +242,27 @@ func _run_start_countdown() -> void:
 func _bake_navigation() -> void:
 	await get_tree().process_frame  ## Phase 9: wait for TileMap set_cell() to register in physics
 	var nav := get_node_or_null("Room%d/NavigationRegion2D" % current_room)
-	if nav:
-		nav.bake_navigation_polygon(false)
+	if nav == null:
+		return
+	## The .tscn ships each NavigationPolygon with a hardcoded outline (~764x564px) left over
+	## from the fixed-size rooms of Phase 3. Since Phase 9 sub-rooms are sized from
+	## RoomLayouts (26-40 tiles wide = 832-1280px), that stale outline clipped the bake
+	## boundary well short of the right/bottom walls — enemies hit an invisible navmesh edge
+	## while players (who don't path) walked straight through it.
+	## Rebuild the outline from the live sub-room rect so the bake covers the whole room.
+	## Must match the rect exactly: the outline is the walkable seed that static colliders are
+	## subtracted from, so expanding it past the walls would make the void outside them walkable.
+	var poly: NavigationPolygon = nav.navigation_polygon
+	if poly:
+		var r: Rect2 = _current_sub_room_rect_px
+		poly.clear_outlines()
+		poly.add_outline(PackedVector2Array([
+			r.position,
+			Vector2(r.end.x, r.position.y),
+			r.end,
+			Vector2(r.position.x, r.end.y),
+		]))
+	nav.bake_navigation_polygon(false)
 
 # ==============================================================================
 # ROOM TRANSITION (D-02, D-03, ROOM-07, P10 — Phase 8 Plan 03)
@@ -248,6 +276,7 @@ func _bake_navigation() -> void:
 func _transition_to_room(next_room: int) -> void:
 	# --- All peers: hide old room, show new room, teleport players ---
 	Sfx.play("transition")
+	_clear_boss_exit_door()
 	# Reset wave display on all peers when entering a new room
 	_display_wave = 1
 	var old_room_id: int = current_room
@@ -397,6 +426,7 @@ func _cancel_driver_roll() -> void:
 @rpc("authority", "call_local", "reliable")
 func _transition_to_sub_room(next: int) -> void:
 	Sfx.play("transition")
+	_clear_boss_exit_door()
 	current_sub_room = next
 	## Fixed zone soundtrack — Altstadt swaps at sub 4, Altenburg theme starts at the
 	## Übergang connector (sub 6). No-op while the mapped track is unchanged.
@@ -465,7 +495,9 @@ func _purge_transient_entities() -> void:
 ## Phase 9 (D-08, MAP-02): Host checks if all enemies in current sub-room are dead.
 ## On clear: opens exit passage. Distinct from _check_room_clear which handles room transitions.
 func _check_sub_room_clear() -> void:
-	if not multiplayer.is_server():
+	# call_deferred can fire after the Game scene has already left the tree (e.g. player died
+	# and the scene was torn down the same frame) — `multiplayer` is null in that case.
+	if not is_inside_tree() or not multiplayer.is_server():
 		return
 	if current_room == 3 and current_sub_room == 5:
 		return  # boss arena — handled by _on_boss_died
@@ -594,20 +626,155 @@ func _spawn_mob_swarm(boss_phase: int) -> void:
 		# D-15, ROOM-06: one LIDAR indicator per elite spawned (mirrors _spawn_elite_enemy at line ~593)
 		GameEvents.emit_hud.rpc("lidar")
 
-## D-17, LOOP-03: Boss defeated — advance the loop and return all clients to Room 1.
+## D-17, LOOP-03: Boss defeated for real (second life already spent) — advance the loop, but
+## let players stay in the arena to catch their breath instead of yanking them straight back
+## to Room 1. A door spawns near the kill once the death VFX beat finishes; walking into it
+## (_request_use_boss_door) is what actually fires the Room-1 transition.
 ## Called from _do_spawn_enemy's boss died signal connection (Pitfall 5 compliance).
 ## Host-only — boss is host-authoritative and emits died only on host.
 func _on_boss_died(_pos: Vector2) -> void:
 	if not multiplayer.is_server():
 		return
-	# D-17: increment loop_number, reset revives_used (GameState.start_next_loop handles both)
+	# D-17: increment loop_number, reset revives_used (GameState.start_next_loop handles both).
+	# Safe to do immediately — it's bookkeeping for the NEXT boss/room, nobody's moved yet.
 	GameState.start_next_loop()
-	# Transition all clients back to Room 1 for the new harder loop
-	# _transition_to_room's Room-1 branch has no auto-spawn (only Room 2 and Room 3 do)
-	# so we explicitly spawn Room 1 enemies for the new loop after transition
+	_boss_exit_door_used = false
+	await get_tree().create_timer(BOSS_DEATH_VFX_DELAY).timeout
+	if not is_inside_tree() or not multiplayer.is_server():
+		return  # scene torn down or authority changed while we were waiting
+	_spawn_boss_exit_door.rpc(_pos)
+
+## Clears any leftover break-room door. It's a plain node outside RoomBuilder's tile rebuild,
+## so it survives room/sub-room transitions unless explicitly freed here — called from the
+## all-peers section of both transition RPCs (each peer built its own copy via the call_local
+## _spawn_boss_exit_door RPC, so each must clear its own copy too).
+func _clear_boss_exit_door() -> void:
+	if is_instance_valid(_boss_exit_door):
+		_boss_exit_door.queue_free()
+	_boss_exit_door = null
+
+## Nudges the door away from `death_pos` so it doesn't land right on top of whoever landed the
+## killing blow (they're almost always standing exactly there) — otherwise the door's own
+## body_entered fires within the next physics step and it plays out exactly like the old
+## instant teleport. Pushed clear of every player currently in the arena, then clamped inside
+## the sub-room's known interior (margin keeps it off the boss room's corner wall cutouts).
+func _pick_boss_door_position(death_pos: Vector2) -> Vector2:
+	var target: Vector2 = death_pos + Vector2(0.0, -160.0)
+	for p in get_tree().get_nodes_in_group("players"):
+		if not (p is Node2D):
+			continue
+		var away: Vector2 = target - p.global_position
+		if away.length() < 110.0:
+			var dir: Vector2 = away.normalized() if away.length() > 1.0 else Vector2.UP
+			target = p.global_position + dir * 110.0
+	var r: Rect2 = _current_sub_room_rect_px
+	if r.size != Vector2.ZERO:
+		var margin := 90.0
+		target.x = clampf(target.x, r.position.x + margin, r.position.x + r.size.x - margin)
+		target.y = clampf(target.y, r.position.y + margin, r.position.y + r.size.y - margin)
+	return target
+
+## Builds the break-room door on every peer (call_local) near `pos` (where the boss fell —
+## see _pick_boss_door_position for why it isn't placed exactly there). No door art exists
+## yet, so the visual is composed from the same ColorRect/ring primitives
+## Boss._spawn_telegraph_ring already uses elsewhere. Area2D layer/mask mirror XpOrb.tscn's
+## player-detection setup (layer 64, mask 2).
+@rpc("authority", "call_local", "reliable")
+func _spawn_boss_exit_door(pos: Vector2) -> void:
+	if is_instance_valid(_boss_exit_door):
+		_boss_exit_door.queue_free()
+	var room := get_node_or_null("Room%d" % current_room)
+	if room == null:
+		return
+	Sfx.play("exit_open")
+
+	var door := Area2D.new()
+	door.name = "BossExitDoor"
+	door.collision_layer = 64
+	door.collision_mask = 2  # players
+	# Starts non-monitoring: even with the position nudge above, a player could still be close
+	# enough to overlap on the very first physics step. Arming a beat later guarantees the
+	# trigger only ever fires on a deliberate walk-in, never on the spawn frame itself.
+	door.monitoring = false
+	room.add_child(door)
+	door.global_position = _pick_boss_door_position(pos)
+	get_tree().create_timer(0.6).timeout.connect(func() -> void:
+		if is_instance_valid(door):
+			door.monitoring = true
+	)
+
+	# Visual: the stone-archway/energy-portal art when delivered (assets/active/vfx/
+	# boss_exit_door.png), sized so the portal's own glow reads clearly as "walk in here" —
+	# falls back to the old plain ColorRect+Label placeholder when the art is missing.
+	var door_tex: Texture2D = Juice.vfx("boss_exit_door")
+	var shape := CollisionShape2D.new()
+	var rect := RectangleShape2D.new()
+	if door_tex != null:
+		const TARGET_PX: float = 170.0
+		var art := Sprite2D.new()
+		art.texture = door_tex
+		var s: float = TARGET_PX / float(maxi(door_tex.get_height(), 1))
+		art.scale = Vector2(s, s)
+		door.add_child(art)
+		# Collision only covers the swirling portal opening (not the stone frame around it) —
+		# it sits slightly below the sprite's vertical center in the source art.
+		rect.size = Vector2(63.0, 123.0)
+		shape.position = Vector2(0.0, 8.0)
+	else:
+		rect.size = Vector2(48.0, 64.0)
+		var glow := ColorRect.new()
+		glow.color = Color(0.55, 0.85, 1.0, 0.45)
+		glow.size = Vector2(48.0, 64.0)
+		glow.position = Vector2(-24.0, -32.0)
+		glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		door.add_child(glow)
+		var label := Label.new()
+		label.text = "Exit"
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.position = Vector2(-24.0, -52.0)
+		label.size = Vector2(48.0, 16.0)
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		door.add_child(label)
+	shape.shape = rect
+	door.add_child(shape)
+
+	# Looping pulse ring so the door reads as "alive"/interactive, not a static prop.
+	var pulse := Timer.new()
+	pulse.wait_time = 0.7
+	pulse.autostart = true
+	pulse.timeout.connect(func() -> void:
+		if is_instance_valid(door):
+			Juice.spawn_pulse_ring(door.global_position, 34.0, Color(0.55, 0.85, 1.0))
+	)
+	door.add_child(pulse)
+
+	door.body_entered.connect(_on_boss_exit_door_entered)
+	_boss_exit_door = door
+
+## Fires on every peer when a body touches the door; only the peer who actually owns that
+## body (their own player) forwards a use-request to the host — same convention as
+## XpOrb._on_body_entered (peer_id check prevents every peer re-triggering for one player).
+func _on_boss_exit_door_entered(body: Node) -> void:
+	if not body.is_in_group("players"):
+		return
+	if body.peer_id != multiplayer.get_unique_id():
+		return
+	if multiplayer.is_server():
+		_request_use_boss_door()
+	else:
+		rpc_id(1, "_request_use_boss_door")
+
+## Host-authoritative: do what _on_boss_died used to do immediately — transition everyone
+## back to Room 1 and spawn the new loop's enemies there. Guarded so two players reaching the
+## door in the same frame (or the RPC arriving twice) can't double-fire the transition.
+@rpc("any_peer", "call_remote", "reliable")
+func _request_use_boss_door() -> void:
+	if not multiplayer.is_server():
+		return
+	if _boss_exit_door_used:
+		return
+	_boss_exit_door_used = true
 	_transition_to_room.rpc(1)
-	# Spawn Room 1 enemies for the new loop (current_room will be 1 after the RPC)
-	# call_deferred ensures the transition RPC (which runs call_local) sets current_room first
 	_spawn_enemies.call_deferred()
 
 # ==============================================================================
@@ -855,11 +1022,12 @@ func _do_spawn_enemy(data: Dictionary) -> Node:
 	# For elite enemies: EliteEnemy._ready() applies its own scaling after calling super._ready()
 	#   (see EliteEnemy.gd _ready). Setting mult here would be overwritten by EliteEnemy._ready()
 	#   so only normal enemies receive the scaling multiplication in this function.
-	# Phase 8 Plan 03 (D-11): Boss applies its own loop scaling in _ready() — exclude boss too.
-	# At loop_number=1: loop factor is 1.0 (baseline preserved, Pitfall 6). Difficulty tier,
-	# player count, run time, and weapon count compose on top of it — see GameState.
+	# Phase 8 Plan 03 (D-11): Boss applies its own scaling in _ready() — exclude boss too.
+	# Difficulty tier, player count, team level, run time and weapon count all compose inside
+	# GameState.get_difficulty_player_stat_mult(). The old per-loop factor was replaced by the
+	# team-level ramp that now lives in there, so there is nothing left to multiply here.
 	if enemy_type != "elite" and enemy_type != "boss":
-		var mult: float = (1.0 + (GameState.loop_number - 1) * 0.25) * GameState.get_difficulty_player_stat_mult()
+		var mult: float = GameState.get_difficulty_player_stat_mult()
 		e.MAX_HP = int(e.MAX_HP * mult)
 		e.CONTACT_DAMAGE = int(e.CONTACT_DAMAGE * mult)
 		e.current_hp = e.MAX_HP
@@ -874,15 +1042,23 @@ func _do_spawn_enemy(data: Dictionary) -> Node:
 ## CMBT-08: XP orb always drops. Car-part weapon drops removed — weapons come from the
 ## sub-room weapon-choice overlay instead (see _start_weapon_choice).
 func _on_enemy_died(pos: Vector2) -> void:
-	if not multiplayer.is_server():
+	if not is_inside_tree() or not multiplayer.is_server():
 		return
 	# Always drop XP orb — call_deferred prevents "Can't change state while flushing queries"
-	$PickupSpawner.spawn.call_deferred({"type": "xp_orb", "pos": pos})
+	_deferred_spawn_xp_orb.call_deferred(pos)
 	# Immediate respawn removed: conflicted with _check_room_clear (count never reached 0).
 	## Phase 9 (D-08, MAP-02): After each enemy death, check if the current sub-room is cleared.
 	## The old _check_room_clear path is retired — sub-room waves + connector now drive progression.
 	## call_deferred so queue_free finishes before we count living enemies.
 	_check_sub_room_clear.call_deferred()
+
+## Deferred wrapper for the XP orb spawn — the death that triggers this can be the last enemy
+## in the run, and the Game scene may already have left the tree by the time this fires
+## (player died the same frame, ending the match). Guard mirrors _check_sub_room_clear.
+func _deferred_spawn_xp_orb(pos: Vector2) -> void:
+	if not is_inside_tree():
+		return
+	$PickupSpawner.spawn({"type": "xp_orb", "pos": pos})
 
 func _do_spawn_pickup(data: Dictionary) -> Node:
 	match data.get("type", "xp_orb"):
@@ -1092,6 +1268,10 @@ func weapon_unlocked(weapon_id: String, collector_peer_id: int) -> void:
 				# actual pickup — add_weapon() returns false on the silent cap/duplicate case.
 				if p.get_node("WeaponManager").add_weapon(weapon_id):
 					GameState.weapons_acquired_count += 1
+					# Latch the level the FIRST weapon landed on — this is where enemy
+					# level scaling flips from linear to exponential (GameState._level_stat_mult).
+					if GameState.level_at_first_weapon < 0:
+						GameState.level_at_first_weapon = GameState.team_level
 			return
 
 # ==============================================================================
@@ -1215,6 +1395,10 @@ func _apply_stat_boost_rpc(stat: String, amount: int) -> void:
 
 ## Phase 6: Signal owning peer that card pick is complete — clear overlay and flag.
 ## Also drains any queued picks from rapid level-ups.
+## PROG-03: the evolution transform is meant to feel like the payoff for the choice just made,
+## so it's kicked off from HERE (after the reward is actually applied) instead of racing the
+## card overlay — but only once every queued pick (multi-level jumps queue one card each) is
+## resolved, so the transform doesn't interrupt a still-pending decision.
 @rpc("authority", "call_remote", "reliable")
 func _card_pick_complete() -> void:
 	# Runs on the owning peer
@@ -1226,8 +1410,11 @@ func _card_pick_complete() -> void:
 				p.get_node("CardOverlay").hide_overlay()
 			if p.has_method("_update_xp_hud"):
 				p._update_xp_hud()
+			var no_more_picks: bool = p._pending_card_picks == 0 and not p._pending_weapon_choice
 			if p.has_method("_trigger_pending_card_pick"):
 				p._trigger_pending_card_pick()
+			if no_more_picks and p.has_method("_check_stage_threshold"):
+				p._check_stage_threshold()
 			return
 
 # ==============================================================================

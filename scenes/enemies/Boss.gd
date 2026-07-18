@@ -12,6 +12,16 @@ extends "res://scenes/enemies/Enemy.gd"
 var phase: int = 1
 var _boss_max_hp: int = 1000
 
+# ─── Second Life ──────────────────────────────────────────────────────────────
+## The boss survives its first "death" with a second life at 50% of its (scaled) max HP,
+## already enraged (Phase 3) — a longer, more climactic finish than a single HP bar. The
+## second death is the real one.
+const SECOND_LIFE_HP_RATIO: float = 0.5
+var _second_life_used: bool = false
+## True only during the vanish→reignite beat (_trigger_second_life). A harder freeze than
+## _phase_pause_timer: no chase movement at all, not just no attacks.
+var _second_life_active: bool = false
+
 # ─── Art ──────────────────────────────────────────────────────────────────────
 ## The boss ships one animation set ("boss_idle"/"boss_walk"), not the two enemy_N variants.
 const BOSS_ANIM_SET: String = "boss"
@@ -70,11 +80,12 @@ const SHOOT_COOLDOWN_P3: float = 1.2
 # ─── Ready ────────────────────────────────────────────────────────────────────
 func _ready() -> void:
 	super._ready()
-	# D-11: scale HP by loop — same formula as regular enemies, plus difficulty tier + player
-	# count + run time + weapon count, plus a boss-only team-level factor (2026-07-18: the
-	# boss needs to keep pace with card/weapon/evolution stacking, which trash mobs don't
-	# need to since they don't survive long enough to matter).
-	var mult: float = (1.0 + (GameState.loop_number - 1) * 0.25) * GameState.get_difficulty_player_stat_mult() * GameState.get_boss_level_mult()
+	# D-11: same shared formula as regular enemies (tier + player count + team level + run time
+	# + weapon count), plus a boss-only extra team-level factor (2026-07-18: the boss needs to
+	# keep pace with card/weapon/evolution stacking, which trash mobs don't need to since they
+	# don't survive long enough to matter). The old per-loop factor was replaced by the
+	# team-level ramp inside get_difficulty_player_stat_mult().
+	var mult: float = GameState.get_difficulty_player_stat_mult() * GameState.get_boss_level_mult()
 	_boss_max_hp = int(1000 * mult)
 	MAX_HP = _boss_max_hp
 	current_hp = MAX_HP
@@ -102,14 +113,27 @@ func take_damage(amount: int) -> void:
 	elif phase == 2 and current_hp <= _boss_max_hp * 0.33:
 		_enter_phase(3)
 	if current_hp <= 0:
+		if not _second_life_used:
+			# First "death": second life kicks in instead — 50% HP, already enraged.
+			_second_life_used = true
+			current_hp = int(_boss_max_hp * SECOND_LIFE_HP_RATIO)
+			phase = 3
+			_trigger_second_life.rpc(global_position)
+			return
 		died.emit(global_position)
+		_trigger_final_death.rpc(global_position)
 		queue_free()
 
 ## Advance to a new phase: update state, broadcast color, request mob swarm.
 func _enter_phase(new_phase: int) -> void:
 	phase = new_phase
 	_notify_phase_change.rpc(new_phase)
-	# Reset attack timers on phase entry
+	_reset_attack_state(new_phase)
+	_request_mob_swarm(new_phase)
+
+## Shared attack-timer reset used by both a normal phase transition and the second-life
+## reignite — same cooldown/windup/pause bookkeeping either way.
+func _reset_attack_state(new_phase: int) -> void:
 	var charge_cd := CHARGE_COOLDOWN_P3 if new_phase == 3 else CHARGE_COOLDOWN_P1
 	_charge_timer = charge_cd
 	var shoot_cd := SHOOT_COOLDOWN_P3 if new_phase == 3 else SHOOT_COOLDOWN_P2
@@ -121,10 +145,51 @@ func _enter_phase(new_phase: int) -> void:
 	_volley_windup = 0.0
 	# Brief attack pause on phase entry (Claude's Discretion in CONTEXT)
 	_phase_pause_timer = 2.0
-	# D-14: request mob swarm from Game node (call_deferred is physics-safe — RESEARCH pattern)
+
+## D-14: request mob swarm from Game node (call_deferred is physics-safe — RESEARCH pattern)
+func _request_mob_swarm(new_phase: int) -> void:
 	var game := get_tree().get_root().get_node_or_null("Game")
 	if game and game.has_method("_spawn_mob_swarm"):
 		game._spawn_mob_swarm.call_deferred(new_phase)
+
+## Second-life vanish→reignite beat. RPC so the fade/burst/flash choreography plays
+## identically on every peer (call_local, same convention as _notify_phase_change) — on the
+## host this executes on the very same Boss instance whose _physics_process is running, so
+## _second_life_active set/cleared here is what actually freezes/resumes its movement.
+@rpc("authority", "call_local", "reliable")
+func _trigger_second_life(pos: Vector2) -> void:
+	_second_life_active = true
+	Sfx.play("boss_death")
+	Juice.add_trauma(0.55)
+	Juice.spawn_boss_burst(pos, 3, 8)
+	var spr: CanvasItem = get_node_or_null("CharSprite")
+	if spr:
+		var fade_out := spr.create_tween()
+		fade_out.tween_property(spr, "modulate:a", 0.0, 0.25)
+	await get_tree().create_timer(0.6).timeout
+	if not is_instance_valid(self):
+		return
+	# Reignite: re-tint for Phase 3 (this also snaps alpha back to 1.0 — PHASE_TINT colors
+	# carry no alpha channel override, so the fade-out above is undone here) and burst again.
+	_apply_phase_visual(3)
+	Juice.spawn_boss_burst(pos, 2, 10)
+	Juice.add_trauma(0.45)
+	Sfx.play("boss_phase")
+	if spr:
+		Juice.flash(spr, Color(1.8, 1.6, 1.2, 1.0), 0.25)
+	_reset_attack_state(3)
+	_request_mob_swarm(3)
+	_second_life_active = false
+
+## Final-death spectacle. Fired right before queue_free — Enemy._exit_tree (which runs as
+## the node leaves the tree) already plays Sfx "boss_death" / the death sting, so this only
+## adds the extra visual weight: a bigger burst than the second life, plus a real shake/hitstop
+## punch.
+@rpc("authority", "call_local", "reliable")
+func _trigger_final_death(pos: Vector2) -> void:
+	Juice.spawn_boss_burst(pos, 5, 14)
+	Juice.add_trauma(0.9)
+	Juice.hitstop(0.15)
 
 ## RPC: broadcast phase color change to all peers (D-13).
 @rpc("authority", "call_local", "reliable")
@@ -157,6 +222,12 @@ func _apply_phase_visual(new_phase: int) -> void:
 ## P6: inherited set_physics_process(is_multiplayer_authority()) in Enemy._ready() already
 ## ensures this only runs on host — do NOT re-add that guard here.
 func _physics_process(delta: float) -> void:
+	# Second-life vanish→reignite beat: harder freeze than the normal phase pause — no
+	# movement at all while the boss is "gone" between its two lives.
+	if _second_life_active:
+		velocity = Vector2.ZERO
+		move_and_slide()
+		return
 	# Phase pause: no attacks immediately after phase transition
 	if _phase_pause_timer > 0.0:
 		_phase_pause_timer -= delta

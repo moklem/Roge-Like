@@ -35,9 +35,10 @@ func _ready() -> void:
 	# _do_spawn_enemy cannot scale EliteEnemy stats because _ready() runs AFTER the spawn_function
 	# returns (when Spawner calls add_child). Setting stats here ensures the final effective values
 	# are base(100/15) × mult, not the pre-_ready defaults.
-	# At loop_number=1, the loop factor is 1.0 (D-21). Difficulty tier, player count, run
-	# time, and weapon count compose on top of it — see GameState.get_difficulty_player_stat_mult.
-	var mult: float = (1.0 + (GameState.loop_number - 1) * 0.25) * GameState.get_difficulty_player_stat_mult()
+	# Difficulty tier, player count, team level, run time and weapon count all compose inside
+	# GameState.get_difficulty_player_stat_mult(). The old per-loop factor was replaced by the
+	# team-level ramp that now lives in there.
+	var mult: float = GameState.get_difficulty_player_stat_mult()
 	MAX_HP = int(MAX_HP * mult)
 	CONTACT_DAMAGE = int(CONTACT_DAMAGE * mult)
 	current_hp = MAX_HP

@@ -95,6 +95,13 @@ const VFX_NAMES: Array[String] = [
 	# driver-mode REPAIR plus-cross stream + the ECO/SPORT mode badges
 	"repair_plus", "badge_eco", "badge_sport",
 	"rim_cold", "rim_hot", "rim_massage",
+	# PROG-03: element-specific evolution transform art (aura/ring/chunk/sigil per element)
+	"evo_aura_fire", "evo_aura_ice", "evo_aura_earth",
+	"evo_ring_fire", "evo_ring_ice", "evo_ring_earth",
+	"evo_chunk_fire", "evo_chunk_ice", "evo_chunk_earth",
+	"evo_sigil_fire", "evo_sigil_ice", "evo_sigil_earth",
+	# Break-room exit portal spawned after the boss's final death (Game._spawn_boss_exit_door)
+	"boss_exit_door",
 ]
 var _vfx: Dictionary = {}   # name -> Texture2D (absent when the file isn't there)
 var _glow_tex: GradientTexture2D = null
@@ -127,8 +134,8 @@ func _make_glow_texture() -> GradientTexture2D:
 
 ## The comic particle sprite by name, or null when it hasn't been delivered (callers
 ## then degrade to the flat colored burst). See VFX_NAMES for the catalog.
-func vfx(name: String) -> Texture2D:
-	return _vfx.get(name, null)
+func vfx(vfx_name: String) -> Texture2D:
+	return _vfx.get(vfx_name, null)
 
 # ------------------------------------------------------------------------------
 # Frame-sequence registry — the multi-frame weapon/pickup animations delivered as
@@ -151,27 +158,27 @@ var _frame_sets: Dictionary = {}  # name -> SpriteFrames (built lazily, shared b
 
 ## The animation strip by name as a shared SpriteFrames ("default" animation), or null
 ## when the frames haven't been delivered — callers then keep their old flat visuals.
-func frames(name: String) -> SpriteFrames:
-	if _frame_sets.has(name):
-		return _frame_sets[name]
-	if not FRAME_SETS.has(name):
+func frames(anim_name: String) -> SpriteFrames:
+	if _frame_sets.has(anim_name):
+		return _frame_sets[anim_name]
+	if not FRAME_SETS.has(anim_name):
 		return null
-	var cfg: Dictionary = FRAME_SETS[name]
+	var cfg: Dictionary = FRAME_SETS[anim_name]
 	var sf := SpriteFrames.new()
 	sf.set_animation_speed("default", cfg["fps"])
 	sf.set_animation_loop("default", cfg["loop"])
 	for i in range(1, int(cfg["count"]) + 1):
-		var path: String = "%s%s_%02d.png" % [cfg["dir"], name, i]
+		var path: String = "%s%s_%02d.png" % [cfg["dir"], anim_name, i]
 		if not ResourceLoader.exists(path):
 			return null  # incomplete strip — treat as not delivered
 		sf.add_frame("default", load(path))
-	_frame_sets[name] = sf
+	_frame_sets[anim_name] = sf
 	return sf
 
 ## One-shot frame animation at `pos` on the FxLayer — plays "default" once, frees itself.
 ## `target_px` is the on-screen height; silently no-ops when strip or layer is missing.
-func spawn_anim(pos: Vector2, name: String, target_px: float, z: int = 6) -> AnimatedSprite2D:
-	var sf := frames(name)
+func spawn_anim(pos: Vector2, anim_name: String, target_px: float, z: int = 6) -> AnimatedSprite2D:
+	var sf := frames(anim_name)
 	var layer := _fx_layer()
 	if sf == null or layer == null:
 		return null
@@ -234,6 +241,49 @@ func spawn_pop(pos: Vector2, tex: Texture2D, target_px: float = 72.0, rise: floa
 	tw.tween_property(s, "modulate:a", 0.0, 0.28)
 	tw.tween_callback(s.queue_free)
 
+## PROG-03: charge-up aura for the evolution transform — grows and slowly rotates in place
+## while fading in, holds, then fades out. `duration` should match the caller's charge tween
+## so the aura's life exactly spans the buildup. Pre-colored per-element art (evo_aura_*),
+## tint stays WHITE like the other comic sprites.
+func spawn_aura(pos: Vector2, tex: Texture2D, target_px: float, duration: float) -> void:
+	var layer := _fx_layer()
+	if layer == null or tex == null:
+		return
+	var s := Sprite2D.new()
+	s.texture = tex
+	s.z_index = 4  # behind the character's own sprite/particles, ambient backdrop only
+	var sc: float = target_px / float(maxi(tex.get_height(), 1))
+	s.scale = Vector2(sc, sc) * 0.5
+	s.modulate.a = 0.0
+	layer.add_child(s)
+	s.global_position = pos
+	var grow := s.create_tween()
+	grow.tween_property(s, "scale", Vector2(sc, sc), duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	grow.parallel().tween_property(s, "rotation", 0.4, duration)
+	var fade := s.create_tween()
+	fade.tween_property(s, "modulate:a", 0.9, duration * 0.3)
+	fade.tween_interval(duration * 0.4)
+	fade.tween_property(s, "modulate:a", 0.0, duration * 0.3)
+	fade.tween_callback(s.queue_free)
+
+## PROG-03: element-themed expanding shockwave ring for the evolution reveal — the textured
+## counterpart to spawn_pulse_ring, used when pre-colored ring art (evo_ring_*) is available.
+func spawn_evo_ring(pos: Vector2, tex: Texture2D, target_px: float, duration: float = 0.45) -> void:
+	var layer := _fx_layer()
+	if layer == null or tex == null:
+		return
+	var s := Sprite2D.new()
+	s.texture = tex
+	s.z_index = 6
+	var sc: float = target_px / float(maxi(tex.get_height(), 1))
+	s.scale = Vector2(sc, sc) * 0.15
+	layer.add_child(s)
+	s.global_position = pos
+	var tw := s.create_tween()
+	tw.tween_property(s, "scale", Vector2(sc, sc), duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(s, "modulate:a", 0.0, duration * 0.7).set_delay(duration * 0.3)
+	tw.tween_callback(s.queue_free)
+
 ## Death "POOF": a slow fat smoke puff plus a spray of glowing dots, both comic-colored. Falls
 ## back to the flat colored death burst when the art is absent (fallback_color = the dying
 ## enemy's own tint, so normal/Elite/Boss still read differently).
@@ -247,6 +297,40 @@ func spawn_death_pop(pos: Vector2, fallback_color: Color) -> void:
 		spawn_tex_burst(pos, poof, 3, 60.0, 0.55, 140.0, 8.0, 34.0, Vector2.UP, Vector2(0.0, -12.0))
 	if dot != null:
 		spawn_tex_burst(pos, dot, 8, 22.0, 0.5, 180.0, 70.0, 150.0)
+
+## Boss respawn/death spectacle: the same death-pop smoke/glow (spawn_death_pop) staggered a
+## few times for a bigger cloud, plus a ring of exhaust-flame jets firing outward in every
+## direction. Shared by Boss's second-life reignite beat and its real final death — the two
+## only differ in `cloud_bursts`/`flame_count` (final death just uses bigger numbers).
+func spawn_boss_burst(pos: Vector2, cloud_bursts: int, flame_count: int) -> void:
+	for i in range(cloud_bursts):
+		var jitter := Vector2(randf_range(-20.0, 20.0), randf_range(-20.0, 20.0))
+		spawn_death_pop(pos + jitter, Color(0.6, 0.15, 0.15))
+	for i in range(flame_count):
+		var dir: Vector2 = Vector2.RIGHT.rotated(TAU * float(i) / float(flame_count))
+		_spawn_flame_jet(pos, dir)
+
+## One outward-facing exhaust-flame lick, reusing ExhaustFlames.gd's exact AnimatedSprite2D
+## setup (offset/scale/rotation convention) rather than re-deriving it — that file already
+## proved this orientation reads correctly in-game. Purely cosmetic: parented to FxLayer, not
+## tied to any weapon cooldown/hit detection.
+func _spawn_flame_jet(pos: Vector2, dir: Vector2) -> void:
+	var sf: SpriteFrames = frames("exhaust")
+	var layer := _fx_layer()
+	if sf == null or layer == null:
+		return
+	var spr := AnimatedSprite2D.new()
+	spr.sprite_frames = sf
+	spr.centered = false
+	spr.offset = Vector2(0.0, -90.0)  # 512×181 canvas, flame core on the midline
+	spr.scale = Vector2(0.34, 0.34)
+	spr.z_index = 6
+	layer.add_child(spr)
+	spr.global_position = pos
+	spr.rotation = dir.angle()
+	spr.play("default")
+	spr.animation_finished.connect(spr.queue_free)
+	_backstop_free(spr, float(sf.get_frame_count("default")) / maxf(sf.get_animation_speed("default"), 1.0) + 0.5)
 
 ## Heal cue: a few "+" crosses floating up. Falls back to the old green up-burst when absent.
 func spawn_heal(pos: Vector2) -> void:

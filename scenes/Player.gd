@@ -33,10 +33,6 @@ const ENGINEER_DRONE_COOLDOWN: float = 18.0  # drone lives 10s, 8s gap before re
 const XP_PER_ORB: int = 15           # D-01 tuned: 5→15 to hit Stage 2 in ~8-12 min
 const STAGE2_LEVEL: int = 5          # D-03: Proto-Bot at Level 5 (cumulative 700 XP)
 const STAGE3_LEVEL: int = 10         # D-04: Full AutoBot at Level 10 (cumulative 2700 XP)
-## Charge-up (0.5s) + reveal beat (see _play_evolution_transform) — the level-up card overlay
-## is held back this long so the evolution transform is actually visible instead of being
-## instantly buried under the card choices.
-const EVOLUTION_REVEAL_DELAY: float = 0.9
 
 @export var peer_id: int = 0
 @export var role_label: String = ""
@@ -1444,22 +1440,33 @@ func set_evolution_stage(stage: int) -> void:
 func _play_evolution_transform(stage: int) -> void:
 	var target: CanvasItem = $CharSprite if _uses_char_sprite else $Sprite
 	var color := Juice.element_color(element)
+	var elem_suffix: String = element if element in ["fire", "ice", "earth"] else ""
 	_evolution_transform_active = true
 	# One of only two moments that get a music reaction (the other is boss death). The sting
 	# layers over the running shuffle rather than interrupting it — the transform is a beat in
 	# the run, not a cutscene.
 	Sfx.play("evolution")
 	Music.play_evolution_sting()
+	# Element-themed backdrop for the whole charge-up (falls back silently to just the glow/shake
+	# below if this element has no art or the elem_suffix lookup came up empty).
+	if elem_suffix != "":
+		var aura_tex: Texture2D = Juice.vfx("evo_aura_" + elem_suffix)
+		if aura_tex != null:
+			Juice.spawn_aura(global_position, aura_tex, 140.0, 0.5)
 	var charge := create_tween()
 	charge.tween_method(func(t: float) -> void:
-		var glow_scale: float = 1.0 + t * 0.6
+		var glow_scale: float = 1.0 + t * 1.2
 		var c: Color = Color.WHITE.lerp(color, t)
 		target.modulate = Color(c.r * glow_scale, c.g * glow_scale, c.b * glow_scale, 1.0)
 		if is_multiplayer_authority():
-			Juice.add_trauma(0.015)  # rising shake build-up, owner screen only (D-14/T-10-26)
+			# Juice's trauma decays at a flat 2.2/sec (see TRAUMA_DECAY_PER_SEC) — a per-frame
+			# add has to clear that rate or it never climbs at all (0.015/frame at 60fps was
+			# only ~0.9/sec, so it flatlined at 0 and the "rising shake" was invisible). Scaling
+			# by delta and using a rate well above the decay floor makes it actually ramp.
+			Juice.add_trauma(3.0 * get_process_delta_time())
 	, 0.0, 1.0, 0.5)
 	charge.tween_callback(func() -> void:
-		_reveal_evolution_stage(stage, target, color)
+		_reveal_evolution_stage(stage, target, color, elem_suffix)
 	)
 
 ## PROG-03/D-14: fires at the end of the charge-up — sprite swap + element-colored burst +
@@ -1468,15 +1475,32 @@ func _play_evolution_transform(stage: int) -> void:
 ## reveal is identical for all; `Juice.hitstop` is the local per-peer cosmetic dip only —
 ## never Engine.time_scale (T-10-25). Stage stat effects are untouched by this presentation-only
 ## composition. Total charge+reveal stays well within the ~1-1.5s cap (roadmap hard constraint).
-func _reveal_evolution_stage(stage: int, target: CanvasItem, color: Color) -> void:
+func _reveal_evolution_stage(stage: int, target: CanvasItem, color: Color, elem_suffix: String = "") -> void:
 	call_deferred("_swap_stage_visual", stage)  # D-13: instant, deferred for physics safety
-	# Evolution reveal: a shower of gold stars (or the old element-colored burst as fallback).
+	# Element-themed shockwave ring, falling back to the plain tinted pulse ring when the
+	# element has no dedicated art.
+	var ring_tex: Texture2D = Juice.vfx("evo_ring_" + elem_suffix) if elem_suffix != "" else null
+	if ring_tex != null:
+		Juice.spawn_evo_ring(global_position, ring_tex, 200.0, 0.45)
+	else:
+		Juice.spawn_pulse_ring(global_position, 70.0, color)
+	# Burst of element-themed chunks, falling back to the generic gold stars, then a flat burst.
+	var chunk_tex: Texture2D = Juice.vfx("evo_chunk_" + elem_suffix) if elem_suffix != "" else null
 	var star_tex: Texture2D = Juice.vfx("star")
-	if star_tex != null:
+	if chunk_tex != null:
+		Juice.spawn_tex_burst(global_position, chunk_tex, 14, 30.0, 0.55, 180.0, 60.0, 170.0)
+	elif star_tex != null:
 		Juice.spawn_tex_burst(global_position, star_tex, 12, 32.0, 0.5, 180.0, 60.0, 160.0)
 	else:
 		Juice.spawn_burst(global_position, color, 20, 0.5)
-	Juice.hitstop(0.08)  # brief snappy beat (D-06), local cosmetic dip only — never engine-global
+	# Big element sigil overhead — the unmistakable "you are now Fire/Ice/Earth" stamp that
+	# reads clearly even if a player's eyes weren't on the shockwave.
+	var sigil_tex: Texture2D = Juice.vfx("evo_sigil_" + elem_suffix) if elem_suffix != "" else null
+	if sigil_tex != null:
+		Juice.spawn_pop(global_position + Vector2(0.0, -46.0), sigil_tex, 96.0, 30.0, 0.6)
+	if is_multiplayer_authority():
+		Juice.add_trauma(0.55)  # the actual "landed" punch — the charge-up ramp alone decays too fast to read as a hit
+	Juice.hitstop(0.12)  # brief snappy beat (D-06), local cosmetic dip only — never engine-global
 	var restore := create_tween()
 	restore.tween_property(target, "modulate", Color.WHITE, 0.15)
 	restore.tween_callback(func() -> void:
@@ -1570,13 +1594,6 @@ func _check_stage_threshold() -> void:
 		set_evolution_stage.rpc(3)
 		set_evolution_stage(3)
 
-## Whether _check_stage_threshold (called right after this) will kick off the evolution
-## charge-up/reveal — used by GameState._sync_team_xp to hold the level-up cards back
-## until the transform has had its moment on screen.
-func _will_evolve() -> bool:
-	return (level >= STAGE2_LEVEL and evolution_stage < 2) \
-		or (level >= STAGE3_LEVEL and evolution_stage < 3)
-
 ## Phase 6 (XP-03, XP-04, XP-05, XP-06): Build eligible card pool for this player.
 func _build_card_pool() -> Array:
 	var pool: Array = []
@@ -1614,11 +1631,19 @@ func _draw_cards(pool: Array) -> Array:
 ## TEAM XP: GameState._sync_team_xp calls this on the LOCAL player of every peer,
 ## so all players pick simultaneously — each with their own card pool.
 ## Guards against rapid double level-ups by queuing extra picks.
+## PROG-03: also holds off while an evolution charge-up/reveal from a PRIOR card pick is still
+## playing (_evolution_transform_active) — the transform now starts only after a card is chosen
+## (see Game._card_pick_complete), but a fast follow-up XP-orb pickup can still land mid-transform
+## and would otherwise pop a new card overlay right over it.
 func _trigger_card_pick() -> void:
 	if not is_multiplayer_authority():
 		return
 	if is_picking_card:
 		_pending_card_picks += 1
+		return
+	if _evolution_transform_active:
+		await get_tree().create_timer(0.1).timeout
+		_trigger_card_pick()
 		return
 	is_picking_card = true    # D-07: freezes input + invulnerability (see _physics_process + receive_damage)
 	var pool: Array = _build_card_pool()

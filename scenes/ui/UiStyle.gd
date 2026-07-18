@@ -33,15 +33,15 @@ static func wire_click_cue(root: Node) -> void:
 static func add_background(root: Control, path: String = BACKGROUND_PATH) -> void:
 	if root.has_node("StyleBackground") or not ResourceLoader.exists(path):
 		return
-	var tr := TextureRect.new()
-	tr.name = "StyleBackground"
-	tr.texture = load(path)
-	tr.set_anchors_preset(Control.PRESET_FULL_RECT)
-	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE  # never eat clicks
-	root.add_child(tr)
-	root.move_child(tr, 0)  # render behind the rest of the UI
+	var bg_rect := TextureRect.new()
+	bg_rect.name = "StyleBackground"
+	bg_rect.texture = load(path)
+	bg_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bg_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	bg_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE  # never eat clicks
+	root.add_child(bg_rect)
+	root.move_child(bg_rect, 0)  # render behind the rest of the UI
 
 ## Style the big title as a bold logo: Transformers font, large size, heavy outline + shadow.
 static func style_title(label: Label) -> void:

@@ -43,21 +43,49 @@ const DIFFICULTY_SPAWN_MULT: Dictionary = {
 ## stronger the longer a run goes, not just jump at loop boundaries. Host-only write
 ## (see _process); not synced to clients (same convention as loop_number/loop_timer).
 ##
-## Linear-then-exponential blend: the first TIME_LINEAR_PHASE_MINUTES grow at a flat
-## +5%/min (matches the original tuning so early game stays exactly as playtested), then
-## the same 5%/min rate switches from additive to compounding, so long runs accelerate
-## instead of climbing at a constant rate forever.
+## Purely linear at +5%/min for the whole run. (An exponential tail after 5 minutes was
+## tried and removed — the run-length ramp is the slow background pressure; the sharp
+## acceleration lives in the team-level ramp below, keyed on progression rather than
+## on the clock, so idling never makes the run harder.)
 var run_elapsed_time: float = 0.0
 const TIME_STAT_MULT_PER_MINUTE: float = 0.05
-const TIME_LINEAR_PHASE_MINUTES: float = 5.0
 
 func _time_stat_mult() -> float:
-	var minutes: float = run_elapsed_time / 60.0
-	if minutes <= TIME_LINEAR_PHASE_MINUTES:
-		return 1.0 + minutes * TIME_STAT_MULT_PER_MINUTE
-	var mult_at_threshold: float = 1.0 + TIME_LINEAR_PHASE_MINUTES * TIME_STAT_MULT_PER_MINUTE
-	var extra_minutes: float = minutes - TIME_LINEAR_PHASE_MINUTES
-	return mult_at_threshold * pow(1.0 + TIME_STAT_MULT_PER_MINUTE, extra_minutes)
+	return 1.0 + (run_elapsed_time / 60.0) * TIME_STAT_MULT_PER_MINUTE
+
+## Team-level ramp — replaces the old per-loop factor that used to sit inline in
+## Game.gd / EliteEnemy.gd / Boss.gd. Enemies now scale with team progression instead of
+## loop count, so difficulty tracks how strong the players actually are.
+##
+## Linear at +15%/level until the team picks up its FIRST weapon, then exponential.
+## The exponential is pinned to the linear curve at the switch level (no jump) AND is
+## guaranteed to be strictly steeper than the linear curve from that point on:
+##
+##   linear      f(L)  = 1 + r·(L−1)              slope = r  (constant)
+##   exponential g(L)  = f(L₀)·b^(L−L₀)           slope = f(L₀)·ln(b)·b^(L−L₀)
+##
+## g's slope is at its minimum exactly at L₀ (b > 1 ⇒ it only grows after), so pinning
+## that minimum above r is sufficient for "steeper everywhere after the switch":
+##
+##   f(L₀)·ln(b) = BOOST·r   ⇒   b = exp(BOOST·r / f(L₀))     with BOOST > 1
+##
+## Deriving b this way (rather than hardcoding a base) keeps the guarantee intact no
+## matter which level the first weapon lands on, and no matter how r is retuned.
+const LEVEL_STAT_MULT_PER_LEVEL: float = 0.15
+const POST_WEAPON_SLOPE_BOOST: float = 1.5
+
+## Team level at the moment the first weapon was collected (-1 = not yet collected).
+## Latched once, on every peer, from Game.weapon_unlocked (a call_local RPC) so the curve
+## is identical everywhere without a dedicated sync.
+var level_at_first_weapon: int = -1
+
+func _level_stat_mult() -> float:
+	if level_at_first_weapon < 0:
+		return 1.0 + (team_level - 1) * LEVEL_STAT_MULT_PER_LEVEL
+	var mult_at_switch: float = 1.0 + (level_at_first_weapon - 1) * LEVEL_STAT_MULT_PER_LEVEL
+	var growth_base: float = exp(POST_WEAPON_SLOPE_BOOST * LEVEL_STAT_MULT_PER_LEVEL / mult_at_switch)
+	var levels_since_switch: int = maxi(0, team_level - level_at_first_weapon)
+	return mult_at_switch * pow(growth_base, levels_since_switch)
 
 ## Small stat bump per weapon any player has picked up this run (host-authoritative,
 ## incremented identically on every peer inside Game.gd's weapon_unlocked call_local RPC —
@@ -70,13 +98,15 @@ const WEAPON_STAT_MULT_PER_WEAPON: float = 0.05
 func get_player_count() -> int:
 	return maxi(1, get_tree().get_nodes_in_group("players").size())
 
-## Combined difficulty-tier + player-count + time + weapon-count factor for enemy HP/damage.
-## Tier/player/weapon stay linear; the time term is the linear-then-exponential blend above.
+## Combined tier + player-count + team-level + time + weapon-count factor for enemy HP/damage.
+## Tier/player/time/weapon are all linear; the team-level term is the linear-then-exponential
+## curve above. The team-level term is folded in HERE (it used to be a per-loop factor written
+## out by hand at each of the three spawn sites) so every enemy type shares one definition.
 func get_difficulty_player_stat_mult() -> float:
 	var tier_mult: float = DIFFICULTY_STAT_MULT.get(difficulty, 1.0)
 	var player_mult: float = 1.0 + (get_player_count() - 1) * 0.20
 	var weapon_mult: float = 1.0 + weapons_acquired_count * WEAPON_STAT_MULT_PER_WEAPON
-	return tier_mult * player_mult * _time_stat_mult() * weapon_mult
+	return tier_mult * player_mult * _level_stat_mult() * _time_stat_mult() * weapon_mult
 
 ## Combined difficulty-tier + player-count factor for enemy spawn counts.
 ## Weighted higher than the stat mult — more players means more targets, not just tougher ones.
@@ -168,21 +198,11 @@ func _sync_team_xp(xp_value: int, level_value: int, levels_gained: int) -> void:
 		if p.peer_id == local_id:
 			p.xp = xp_value
 			p.level = level_value
-			# Evolution charge-up/reveal should be seen, not instantly buried under the level-up
-			# cards — check BEFORE _check_stage_threshold mutates evolution_stage, then hold the
-			# card overlay back until the transform's had its moment on screen.
-			var will_evolve: bool = levels_gained > 0 and p.has_method("_will_evolve") and p._will_evolve()
-			if levels_gained > 0 and p.has_method("_check_stage_threshold"):
-				p._check_stage_threshold()
-			if will_evolve:
-				var t := p.get_tree().create_timer(p.EVOLUTION_REVEAL_DELAY)
-				t.timeout.connect(func() -> void:
-					for i in range(levels_gained):
-						p._trigger_card_pick()
-				)
-			else:
-				for i in range(levels_gained):
-					p._trigger_card_pick()
+			# The evolution transform is the PAYOFF for the reward just picked, not a race
+			# against it — stage threshold is checked from Game._card_pick_complete once every
+			# queued card pick has actually been resolved (see there for why).
+			for i in range(levels_gained):
+				p._trigger_card_pick()
 			if p.has_method("_update_xp_hud"):
 				p._update_xp_hud()
 			return
@@ -233,6 +253,7 @@ func reset_for_new_run() -> void:
 	team_level = 1
 	run_elapsed_time = 0.0
 	weapons_acquired_count = 0
+	level_at_first_weapon = -1
 
 ## D-14: Broadcast game over to all peers including host (call_local)
 @rpc("authority", "call_local", "reliable")
