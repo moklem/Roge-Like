@@ -18,3 +18,13 @@ builds/
 
 # Präsentation: komplett lokal, nicht ins Repo
 Präsentation/
+
+# GSD/AI-Planungs-Artefakte: lokal behalten, nicht ins Repo
+.planning/
+
+# Claude Code / lokale Tool-Configs
+.claude/
+
+# Diverses (Test-/Wegwerf-Dateien)
+hello.txt
+*.zip
