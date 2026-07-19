@@ -189,6 +189,23 @@ static func health_bar(bar: ProgressBar, fill: Color) -> void:
 	bar.add_theme_stylebox_override("background", bg)
 	bar.add_theme_stylebox_override("fill", fg)
 
+## Over-head REVIVE bar — same comic ink frame as health_bar(), but a cool bluish-dark
+## track + bright revive-blue fill (matches the world-space revive ring, Color(0.30,0.65,1)).
+## The distinct blue lets a glance read "someone is being revived" instead of confusing it
+## with the green team HP bar; kept compact so it never crowds the over-head cluster.
+static func revive_bar(bar: ProgressBar) -> void:
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(0.09, 0.12, 0.19, 0.92)
+	bg.border_color = Color(0, 0, 0, 1)
+	bg.set_border_width_all(2)
+	bg.set_corner_radius_all(3)
+	bg.set_content_margin_all(2)  # insets the fill so it sits inside the ink frame
+	var fg := StyleBoxFlat.new()
+	fg.bg_color = Color(0.32, 0.70, 1.0)
+	fg.set_corner_radius_all(2)
+	bar.add_theme_stylebox_override("background", bg)
+	bar.add_theme_stylebox_override("fill", fg)
+
 static func _focus_box() -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
 	s.bg_color = Color(0, 0, 0, 0)

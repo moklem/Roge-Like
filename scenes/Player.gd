@@ -187,6 +187,10 @@ func _setup_draw_layers() -> void:
 	# from the red enemy bars. Value/ghost plumbing untouched (same as Enemy._ready).
 	if has_node("HealthBar"):
 		UiStyle.health_bar($HealthBar, Color(0.30, 0.78, 0.35))
+	# Revive bar: same comic frame, revive-blue fill — clearly reads as "being revived"
+	# and stays distinct from the green HP bar. Value/visibility plumbing in set_revive_progress.
+	if has_node("ReviveBar"):
+		UiStyle.revive_bar($ReviveBar)
 
 ## AUTOBONK: Choose the character art set for this role and switch from the ColorRect
 ## placeholder to the AnimatedSprite2D. Runs on all peers (role_label is set before _ready
