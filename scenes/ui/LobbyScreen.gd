@@ -124,6 +124,20 @@ func _ready() -> void:
 	Lobby.player_list_changed.connect(_refresh_ui)
 	_refresh_ui()
 
+	# Run last: the room/difficulty pickers above are built after the styling pass, so the
+	# whole left column is only complete now. Compact it so it fits on screen (see below).
+	_compact_left_panel()
+
+## Escape leaves the lobby and returns to the main menu. Dropping our multiplayer peer
+## (offline peer + cleared registry) both tears down the connection and lets any remaining
+## peers see us leave via peer_disconnected — the same path a normal disconnect uses.
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		get_viewport().set_input_as_handled()
+		Sfx.play("ui_click")  # same click cue as the buttons (UiStyle.wire_click_cue)
+		Lobby.remove_multiplayer_peer()
+		get_tree().change_scene_to_file("res://scenes/ui/MainMenu.tscn")
+
 # ------------------------------------------------------------------------------
 # Comic-card styling
 # ------------------------------------------------------------------------------
@@ -151,6 +165,27 @@ func _style_cards() -> void:
 	# Info bullet blocks read better a step smaller than the button font.
 	element_info.add_theme_font_size_override("font_size", 15)
 	role_info.add_theme_font_size_override("font_size", 15)
+
+## The host lobby stacks role + element + ready/start + room + difficulty cards in the left
+## column; at the full comic button size that stack overran the top and bottom of the screen.
+## Shrink the left-column fonts, container spacing and card padding so the whole picker fits.
+## Runs last in _ready so the dynamically-built room/difficulty pickers are compacted too.
+func _compact_left_panel() -> void:
+	var left: VBoxContainer = $Main/LeftPanel
+	left.add_theme_constant_override("separation", 8)
+	for box in left.find_children("*", "BoxContainer", true, false):
+		box.add_theme_constant_override("separation", 6)
+	for btn in left.find_children("*", "Button", true, false):
+		btn.add_theme_font_size_override("font_size", 18)
+	for lbl in left.find_children("*", "Label", true, false):
+		lbl.add_theme_font_size_override("font_size", 16)
+	# Tighter paper padding on each left-column card (comic_box defaults to 10px all round).
+	for card in left.find_children("*", "PanelContainer", true, false):
+		var sb: StyleBox = card.get_theme_stylebox("panel")
+		if sb is StyleBoxFlat:
+			var tight: StyleBoxFlat = sb.duplicate()
+			tight.set_content_margin_all(6)
+			card.add_theme_stylebox_override("panel", tight)
 
 ## Ink text + no outline for every label under `root` (paper-card treatment).
 static func _ink_labels(root: Node) -> void:
@@ -424,6 +459,14 @@ func _refresh_ui() -> void:
 	if _is_host:
 		start_btn.disabled = not Lobby.all_players_ready()
 		status_label.text = "All ready!" if Lobby.all_players_ready() else ""
+
+	# Ready only unlocks once BOTH a role and an element are picked. Stays enabled while
+	# already ready so you can always toggle back off. Shows a hint on the status line
+	# (takes precedence over the host "all ready" text while picks are still missing).
+	var has_picks: bool = my_role != "" and my_element != ""
+	ready_btn.disabled = not _is_ready and not has_picks
+	if not _is_ready and not has_picks:
+		status_label.text = "Wähle zuerst Rolle & Element"
 
 	# Rebuild player list panel — D-09
 	for child in player_list.get_children():

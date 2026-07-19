@@ -1,4 +1,4 @@
-# Design Asset Checklist — Roge-Like
+# Design Asset Checklist — AutoBonk
 
 All assets replace placeholders in `assets/placeholders/`. Final files should be dropped in-place at the same paths so no code changes are needed.
 

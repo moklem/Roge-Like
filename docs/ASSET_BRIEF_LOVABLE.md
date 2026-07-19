@@ -1,4 +1,4 @@
-# Tile-Asset-Briefing — Roge-Like (Top-Down Roguelike, Godot)
+# Tile-Asset-Briefing — AutoBonk (Top-Down Roguelike, Godot)
 
 Du generierst das komplette Tile-Set für ein Top-Down-Spiel mit drei Räumen:
 **ERBA-Insel (Park)**, **Altstadt** und **Burg** — angelehnt an Bamberg, mit leichten

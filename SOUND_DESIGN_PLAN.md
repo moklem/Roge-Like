@@ -1,4 +1,4 @@
-# Sound Design Plan — Roge-Like
+# Sound Design Plan — AutoBonk
 
 ## Spielstruktur
 
