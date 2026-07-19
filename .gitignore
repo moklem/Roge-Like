@@ -16,5 +16,5 @@ builds/
 *.dmg
 *.apk
 
-# Präsentation: nur Doku ins Repo, keine Kursfolien (copyrighted, groß)
-Präsentation/*.pdf
+# Präsentation: komplett lokal, nicht ins Repo
+Präsentation/
