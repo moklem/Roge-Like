@@ -685,7 +685,7 @@ func _pop_driver_badge(mode: String) -> void:
 		badge = Juice.vfx("speed_streak" if mode == "eco" else "brake_puff")
 	var at: Vector2 = global_position + Vector2(0.0, -20.0)  # above the head, like the level-up pop
 	if badge != null:
-		Juice.spawn_pop(at, badge, 72.0)
+		Juice.spawn_pop(at, badge, 46.0)
 	else:
 		Juice.spawn_burst(at, Color(0.2, 0.6, 1.0) if mode == "eco" else Color(0.55, 0.55, 0.6))
 

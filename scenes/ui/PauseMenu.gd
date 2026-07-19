@@ -13,12 +13,12 @@ extends CanvasLayer
 ##
 ## Everything in here is per-client and never synced (D-10), exactly like the main-menu panel.
 
-@onready var panel: Panel = $Panel
-@onready var shake_cycle_button: Button = $Panel/VBox/ShakeGroup/ShakeCycleButton
-@onready var music_slider: HSlider = $Panel/VBox/MusicGroup/MusicSlider
-@onready var sfx_slider: HSlider = $Panel/VBox/SfxGroup/SfxSlider
-@onready var resume_button: Button = $Panel/VBox/ResumeButton
-@onready var quit_button: Button = $Panel/VBox/QuitButton
+@onready var panel: PanelContainer = $Panel
+@onready var shake_cycle_button: Button = $Panel/Margin/VBox/ShakeGroup/ShakeCycleButton
+@onready var music_slider: HSlider = $Panel/Margin/VBox/MusicGroup/MusicSlider
+@onready var sfx_slider: HSlider = $Panel/Margin/VBox/SfxGroup/SfxSlider
+@onready var resume_button: Button = $Panel/Margin/VBox/ResumeButton
+@onready var quit_button: Button = $Panel/Margin/VBox/QuitButton
 
 var _open: bool = false
 
