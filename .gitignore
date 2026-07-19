@@ -15,3 +15,6 @@ builds/
 *.pck
 *.dmg
 *.apk
+
+# Präsentation: nur Doku ins Repo, keine Kursfolien (copyrighted, groß)
+Präsentation/*.pdf
